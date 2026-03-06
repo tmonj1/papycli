@@ -1,0 +1,142 @@
+"""OpenAPI spec の読み込み・$ref 解決・内部フォーマット変換."""
+
+import copy
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+
+def load_spec(path: Path) -> dict[str, Any]:
+    """JSON または YAML の OpenAPI spec ファイルを読み込む。"""
+    with path.open(encoding="utf-8") as f:
+        if path.suffix in (".yaml", ".yml"):
+            return yaml.safe_load(f)  # type: ignore[no-any-return]
+        return json.load(f)  # type: ignore[no-any-return]
+
+
+def _resolve_json_pointer(ref: str, root: dict[str, Any]) -> Any:
+    """'#/a/b/c' 形式の JSON Pointer を解決する。"""
+    if not ref.startswith("#/"):
+        raise ValueError(f"Unsupported $ref: {ref!r} (only internal '#/...' refs are supported)")
+    parts = ref[2:].split("/")
+    node: Any = root
+    for part in parts:
+        part = part.replace("~1", "/").replace("~0", "~")
+        if not isinstance(node, dict) or part not in node:
+            raise KeyError(f"$ref target not found: {ref!r}")
+        node = node[part]
+    return node
+
+
+def resolve_refs(
+    obj: Any,
+    root: dict[str, Any],
+    _visited: frozenset[str] = frozenset(),
+) -> Any:
+    """オブジェクト中のすべての $ref を再帰的に解決する。循環参照は空 dict で打ち切る。"""
+    if isinstance(obj, dict):
+        if "$ref" in obj:
+            ref: str = obj["$ref"]
+            if ref in _visited:
+                return {}  # 循環参照ガード
+            target = _resolve_json_pointer(ref, root)
+            return resolve_refs(copy.deepcopy(target), root, _visited | {ref})
+        return {k: resolve_refs(v, root, _visited) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [resolve_refs(item, root, _visited) for item in obj]
+    return obj
+
+
+def _extract_schema_properties(
+    schema: dict[str, Any],
+) -> tuple[list[str], dict[str, Any]]:
+    """スキーマから (required フィールド名リスト, properties dict) を取り出す。allOf に対応。"""
+    required: list[str] = []
+    properties: dict[str, Any] = {}
+
+    for sub in schema.get("allOf", []):
+        r, p = _extract_schema_properties(sub)
+        required.extend(r)
+        properties.update(p)
+
+    required.extend(schema.get("required", []))
+    properties.update(schema.get("properties", {}))
+    return required, properties
+
+
+def _param_entry(name: str, schema: dict[str, Any], required: bool) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "name": name,
+        "type": schema.get("type", "string"),
+        "required": required,
+    }
+    if "enum" in schema:
+        entry["enum"] = schema["enum"]
+    return entry
+
+
+def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
+    """解決済み OpenAPI spec を papycli 内部 API 定義フォーマットに変換する。"""
+    apidef: dict[str, Any] = {}
+    paths: dict[str, Any] = spec.get("paths", {})
+
+    for path, path_item in paths.items():
+        # path レベルの共通パラメータ
+        common_params: dict[str, Any] = {
+            p["name"]: p for p in path_item.get("parameters", [])
+        }
+        methods = []
+
+        for method in ("get", "post", "put", "patch", "delete"):
+            operation: dict[str, Any] | None = path_item.get(method)
+            if operation is None:
+                continue
+
+            # path レベル + operation レベルをマージ (operation が優先)
+            merged_params = {**common_params}
+            for p in operation.get("parameters", []):
+                merged_params[p["name"]] = p
+
+            query_parameters = [
+                _param_entry(p["name"], p.get("schema", {}), bool(p.get("required", False)))
+                for p in merged_params.values()
+                if p.get("in") == "query"
+            ]
+
+            # リクエストボディ (application/json のみ)
+            post_parameters: list[dict[str, Any]] = []
+            json_schema = (
+                operation.get("requestBody", {})
+                .get("content", {})
+                .get("application/json", {})
+                .get("schema", {})
+            )
+            if json_schema:
+                req_fields, props = _extract_schema_properties(json_schema)
+                post_parameters = [
+                    _param_entry(name, prop_schema, name in req_fields)
+                    for name, prop_schema in props.items()
+                ]
+
+            methods.append(
+                {
+                    "method": method,
+                    "query_parameters": query_parameters,
+                    "post_parameters": post_parameters,
+                }
+            )
+
+        if methods:
+            apidef[path] = methods
+
+    return apidef
+
+
+def extract_base_url(spec: dict[str, Any]) -> str:
+    """spec から servers[0].url を返す。存在しない場合は空文字。"""
+    servers = spec.get("servers", [])
+    if servers:
+        return str(servers[0].get("url", ""))
+    return ""
