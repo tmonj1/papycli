@@ -136,7 +136,7 @@ def cmd_config_remove(api_name: str) -> None:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
         else:
-            click.echo("Error: No APIs registered.", err=True)
+            click.echo("Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True)
         sys.exit(1)
 
     api_entry = conf[api_name]
