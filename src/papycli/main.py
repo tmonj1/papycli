@@ -17,6 +17,7 @@ from papycli.config import (
     save_conf,
     set_default_api,
 )
+from papycli.completion import generate_script, get_completions
 from papycli.init_cmd import init_api, register_initialized_api
 from papycli.summary import format_endpoint_detail, format_summary_csv, print_summary
 
@@ -201,3 +202,30 @@ def _api_command(method: str) -> click.Command:
 
 for _method in ("get", "post", "put", "patch", "delete"):
     cli.add_command(_api_command(_method))
+
+
+# ---------------------------------------------------------------------------
+# シェル補完コマンド
+# ---------------------------------------------------------------------------
+
+
+@cli.command("completion-script")
+@click.argument("shell", type=click.Choice(["bash", "zsh"]))
+def cmd_completion_script(shell: str) -> None:
+    """シェル補完スクリプトを出力する。
+
+    使い方 (bash): eval "$(papycli completion-script bash)"
+
+    使い方 (zsh):  eval "$(papycli completion-script zsh)"
+    """
+    click.echo(generate_script(shell), nl=False)
+
+
+@cli.command("_complete", hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("current_index", type=int)
+@click.argument("words", nargs=-1, type=click.UNPROCESSED)
+def cmd_complete(current_index: int, words: tuple[str, ...]) -> None:
+    """シェル補完スクリプトから呼ばれる内部コマンド。補完候補を 1 行 1 候補で出力する。"""
+    results = get_completions(list(words), current_index, get_conf_dir())
+    if results:
+        click.echo("\n".join(results))

@@ -346,3 +346,86 @@ def test_cmd_get_with_summary_flag_path_param(
     result = runner.invoke(cli, ["get", "/pet/99", "--summary"])
     assert result.exit_code == 0
     assert "/pet/{petId}" in result.output
+
+
+# ---------------------------------------------------------------------------
+# papycli completion-script
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_completion_script_bash() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["completion-script", "bash"])
+    assert result.exit_code == 0
+    assert "_papycli_completion" in result.output
+    assert "papycli _complete" in result.output
+
+
+def test_cmd_completion_script_zsh() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["completion-script", "zsh"])
+    assert result.exit_code == 0
+    assert "compdef" in result.output
+    assert "papycli _complete" in result.output
+
+
+def test_cmd_completion_script_invalid_shell() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["completion-script", "fish"])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# papycli _complete (内部補完コマンド)
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_complete_subcommands(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["_complete", "1", "papycli", ""])
+    assert result.exit_code == 0
+    assert "get" in result.output
+    assert "post" in result.output
+    assert "init" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_complete_resources(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["_complete", "2", "papycli", "get", ""])
+    assert result.exit_code == 0
+    assert "/pet" in result.output
+    assert "/store/inventory" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_complete_query_param_names(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["_complete", "4", "papycli", "get", "/pet/findByStatus", "-q", ""]
+    )
+    assert result.exit_code == 0
+    assert "status" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_complete_enum_values(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        ["_complete", "5", "papycli", "get", "/pet/findByStatus", "-q", "status", ""],
+    )
+    assert result.exit_code == 0
+    assert "available" in result.output
+    assert "pending" in result.output
+    assert "sold" in result.output
