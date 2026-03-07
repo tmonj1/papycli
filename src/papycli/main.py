@@ -131,8 +131,9 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _print_response(resp: requests.Response) -> None:
-    click.echo(f"HTTP {resp.status_code} {resp.reason}")
+def _print_response(resp: requests.Response, *, verbose: bool = False) -> None:
+    if verbose:
+        click.echo(f"HTTP {resp.status_code} {resp.reason}")
     content_type = resp.headers.get("Content-Type", "")
     if "application/json" in content_type:
         try:
@@ -159,6 +160,8 @@ def _api_command(method: str) -> click.Command:
                   help="カスタム HTTP ヘッダー（繰り返し可）")
     @click.option("--summary", "show_summary", is_flag=True,
                   help="リクエストを送らずにエンドポイント情報を表示する")
+    @click.option("-v", "--verbose", is_flag=True,
+                  help="HTTP ステータス行を表示する")
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
@@ -166,6 +169,7 @@ def _api_command(method: str) -> click.Command:
         raw_body: str | None,
         extra_headers: tuple[str, ...],
         show_summary: bool,
+        verbose: bool,
     ) -> None:
         conf_dir = get_conf_dir()
         try:
@@ -195,7 +199,7 @@ def _api_command(method: str) -> click.Command:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
-        _print_response(resp)
+        _print_response(resp, verbose=verbose)
 
     return _cmd
 

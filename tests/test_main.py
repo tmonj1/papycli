@@ -185,7 +185,22 @@ def test_cmd_get_inventory(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPa
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/store/inventory"])
     assert result.exit_code == 0
-    assert "200" in result.output
+    assert "HTTP 200" not in result.output
+    assert "dogs" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_inventory_verbose(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 2}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/store/inventory", "--verbose"])
+    assert result.exit_code == 0
+    assert "HTTP 200" in result.output
     assert "dogs" in result.output
 
 
