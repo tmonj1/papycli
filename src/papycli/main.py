@@ -66,14 +66,14 @@ def cmd_config_init(spec_file: str) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
+    if spec_path.stem == "default":
+        click.echo("Error: 'default' is a reserved name and cannot be used as an API name.", err=True)
+        sys.exit(1)
+
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
-        sys.exit(1)
-
-    if api_name == "default":
-        click.echo("Error: 'default' is a reserved name and cannot be used as an API name.", err=True)
         sys.exit(1)
 
     conf = load_conf(conf_dir)
