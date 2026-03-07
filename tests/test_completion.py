@@ -222,6 +222,8 @@ def test_complete_options_after_resource() -> None:
     assert "-q" in result
     assert "-p" in result
     assert "--summary" in result
+    assert "-v" in result
+    assert "--verbose" in result
 
 
 def test_complete_options_prefix_dash() -> None:
@@ -229,13 +231,16 @@ def test_complete_options_prefix_dash() -> None:
     result = ctx(words, 3)
     assert "-q" in result
     assert "--summary" in result
+    assert "-v" in result
 
 
 def test_complete_options_prefix_double_dash() -> None:
     words = ["papycli", "get", "/store/inventory", "--"]
     result = ctx(words, 3)
     assert "--summary" in result
+    assert "--verbose" in result
     assert "-q" not in result
+    assert "-v" not in result
 
 
 def test_complete_options_no_apidef() -> None:

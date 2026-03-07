@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 import responses as rsps
@@ -185,7 +186,22 @@ def test_cmd_get_inventory(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPa
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/store/inventory"])
     assert result.exit_code == 0
-    assert "200" in result.output
+    assert "HTTP 200" not in result.output
+    assert "dogs" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_inventory_verbose(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 2}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/store/inventory", "--verbose"])
+    assert result.exit_code == 0
+    assert "HTTP 200" in result.output
     assert "dogs" in result.output
 
 
@@ -256,6 +272,48 @@ def test_cmd_delete(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) ->
     runner = CliRunner()
     result = runner.invoke(cli, ["delete", "/pet/1"])
     assert result.exit_code == 0
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_delete_204_shows_status_on_stderr(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """204 No Content (空ボディ) はステータス行を stderr に出す。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.DELETE, f"{BASE_URL}/pet/1", status=204, body=b"")
+
+    echo_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def capture(*args: object, **kwargs: object) -> None:
+        echo_calls.append((args, kwargs))
+
+    runner = CliRunner()
+    with patch("papycli.main.click.echo", side_effect=capture):
+        result = runner.invoke(cli, ["delete", "/pet/1"])
+    assert result.exit_code == 0
+    assert any("HTTP 204" in str(a[0]) and kw.get("err") is True for a, kw in echo_calls)
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_error_shows_status_on_stderr(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非 2xx レスポンスはステータス行を stderr に出す。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"message": "not found"}, status=404)
+
+    echo_calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    def capture(*args: object, **kwargs: object) -> None:
+        echo_calls.append((args, kwargs))
+
+    runner = CliRunner()
+    with patch("papycli.main.click.echo", side_effect=capture):
+        result = runner.invoke(cli, ["get", "/store/inventory"])
+    assert result.exit_code == 0
+    assert any("HTTP 404" in str(a[0]) and kw.get("err") is True for a, kw in echo_calls)
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
