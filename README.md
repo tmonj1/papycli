@@ -32,14 +32,14 @@ pip install papycli
 
 ```bash
 # ~/.bashrc または ~/.bash_profile に追加
-eval "$(papycli --completion-script bash)"
+eval "$(papycli completion-script bash)"
 ```
 
 **zsh の場合：**
 
 ```bash
 # ~/.zshrc に追加
-eval "$(papycli --completion-script zsh)"
+eval "$(papycli completion-script zsh)"
 ```
 
 設定を反映するためにシェルを再起動するか `source ~/.bashrc` / `source ~/.zshrc` を実行してください。
@@ -61,14 +61,14 @@ API は `http://localhost:8080/api/v3/` で利用可能になります。
 ### 2. API を登録する
 
 ```bash
-papycli --init examples/petstore.json
+papycli init examples/petstore-oas3.json
 ```
 
 ### 3. コマンドを試す
 
 ```bash
 # 利用可能なエンドポイントを表示する
-papycli --summary
+papycli summary
 
 # GET /store/inventory
 papycli get /store/inventory
@@ -120,10 +120,10 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ## 独自 API の追加
 
-### ステップ 1 — `--init` を実行する
+### ステップ 1 — `init` を実行する
 
 ```bash
-papycli --init your-api-spec.json
+papycli init your-api-spec.json
 ```
 
 このコマンドは以下を行います：
@@ -154,14 +154,14 @@ spec に `servers[0].url` が含まれている場合は自動で使用されま
 
 ```bash
 # 複数の API を登録する
-papycli --init petstore.json
-papycli --init myapi.json
+papycli init petstore-oas3.json
+papycli init myapi.json
 
 # アクティブな API を切り替える
-papycli --use myapi
+papycli use myapi
 
 # 登録済み API と現在のデフォルトを確認する
-papycli --conf
+papycli conf
 ```
 
 ---
@@ -169,16 +169,22 @@ papycli --conf
 ## リファレンス
 
 ```
+# API 管理コマンド
+papycli init <spec-file>            OpenAPI spec ファイルから API を初期化する
+papycli use <api-name>              アクティブな API を切り替える
+papycli conf                        現在の設定と環境変数を表示する
+papycli summary [resource]          利用可能なエンドポイントを表示する（リソースでフィルタ可能）
+                                      必須パラメータは * 付き、配列パラメータは [] 付きで表示
+papycli summary --csv               CSV フォーマットでエンドポイントを表示する
+papycli completion-script <bash|zsh>  シェル補完スクリプトを出力する
+
+# API 呼び出しコマンド
 papycli <method> <resource> [options]
 
 メソッド:
   get | post | put | patch | delete
 
 オプション:
-  --init <spec-file>      OpenAPI spec ファイルから API を初期化する
-  --use <api-name>        アクティブな API を切り替える
-  --conf                  現在の設定と環境変数を表示する
-  --completion-script     シェル補完スクリプトを出力する (bash | zsh)
   -H <header: value>      カスタム HTTP ヘッダー（繰り返し可）
   -q <name> <value>       クエリパラメータ（繰り返し可）
   -p <name> <value>       ボディパラメータ（繰り返し可）
@@ -188,11 +194,9 @@ papycli <method> <resource> [options]
                               -p category.id 1 -p category.name Dogs
                               →  {"category":{"id":"1","name":"Dogs"}}
   -d <json>               生の JSON ボディ（-p を上書きする）
-  --summary[=<resource>]  利用可能なエンドポイントを表示する（リソースでフィルタ可能）
-                            必須パラメータは * 付き、配列パラメータは [] 付きで表示
-  --summary-csv           CSV フォーマットでエンドポイントを表示する
+  --summary               リクエストを送らずにエンドポイント情報を表示する
   --version               バージョンを表示する
-  --help                  使い方を表示する
+  --help / -h             使い方を表示する
 
 環境変数:
   PAPYCLI_CONF_DIR        設定ディレクトリのパス（デフォルト: ~/.papycli）

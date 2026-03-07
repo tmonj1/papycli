@@ -46,7 +46,7 @@ papycli/
 ├── tests/
 ├── examples/
 │   ├── docker-compose.yml
-│   └── petstore.json
+│   └── petstore-oas3.json
 ├── pyproject.toml
 ├── README.md
 └── CLAUDE.md
@@ -55,7 +55,7 @@ papycli/
 ### 主要モジュール
 
 **`main.py`** — CLI エントリポイント
-引数をパースし、各コマンド（`--init`、`--use`、`--conf`、`--summary`、メソッド呼び出し）に処理を委譲する。シェル補完の登録もここで行う。
+引数をパースし、各コマンド（`init`、`use`、`conf`、`summary`、`completion-script`、メソッド呼び出し）に処理を委譲する。シェル補完用の `_complete` 内部コマンドもここで定義する。
 
 **`init_cmd.py`** — API 初期化
 OpenAPI spec ファイルを受け取り、`$ref` を解決した上で papycli 内部の API 定義フォーマットに変換し、`$PAPYCLI_CONF_DIR/apis/<name>.json` に保存する。設定ファイル (`papycli.conf`) も更新する。
@@ -139,14 +139,13 @@ bash / zsh 向けの補完スクリプトを生成する。補完の候補はメ
 
 ```
 papycli <method> <resource> [options]
-papycli --init <spec-file>
-papycli --use <api-name>
-papycli --conf
-papycli --summary[=<resource>]
-papycli --summary-csv
-papycli --completion-script <bash|zsh>
+papycli init <spec-file>
+papycli use <api-name>
+papycli conf
+papycli summary [resource] [--csv]
+papycli completion-script <bash|zsh>
 papycli --version
-papycli --help
+papycli --help / -h
 ```
 
 ### サポートするメソッド
