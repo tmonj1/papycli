@@ -1,99 +1,101 @@
-# papycli — OpenAPI 3.0 REST API を操作する Python 製 CLI
+# papycli — Python CLI for OpenAPI 3.0 REST APIs
 
-`papycli` は OpenAPI 3.0 仕様を読み込み、REST API エンドポイントをターミナルから直接呼び出せるインタラクティブな CLI を提供します。
+`papycli` is an interactive CLI that reads OpenAPI 3.0 specs and lets you call REST API endpoints directly from the terminal.
 
-## 特徴
+## Features
 
-- OpenAPI 3.0 仕様から CLI を自動生成
-- シェル補完（bash / zsh）対応
-- 複数 API の登録・切り替え
+- Auto-generates a CLI from any OpenAPI 3.0 spec
+- Shell completion for bash and zsh
+- Register and switch between multiple APIs
 
-## 必要環境
+## Requirements
 
-| 項目 | 備考 |
-|------|------|
-| Python | 3.12 以上 |
+| Item | Notes |
+|------|-------|
+| Python | 3.12 or later |
+
+No external tools (e.g. `jq`) required. Works with Python and pip alone.
 
 ---
 
-## インストール
+## Installation
 
 ```bash
 pip install papycli
 ```
 
-### シェル補完の有効化
+### Enable Shell Completion
 
-**bash の場合：**
+**bash:**
 
 ```bash
-# ~/.bashrc または ~/.bash_profile に追加
+# Add to ~/.bashrc or ~/.bash_profile
 eval "$(papycli completion-script bash)"
 ```
 
-**zsh の場合：**
+**zsh:**
 
 ```bash
-# ~/.zshrc に追加
+# Add to ~/.zshrc
 eval "$(papycli completion-script zsh)"
 ```
 
-設定を反映するためにシェルを再起動するか `source ~/.bashrc` / `source ~/.zshrc` を実行してください。
+Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc` to apply.
 
 ---
 
-## クイックスタート — Petstore デモ
+## Quick Start — Petstore Demo
 
-このリポジトリには [Swagger Petstore](https://github.com/swagger-api/swagger-petstore) を使ったデモが含まれています。
+This repository includes a demo using the [Swagger Petstore](https://github.com/swagger-api/swagger-petstore).
 
-### 1. Petstore サーバーを起動する
+### 1. Start the Petstore server
 
 ```bash
 docker compose -f examples/docker-compose.yml up -d
 ```
 
-API は `http://localhost:8080/api/v3/` で利用可能になります。
+The API will be available at `http://localhost:8080/api/v3/`.
 
-### 2. API を登録する
+### 2. Register the API
 
 ```bash
 papycli init examples/petstore-oas3.json
 ```
 
-### 3. コマンドを試す
+### 3. Try some commands
 
 ```bash
-# 利用可能なエンドポイントを表示する
+# List available endpoints
 papycli summary
 
 # GET /store/inventory
 papycli get /store/inventory
 
-# パスパラメータを指定して GET する
+# GET with a path parameter
 papycli get /pet/99
 
-# クエリパラメータを指定して GET する
+# GET with a query parameter
 papycli get /pet/findByStatus -q status available
 
-# ボディパラメータを指定して POST する
+# POST with body parameters
 papycli post /pet -p name "My Dog" -p status available -p photoUrls "http://example.com/photo.jpg"
 
-# 生の JSON ボディで POST する
+# POST with a raw JSON body
 papycli post /pet -d '{"name": "My Dog", "status": "available", "photoUrls": ["http://example.com/photo.jpg"]}'
 
-# 配列パラメータ（同じキーを繰り返す）
+# Array parameter (repeat the same key)
 papycli put /pet -p id 1 -p name "My Dog" -p photoUrls "http://example.com/a.jpg" -p photoUrls "http://example.com/b.jpg" -p status available
 
-# ネストしたオブジェクト（ドット記法）
+# Nested object (dot notation)
 papycli put /pet -p id 1 -p name "My Dog" -p category.id 2 -p category.name "Dogs" -p photoUrls "http://example.com/photo.jpg" -p status available
 
 # DELETE /pet/{petId}
 papycli delete /pet/1
 ```
 
-### 4. タブ補完
+### 4. Tab completion
 
-シェル補完を有効化した後、タブ補完が利用できます：
+Once shell completion is enabled, tab completion is available:
 
 ```
 $ papycli <TAB>
@@ -114,26 +116,26 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ---
 
-## 独自 API の追加
+## Adding Your Own API
 
-### ステップ 1 — `init` を実行する
+### Step 1 — Run `init`
 
 ```bash
 papycli init your-api-spec.json
 ```
 
-このコマンドは以下を行います：
+This command will:
 
-1. OpenAPI spec 内の `$ref` 参照を解決する
-2. spec を papycli 内部の API 定義フォーマットに変換する
-3. 結果を `$PAPYCLI_CONF_DIR/apis/<name>.json` に保存する
-4. `$PAPYCLI_CONF_DIR/papycli.conf` を作成・更新する
+1. Resolve all `$ref` references in the OpenAPI spec
+2. Convert the spec to papycli's internal API definition format
+3. Save the result to `$PAPYCLI_CONF_DIR/apis/<name>.json`
+4. Create or update `$PAPYCLI_CONF_DIR/papycli.conf`
 
-API 名はファイル名から導出されます（例：`your-api-spec.json` → `your-api-spec`）。
+The API name is derived from the filename (e.g. `your-api-spec.json` → `your-api-spec`).
 
-### ステップ 2 — ベース URL を設定する
+### Step 2 — Set the base URL
 
-spec に `servers[0].url` が含まれている場合は自動で使用されます。含まれていない場合は `$PAPYCLI_CONF_DIR/papycli.conf` を編集して `url` フィールドを設定します：
+If the spec contains `servers[0].url`, it is used automatically. Otherwise, edit `$PAPYCLI_CONF_DIR/papycli.conf` and set the `url` field:
 
 ```json
 {
@@ -146,78 +148,78 @@ spec に `servers[0].url` が含まれている場合は自動で使用されま
 }
 ```
 
-### 複数 API の管理
+### Managing Multiple APIs
 
 ```bash
-# 複数の API を登録する
+# Register multiple APIs
 papycli init petstore-oas3.json
 papycli init myapi.json
 
-# アクティブな API を切り替える
+# Switch the active API
 papycli use myapi
 
-# 登録済み API と現在のデフォルトを確認する
+# Show registered APIs and the current default
 papycli conf
 ```
 
 ---
 
-## リファレンス
+## Reference
 
 ```
-# API 管理コマンド
-papycli init <spec-file>            OpenAPI spec ファイルから API を初期化する
-papycli use <api-name>              アクティブな API を切り替える
-papycli conf                        現在の設定と環境変数を表示する
-papycli summary [resource]          利用可能なエンドポイントを表示する（リソースでフィルタ可能）
-                                      必須パラメータは * 付き、配列パラメータは [] 付きで表示
-papycli summary --csv               CSV フォーマットでエンドポイントを表示する
-papycli completion-script <bash|zsh>  シェル補完スクリプトを出力する
+# API management commands
+papycli init <spec-file>            Initialize an API from an OpenAPI spec file
+papycli use <api-name>              Switch the active API
+papycli conf                        Show current configuration
+papycli summary [resource]          List available endpoints (filter by resource prefix)
+                                      Required params marked with *, array params with []
+papycli summary --csv               Output endpoints in CSV format
+papycli completion-script <bash|zsh>  Print a shell completion script
 
-# API 呼び出しコマンド
+# API call commands
 papycli <method> <resource> [options]
 
-メソッド:
+Methods:
   get | post | put | patch | delete
 
-オプション:
-  -H <header: value>      カスタム HTTP ヘッダー（繰り返し可）
-  -q <name> <value>       クエリパラメータ（繰り返し可）
-  -p <name> <value>       ボディパラメータ（繰り返し可）
-                            - 同じキーを繰り返すと JSON 配列を構築する:
+Options:
+  -H <header: value>      Custom HTTP header (repeatable)
+  -q <name> <value>       Query parameter (repeatable)
+  -p <name> <value>       Body parameter (repeatable)
+                            - Repeat the same key to build a JSON array:
                               -p tags foo -p tags bar  →  {"tags":["foo","bar"]}
-                            - ドット記法でネストしたオブジェクトを構築する:
+                            - Use dot notation to build a nested object:
                               -p category.id 1 -p category.name Dogs
                               →  {"category":{"id":"1","name":"Dogs"}}
-  -d <json>               生の JSON ボディ（-p を上書きする）
-  --summary               リクエストを送らずにエンドポイント情報を表示する
-  --version               バージョンを表示する
-  --help / -h             使い方を表示する
+  -d <json>               Raw JSON body (overrides -p)
+  --summary               Show endpoint info without sending a request
+  --version               Show version
+  --help / -h             Show help
 
-環境変数:
-  PAPYCLI_CONF_DIR        設定ディレクトリのパス（デフォルト: ~/.papycli）
-  PAPYCLI_CUSTOM_HEADER   すべてのリクエストに適用するカスタム HTTP ヘッダー
-                            複数のヘッダーは改行で区切る:
+Environment variables:
+  PAPYCLI_CONF_DIR        Path to the config directory (default: ~/.papycli)
+  PAPYCLI_CUSTOM_HEADER   Custom HTTP headers applied to every request.
+                            Separate multiple headers with newlines:
                             export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
 ```
 
 ---
 
-## 制限事項
+## Limitations
 
-- リクエストボディは `application/json` のみ対応
-- 配列パラメータはスカラー型（string、integer 等）のみ対応（オブジェクトの配列は非対応）
-- ドット記法によるオブジェクトのネストは 1 レベルのみ対応
-- 認証ヘッダーは `-H "Authorization: Bearer token"` または `PAPYCLI_CUSTOM_HEADER` 環境変数で渡す
+- Request bodies are `application/json` only
+- Array parameters support scalar element types only (arrays of objects are not supported)
+- Dot notation for nested objects supports one level of nesting only
+- Pass auth headers via `-H "Authorization: Bearer token"` or the `PAPYCLI_CUSTOM_HEADER` env var
 
 ---
 
-## 開発
+## Development
 
 ```bash
-git clone https://github.com/<your-org>/papycli.git
+git clone https://github.com/tmonj1/papycli.git
 cd papycli
 pip install -e ".[dev]"
 ```
 
-詳細は [CLAUDE.md](CLAUDE.md) を参照してください。
+See [CLAUDE.md](CLAUDE.md) for details.
