@@ -5,12 +5,15 @@ import sys
 from pathlib import Path
 
 import click
+import requests
 
 from papycli import __version__
+from papycli.api_call import call_api
 from papycli.config import (
     get_conf_dir,
     get_conf_path,
     load_conf,
+    load_current_apidef,
     save_conf,
     set_default_api,
 )
@@ -24,6 +27,11 @@ def cli(ctx: click.Context) -> None:
     """papycli — OpenAPI 3.0 仕様から REST API を呼び出す CLI ツール."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
+
+
+# ---------------------------------------------------------------------------
+# 設定系コマンド
+# ---------------------------------------------------------------------------
 
 
 @cli.command("init")
@@ -90,4 +98,62 @@ def cmd_conf() -> None:
     click.echo(json.dumps(conf, indent=2, ensure_ascii=False))
 
 
-# API 呼び出しコマンド (get / post / put / patch / delete) は M3 で追加する
+# ---------------------------------------------------------------------------
+# API 呼び出しコマンド (get / post / put / patch / delete)
+# ---------------------------------------------------------------------------
+
+
+def _print_response(resp: "requests.Response") -> None:
+    click.echo(f"HTTP {resp.status_code} {resp.reason}")
+    content_type = resp.headers.get("Content-Type", "")
+    if "application/json" in content_type:
+        try:
+            click.echo(json.dumps(resp.json(), indent=2, ensure_ascii=False))
+            return
+        except ValueError:
+            pass
+    if resp.text:
+        click.echo(resp.text)
+
+
+def _api_command(method: str) -> click.Command:
+    """HTTP メソッドごとの CLI コマンドを生成する。"""
+
+    @click.command(method, help=f"HTTP {method.upper()} リクエストを送信する。")
+    @click.argument("resource")
+    @click.option("-q", "query_params", multiple=True, nargs=2, metavar="NAME VALUE",
+                  help="クエリパラメータ（繰り返し可）")
+    @click.option("-p", "body_params", multiple=True, nargs=2, metavar="NAME VALUE",
+                  help="ボディパラメータ（繰り返し可）")
+    @click.option("-d", "raw_body", default=None, metavar="JSON",
+                  help="生の JSON ボディ（-p を上書き）")
+    @click.option("-H", "extra_headers", multiple=True, metavar="HEADER: VALUE",
+                  help="カスタム HTTP ヘッダー（繰り返し可）")
+    def _cmd(
+        resource: str,
+        query_params: tuple[tuple[str, str], ...],
+        body_params: tuple[tuple[str, str], ...],
+        raw_body: str | None,
+        extra_headers: tuple[str, ...],
+    ) -> None:
+        conf_dir = get_conf_dir()
+        try:
+            apidef, base_url = load_current_apidef(conf_dir)
+            resp = call_api(
+                method, resource, base_url, apidef,
+                query_params=query_params,
+                body_params=body_params,
+                raw_body=raw_body,
+                extra_headers=extra_headers,
+            )
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+
+        _print_response(resp)
+
+    return _cmd
+
+
+for _method in ("get", "post", "put", "patch", "delete"):
+    cli.add_command(_api_command(_method))
