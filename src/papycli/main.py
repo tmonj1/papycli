@@ -39,11 +39,22 @@ def cli(ctx: click.Context) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Management commands
+# config subgroup
 # ---------------------------------------------------------------------------
 
 
-@cli.command(
+@cli.group(
+    "config",
+    invoke_without_command=True,
+    help=h("Manage API configurations.", "API 設定を管理する。"),
+)
+@click.pass_context
+def cmd_config(ctx: click.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
+
+
+@cmd_config.command(
     "init",
     help=h(
         "Initialize an API from an OpenAPI spec file.",
@@ -51,9 +62,13 @@ def cli(ctx: click.Context) -> None:
     ),
 )
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
-def cmd_init(spec_file: str) -> None:
+def cmd_config_init(spec_file: str) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
+
+    if spec_path.stem == "default":
+        click.echo("Error: 'default' is a reserved name and cannot be used as an API name.", err=True)
+        sys.exit(1)
 
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
@@ -73,22 +88,26 @@ def cmd_init(spec_file: str) -> None:
     click.echo(f"  Conf dir : {conf_dir}")
 
 
-@cli.command(
+@cmd_config.command(
     "use",
     help=h("Switch the active API.", "アクティブな API を切り替える。"),
 )
 @click.argument("api_name", metavar="API_NAME")
-def cmd_use(api_name: str) -> None:
+def cmd_config_use(api_name: str) -> None:
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
-    if api_name not in conf:
-        registered = [k for k in conf if k != "default"]
+    if api_name == "default":
+        click.echo("Error: 'default' is a reserved configuration key, not an API name.", err=True)
+        sys.exit(1)
+
+    registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+    if api_name not in conf or not isinstance(conf[api_name], dict):
         if registered:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
         else:
-            click.echo("Error: No APIs registered. Run 'papycli init <spec>' first.", err=True)
+            click.echo("Error: No APIs registered. Run 'papycli config init <spec>' first.", err=True)
         sys.exit(1)
 
     set_default_api(conf, api_name)
@@ -96,11 +115,11 @@ def cmd_use(api_name: str) -> None:
     click.echo(f"Switched default API to '{api_name}'")
 
 
-@cli.command(
-    "conf",
+@cmd_config.command(
+    "show",
     help=h("Show current configuration.", "現在の設定を表示する。"),
 )
-def cmd_conf() -> None:
+def cmd_config_show() -> None:
     conf_dir = get_conf_dir()
     conf_path = get_conf_path(conf_dir)
 
@@ -110,10 +129,26 @@ def cmd_conf() -> None:
 
     conf = load_conf(conf_dir)
     if not conf:
-        click.echo("(no configuration — run 'papycli init <spec>' to get started)")
+        click.echo("(no configuration — run 'papycli config init <spec>' to get started)")
         return
 
     click.echo(json.dumps(conf, indent=2, ensure_ascii=False))
+
+
+@cmd_config.command(
+    "completion-script",
+    help=h(
+        'Print a shell completion script.\n\n'
+        'Usage (bash): eval "$(papycli config completion-script bash)"\n\n'
+        'Usage (zsh):  eval "$(papycli config completion-script zsh)"',
+        'シェル補完スクリプトを出力する。\n\n'
+        '使い方 (bash): eval "$(papycli config completion-script bash)"\n\n'
+        '使い方 (zsh):  eval "$(papycli config completion-script zsh)"',
+    ),
+)
+@click.argument("shell", type=click.Choice(["bash", "zsh"]))
+def cmd_config_completion_script(shell: str) -> None:
+    click.echo(generate_script(shell), nl=False)
 
 
 # ---------------------------------------------------------------------------
@@ -252,24 +287,8 @@ for _method in ("get", "post", "put", "patch", "delete"):
 
 
 # ---------------------------------------------------------------------------
-# Shell completion commands
+# Shell completion
 # ---------------------------------------------------------------------------
-
-
-@cli.command(
-    "completion-script",
-    help=h(
-        'Print a shell completion script.\n\n'
-        'Usage (bash): eval "$(papycli completion-script bash)"\n\n'
-        'Usage (zsh):  eval "$(papycli completion-script zsh)"',
-        'シェル補完スクリプトを出力する。\n\n'
-        '使い方 (bash): eval "$(papycli completion-script bash)"\n\n'
-        '使い方 (zsh):  eval "$(papycli completion-script zsh)"',
-    ),
-)
-@click.argument("shell", type=click.Choice(["bash", "zsh"]))
-def cmd_completion_script(shell: str) -> None:
-    click.echo(generate_script(shell), nl=False)
 
 
 @cli.command("_complete", hidden=True, context_settings={"ignore_unknown_options": True})

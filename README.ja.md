@@ -28,14 +28,14 @@ pip install papycli
 
 ```bash
 # ~/.bashrc または ~/.bash_profile に追加
-eval "$(papycli completion-script bash)"
+eval "$(papycli config completion-script bash)"
 ```
 
 **zsh の場合：**
 
 ```bash
 # ~/.zshrc に追加
-eval "$(papycli completion-script zsh)"
+eval "$(papycli config completion-script zsh)"
 ```
 
 設定を反映するためにシェルを再起動するか `source ~/.bashrc` / `source ~/.zshrc` を実行してください。
@@ -57,7 +57,7 @@ API は `http://localhost:8080/api/v3/` で利用可能になります。
 ### 2. API を登録する
 
 ```bash
-papycli init examples/petstore-oas3.json
+papycli config init examples/petstore-oas3.json
 ```
 
 ### 3. コマンドを試す
@@ -97,7 +97,7 @@ papycli delete /pet/1
 
 ```
 $ papycli <TAB>
-  get  post  put  delete  patch
+  get  post  put  patch  delete  config  summary
 
 $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
@@ -116,10 +116,10 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ## 独自 API の追加
 
-### ステップ 1 — `init` を実行する
+### ステップ 1 — `config init` を実行する
 
 ```bash
-papycli init your-api-spec.json
+papycli config init your-api-spec.json
 ```
 
 このコマンドは以下を行います：
@@ -150,14 +150,14 @@ spec に `servers[0].url` が含まれている場合は自動で使用されま
 
 ```bash
 # 複数の API を登録する
-papycli init petstore-oas3.json
-papycli init myapi.json
+papycli config init petstore-oas3.json
+papycli config init myapi.json
 
 # アクティブな API を切り替える
-papycli use myapi
+papycli config use myapi
 
 # 登録済み API と現在のデフォルトを確認する
-papycli conf
+papycli config show
 ```
 
 ---
@@ -165,16 +165,16 @@ papycli conf
 ## リファレンス
 
 ```
-# API 管理コマンド
-papycli init <spec-file>            OpenAPI spec ファイルから API を初期化する
-papycli use <api-name>              アクティブな API を切り替える
-papycli conf                        現在の設定と環境変数を表示する
+# 設定管理コマンド
+papycli config init <spec-file>            OpenAPI spec ファイルから API を初期化する
+papycli config use <api-name>              アクティブな API を切り替える
+papycli config show                        現在の設定を表示する
+papycli config completion-script <bash|zsh>  シェル補完スクリプトを出力する
+
+# API 呼び出しコマンド
 papycli summary [resource]          利用可能なエンドポイントを表示する（リソースでフィルタ可能）
                                       必須パラメータは * 付き、配列パラメータは [] 付きで表示
 papycli summary --csv               CSV フォーマットでエンドポイントを表示する
-papycli completion-script <bash|zsh>  シェル補完スクリプトを出力する
-
-# API 呼び出しコマンド
 papycli <method> <resource> [options]
 
 メソッド:

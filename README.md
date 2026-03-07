@@ -30,14 +30,14 @@ pip install papycli
 
 ```bash
 # Add to ~/.bashrc or ~/.bash_profile
-eval "$(papycli completion-script bash)"
+eval "$(papycli config completion-script bash)"
 ```
 
 **zsh:**
 
 ```bash
 # Add to ~/.zshrc
-eval "$(papycli completion-script zsh)"
+eval "$(papycli config completion-script zsh)"
 ```
 
 Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc` to apply.
@@ -59,7 +59,7 @@ The API will be available at `http://localhost:8080/api/v3/`.
 ### 2. Register the API
 
 ```bash
-papycli init examples/petstore-oas3.json
+papycli config init examples/petstore-oas3.json
 ```
 
 ### 3. Try some commands
@@ -99,7 +99,7 @@ Once shell completion is enabled, tab completion is available:
 
 ```
 $ papycli <TAB>
-  get  post  put  delete  patch
+  get  post  put  patch  delete  config  summary
 
 $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
@@ -118,10 +118,10 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ## Adding Your Own API
 
-### Step 1 — Run `init`
+### Step 1 — Run `config init`
 
 ```bash
-papycli init your-api-spec.json
+papycli config init your-api-spec.json
 ```
 
 This command will:
@@ -152,14 +152,14 @@ If the spec contains `servers[0].url`, it is used automatically. Otherwise, edit
 
 ```bash
 # Register multiple APIs
-papycli init petstore-oas3.json
-papycli init myapi.json
+papycli config init petstore-oas3.json
+papycli config init myapi.json
 
 # Switch the active API
-papycli use myapi
+papycli config use myapi
 
 # Show registered APIs and the current default
-papycli conf
+papycli config show
 ```
 
 ---
@@ -167,16 +167,16 @@ papycli conf
 ## Reference
 
 ```
-# API management commands
-papycli init <spec-file>            Initialize an API from an OpenAPI spec file
-papycli use <api-name>              Switch the active API
-papycli conf                        Show current configuration
+# Configuration management commands
+papycli config init <spec-file>            Initialize an API from an OpenAPI spec file
+papycli config use <api-name>              Switch the active API
+papycli config show                        Show current configuration
+papycli config completion-script <bash|zsh>  Print a shell completion script
+
+# API call commands
 papycli summary [resource]          List available endpoints (filter by resource prefix)
                                       Required params marked with *, array params with []
 papycli summary --csv               Output endpoints in CSV format
-papycli completion-script <bash|zsh>  Print a shell completion script
-
-# API call commands
 papycli <method> <resource> [options]
 
 Methods:
