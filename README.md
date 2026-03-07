@@ -99,7 +99,7 @@ Once shell completion is enabled, tab completion is available:
 
 ```
 $ papycli <TAB>
-  get  post  put  delete  patch  config  summary
+  get  post  put  patch  delete  config  summary
 
 $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
