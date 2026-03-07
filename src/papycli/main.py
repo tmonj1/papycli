@@ -10,10 +10,12 @@ import requests
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
 from papycli.config import (
+    get_apis_dir,
     get_conf_dir,
     get_conf_path,
     load_conf,
     load_current_apidef,
+    remove_api,
     save_conf,
     set_default_api,
 )
@@ -113,6 +115,48 @@ def cmd_config_use(api_name: str) -> None:
     set_default_api(conf, api_name)
     save_conf(conf, conf_dir)
     click.echo(f"Switched default API to '{api_name}'")
+
+
+@cmd_config.command(
+    "remove",
+    help=h("Remove a registered API.", "登録済み API を削除する。"),
+)
+@click.argument("api_name", metavar="API_NAME")
+def cmd_config_remove(api_name: str) -> None:
+    conf_dir = get_conf_dir()
+    conf = load_conf(conf_dir)
+
+    if api_name == "default":
+        click.echo("Error: 'default' is a reserved configuration key, not an API name.", err=True)
+        sys.exit(1)
+
+    if api_name not in conf or not isinstance(conf[api_name], dict):
+        registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+        if registered:
+            click.echo(f"Error: API '{api_name}' is not registered.", err=True)
+            click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
+        else:
+            click.echo("Error: No APIs registered.", err=True)
+        sys.exit(1)
+
+    api_entry = conf[api_name]
+    prev_default = conf.get("default")
+    remove_api(conf, api_name)
+    save_conf(conf, conf_dir)
+
+    # apidef ファイルを削除する
+    apidef_filename = str(api_entry.get("apidef", f"{api_name}.json"))
+    apidef_path = get_apis_dir(conf_dir) / apidef_filename
+    if apidef_path.exists():
+        apidef_path.unlink()
+
+    click.echo(f"Removed API '{api_name}'")
+    if prev_default == api_name:
+        new_default = conf.get("default")
+        if new_default:
+            click.echo(f"  Default API changed to '{new_default}'")
+        else:
+            click.echo("  No default API set. Run 'papycli config add <spec>' to register one.")
 
 
 @cmd_config.command(
