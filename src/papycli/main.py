@@ -1,4 +1,4 @@
-"""CLI エントリポイント."""
+"""CLI entry point."""
 
 import json
 import sys
@@ -18,28 +18,40 @@ from papycli.config import (
     set_default_api,
 )
 from papycli.completion import generate_script, get_completions
+from papycli.i18n import h
 from papycli.init_cmd import init_api, register_initialized_api
 from papycli.summary import format_endpoint_detail, format_summary_csv, print_summary
 
 
-@click.group(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
+@click.group(
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+    help=h(
+        "papycli — Call REST APIs defined in OpenAPI 3.0 specs.",
+        "papycli — OpenAPI 3.0 仕様から REST API を呼び出す CLI ツール.",
+    ),
+)
 @click.version_option(__version__, "-V", "--version")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    """papycli — OpenAPI 3.0 仕様から REST API を呼び出す CLI ツール."""
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
 
 # ---------------------------------------------------------------------------
-# 設定系コマンド
+# Management commands
 # ---------------------------------------------------------------------------
 
 
-@cli.command("init")
+@cli.command(
+    "init",
+    help=h(
+        "Initialize an API from an OpenAPI spec file.",
+        "OpenAPI spec ファイルから API を初期化する。",
+    ),
+)
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
 def cmd_init(spec_file: str) -> None:
-    """OpenAPI spec ファイルから API を初期化する。"""
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
@@ -61,10 +73,12 @@ def cmd_init(spec_file: str) -> None:
     click.echo(f"  Conf dir : {conf_dir}")
 
 
-@cli.command("use")
+@cli.command(
+    "use",
+    help=h("Switch the active API.", "アクティブな API を切り替える。"),
+)
 @click.argument("api_name", metavar="API_NAME")
 def cmd_use(api_name: str) -> None:
-    """アクティブな API を切り替える。"""
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
@@ -82,9 +96,11 @@ def cmd_use(api_name: str) -> None:
     click.echo(f"Switched default API to '{api_name}'")
 
 
-@cli.command("conf")
+@cli.command(
+    "conf",
+    help=h("Show current configuration.", "現在の設定と環境変数を表示する。"),
+)
 def cmd_conf() -> None:
-    """現在の設定と環境変数を表示する。"""
     conf_dir = get_conf_dir()
     conf_path = get_conf_path(conf_dir)
 
@@ -101,18 +117,23 @@ def cmd_conf() -> None:
 
 
 # ---------------------------------------------------------------------------
-# summary コマンド
+# summary command
 # ---------------------------------------------------------------------------
 
 
-@cli.command("summary")
+@cli.command(
+    "summary",
+    help=h(
+        "List available endpoints.\n\nFilter by RESOURCE path prefix if given.",
+        "登録済み API のエンドポイント一覧を表示する。\n\nRESOURCE を指定するとそのパスプレフィックスで絞り込む。",
+    ),
+)
 @click.argument("resource", required=False, default=None)
-@click.option("--csv", "as_csv", is_flag=True, help="CSV フォーマットで出力する")
+@click.option(
+    "--csv", "as_csv", is_flag=True,
+    help=h("Output in CSV format.", "CSV フォーマットで出力する。"),
+)
 def cmd_summary(resource: str | None, as_csv: bool) -> None:
-    """登録済み API のエンドポイント一覧を表示する。
-
-    RESOURCE を指定するとそのパスプレフィックスで絞り込む。
-    """
     conf_dir = get_conf_dir()
     try:
         apidef, _ = load_current_apidef(conf_dir)
@@ -127,7 +148,7 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
-# API 呼び出しコマンド (get / post / put / patch / delete)
+# API call commands (get / post / put / patch / delete)
 # ---------------------------------------------------------------------------
 
 
@@ -149,22 +170,41 @@ def _print_response(resp: requests.Response, *, verbose: bool = False) -> None:
 
 
 def _api_command(method: str) -> click.Command:
-    """HTTP メソッドごとの CLI コマンドを生成する。"""
-
-    @click.command(method, help=f"HTTP {method.upper()} リクエストを送信する。")
+    @click.command(
+        method,
+        help=h(
+            f"Send an HTTP {method.upper()} request.",
+            f"HTTP {method.upper()} リクエストを送信する。",
+        ),
+    )
     @click.argument("resource")
-    @click.option("-q", "query_params", multiple=True, nargs=2, metavar="NAME VALUE",
-                  help="クエリパラメータ（繰り返し可）")
-    @click.option("-p", "body_params", multiple=True, nargs=2, metavar="NAME VALUE",
-                  help="ボディパラメータ（繰り返し可）")
-    @click.option("-d", "raw_body", default=None, metavar="JSON",
-                  help="生の JSON ボディ（-p を上書き）")
-    @click.option("-H", "extra_headers", multiple=True, metavar="HEADER: VALUE",
-                  help="カスタム HTTP ヘッダー（繰り返し可）")
-    @click.option("--summary", "show_summary", is_flag=True,
-                  help="リクエストを送らずにエンドポイント情報を表示する")
-    @click.option("-v", "--verbose", is_flag=True,
-                  help="HTTP ステータス行を表示する")
+    @click.option(
+        "-q", "query_params", multiple=True, nargs=2, metavar="NAME VALUE",
+        help=h("Query parameter (repeatable).", "クエリパラメータ（繰り返し可）。"),
+    )
+    @click.option(
+        "-p", "body_params", multiple=True, nargs=2, metavar="NAME VALUE",
+        help=h("Body parameter (repeatable).", "ボディパラメータ（繰り返し可）。"),
+    )
+    @click.option(
+        "-d", "raw_body", default=None, metavar="JSON",
+        help=h("Raw JSON body (overrides -p).", "生の JSON ボディ（-p を上書き）。"),
+    )
+    @click.option(
+        "-H", "extra_headers", multiple=True, metavar="HEADER: VALUE",
+        help=h("Custom HTTP header (repeatable).", "カスタム HTTP ヘッダー（繰り返し可）。"),
+    )
+    @click.option(
+        "--summary", "show_summary", is_flag=True,
+        help=h(
+            "Show endpoint info without sending a request.",
+            "リクエストを送らずにエンドポイント情報を表示する。",
+        ),
+    )
+    @click.option(
+        "-v", "--verbose", is_flag=True,
+        help=h("Show HTTP status line.", "HTTP ステータス行を表示する。"),
+    )
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
@@ -212,19 +252,23 @@ for _method in ("get", "post", "put", "patch", "delete"):
 
 
 # ---------------------------------------------------------------------------
-# シェル補完コマンド
+# Shell completion commands
 # ---------------------------------------------------------------------------
 
 
-@cli.command("completion-script")
+@cli.command(
+    "completion-script",
+    help=h(
+        'Print a shell completion script.\n\n'
+        'Usage (bash): eval "$(papycli completion-script bash)"\n\n'
+        'Usage (zsh):  eval "$(papycli completion-script zsh)"',
+        'シェル補完スクリプトを出力する。\n\n'
+        '使い方 (bash): eval "$(papycli completion-script bash)"\n\n'
+        '使い方 (zsh):  eval "$(papycli completion-script zsh)"',
+    ),
+)
 @click.argument("shell", type=click.Choice(["bash", "zsh"]))
 def cmd_completion_script(shell: str) -> None:
-    """シェル補完スクリプトを出力する。
-
-    使い方 (bash): eval "$(papycli completion-script bash)"
-
-    使い方 (zsh):  eval "$(papycli completion-script zsh)"
-    """
     click.echo(generate_script(shell), nl=False)
 
 
@@ -232,7 +276,6 @@ def cmd_completion_script(shell: str) -> None:
 @click.argument("current_index", type=int)
 @click.argument("words", nargs=-1, type=click.UNPROCESSED)
 def cmd_complete(current_index: int, words: tuple[str, ...]) -> None:
-    """シェル補完スクリプトから呼ばれる内部コマンド。補完候補を 1 行 1 候補で出力する。"""
     results = get_completions(list(words), current_index, get_conf_dir())
     if results:
         click.echo("\n".join(results))
