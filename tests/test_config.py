@@ -13,6 +13,7 @@ from papycli.config import (
     get_default_api,
     load_conf,
     register_api,
+    remove_api,
     save_conf,
     set_default_api,
 )
@@ -89,3 +90,48 @@ def test_set_and_get_default_api() -> None:
 
 def test_get_default_api_none_when_missing() -> None:
     assert get_default_api({}) is None
+
+
+# ---------------------------------------------------------------------------
+# remove_api
+# ---------------------------------------------------------------------------
+
+
+def test_remove_api_removes_entry() -> None:
+    conf: dict = {"default": "myapi", "myapi": {"url": "http://a"}}
+    remove_api(conf, "myapi")
+    assert "myapi" not in conf
+
+
+def test_remove_api_clears_default_when_only_api() -> None:
+    conf: dict = {"default": "myapi", "myapi": {"url": "http://a"}}
+    remove_api(conf, "myapi")
+    assert "default" not in conf
+
+
+def test_remove_api_reassigns_default_to_remaining() -> None:
+    conf: dict = {
+        "default": "api1",
+        "api1": {"url": "http://a"},
+        "api2": {"url": "http://b"},
+    }
+    remove_api(conf, "api1")
+    assert "api1" not in conf
+    assert conf.get("default") == "api2"
+
+
+def test_remove_api_non_default_leaves_default_unchanged() -> None:
+    conf: dict = {
+        "default": "api1",
+        "api1": {"url": "http://a"},
+        "api2": {"url": "http://b"},
+    }
+    remove_api(conf, "api2")
+    assert "api2" not in conf
+    assert conf.get("default") == "api1"
+
+
+def test_remove_api_no_default_key_leaves_conf_stable() -> None:
+    conf: dict = {"myapi": {"url": "http://a"}}
+    remove_api(conf, "myapi")
+    assert conf == {}

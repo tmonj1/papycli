@@ -56,21 +56,20 @@ def register_api(
         conf["default"] = name
 
 
-def remove_api(conf: dict[str, Any], name: str) -> str | None:
-    """設定から API エントリを削除し、削除前のデフォルト API 名を返す。
+def remove_api(conf: dict[str, Any], name: str) -> None:
+    """設定から API エントリを削除し、必要に応じてデフォルト API を更新する。
 
     削除した API がデフォルトだった場合、残りの API の中から先頭のものを新しい
     デフォルトに設定する。残りがなければ "default" キーを削除する。
     """
+    is_default = conf.get("default") == name
     del conf[name]
-    prev_default: str | None = conf.get("default")  # type: ignore[assignment]
-    if prev_default == name:
+    if is_default:
         remaining = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
         if remaining:
             conf["default"] = remaining[0]
         else:
             conf.pop("default", None)
-    return prev_default
 
 
 def set_default_api(conf: dict[str, Any], name: str) -> None:
