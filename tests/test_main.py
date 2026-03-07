@@ -275,6 +275,36 @@ def test_cmd_delete(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
 @rsps.activate
+def test_cmd_delete_204_shows_status(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """204 No Content (空ボディ) はステータス行を表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.DELETE, f"{BASE_URL}/pet/1", status=204, body=b"")
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["delete", "/pet/1"])
+    assert result.exit_code == 0
+    assert "HTTP 204" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_error_shows_status(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """非 2xx レスポンスはステータス行を表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"message": "not found"}, status=404)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/store/inventory"])
+    assert result.exit_code == 0
+    assert "HTTP 404" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
 def test_cmd_get_unknown_path(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
     runner = CliRunner()

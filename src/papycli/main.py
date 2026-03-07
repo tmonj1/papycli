@@ -132,8 +132,11 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 
 
 def _print_response(resp: requests.Response, *, verbose: bool = False) -> None:
+    status_line = f"HTTP {resp.status_code} {resp.reason}"
     if verbose:
-        click.echo(f"HTTP {resp.status_code} {resp.reason}")
+        click.echo(status_line)
+    elif not resp.ok or not resp.content:
+        click.echo(status_line, err=True)
     content_type = resp.headers.get("Content-Type", "")
     if "application/json" in content_type:
         try:

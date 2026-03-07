@@ -153,7 +153,7 @@ def completions_for_context(
         return _complete_enum_values(apidef, method, resource, "body", prev, incomplete)
 
     # オプション名
-    opts = ["-q", "-p", "-d", "-H", "--summary"]
+    opts = ["-q", "-p", "-d", "-H", "--summary", "-v", "--verbose"]
     return [o for o in opts if o.startswith(incomplete)]
 
 
