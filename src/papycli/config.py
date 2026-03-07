@@ -72,7 +72,7 @@ def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], s
     conf = load_conf(resolved_dir)
     api_name = get_default_api(conf)
     if not api_name:
-        raise RuntimeError("No default API configured. Run 'papycli config init <spec>' first.")
+        raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")
 
     api_entry = conf.get(api_name)
     if not isinstance(api_entry, dict):
@@ -85,7 +85,7 @@ def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], s
     if not apidef_path.exists():
         raise RuntimeError(
             f"API definition file not found: {apidef_path}\n"
-            "Run 'papycli config init <spec>' to regenerate it."
+            "Run 'papycli config add <spec>' to regenerate it."
         )
 
     with apidef_path.open(encoding="utf-8") as f:
