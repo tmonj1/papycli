@@ -3,13 +3,34 @@ name = "papycli"
 version = "0.1.0"
 description = "A CLI tool to call REST APIs defined in OpenAPI 3.0 specs"
 readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "tmonj1", email = "tmonj1@gmail.com"},
+]
 requires-python = ">=3.12"
+keywords = ["api", "openapi", "cli", "rest", "http"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Utilities",
+]
 dependencies = [
     "click>=8.1",
     "requests>=2.32",
     "rich>=13.0",
     "pyyaml>=6.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/tmonj1/papycli"
+Repository = "https://github.com/tmonj1/papycli"
+"Bug Tracker" = "https://github.com/tmonj1/papycli/issues"
 
 [project.scripts]
 papycli = "papycli.main:cli"
