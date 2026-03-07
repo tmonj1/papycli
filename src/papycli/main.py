@@ -45,10 +45,13 @@ def cli(ctx: click.Context) -> None:
 
 @cli.group(
     "config",
+    invoke_without_command=True,
     help=h("Manage API configurations.", "API 設定を管理する。"),
 )
-def cmd_config() -> None:
-    pass
+@click.pass_context
+def cmd_config(ctx: click.Context) -> None:
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @cmd_config.command(

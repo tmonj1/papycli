@@ -109,7 +109,9 @@ def completions_for_context(
     Args:
         words:   コマンドライントークンのリスト（words[0] = "papycli"）
         current: 補完中の単語のインデックス（0 始まり）
-        apidef:  現在の API 定義 dict。None の場合は空リストを返す。
+        apidef:  現在の API 定義 dict。リソースパスやパラメータの補完に使用する。
+                 None の場合、それらの補完は空リストを返す（トップレベルや
+                 config サブコマンドの補完は apidef なしでも機能する）。
     """
     incomplete = words[current] if current < len(words) else ""
 

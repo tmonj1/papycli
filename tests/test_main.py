@@ -84,6 +84,15 @@ def test_help_shows_method_commands() -> None:
     assert "config" in result.output
 
 
+def test_config_no_subcommand_shows_help() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config"])
+    assert result.exit_code == 0
+    assert "init" in result.output
+    assert "use" in result.output
+    assert "show" in result.output
+
+
 # ---------------------------------------------------------------------------
 # papycli config init
 # ---------------------------------------------------------------------------
