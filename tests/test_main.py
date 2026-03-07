@@ -159,6 +159,17 @@ def test_cmd_use_unknown_api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     assert result.exit_code != 0
 
 
+def test_cmd_use_reserved_key_default(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """'default' is a reserved conf key and must be rejected with a clear error."""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["config", "use", "default"])
+    assert result.exit_code != 0
+
+
 # ---------------------------------------------------------------------------
 # papycli config show
 # ---------------------------------------------------------------------------

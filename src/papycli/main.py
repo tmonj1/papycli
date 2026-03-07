@@ -93,8 +93,8 @@ def cmd_config_use(api_name: str) -> None:
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
-    if api_name not in conf:
-        registered = [k for k in conf if k != "default"]
+    registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+    if api_name not in conf or not isinstance(conf[api_name], dict):
         if registered:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
