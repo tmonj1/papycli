@@ -131,6 +131,18 @@ def test_cmd_init_nonexistent_file(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert result.exit_code != 0
 
 
+def test_cmd_init_reserved_name_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A spec file named 'default.json' must be rejected before writing config."""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    spec = tmp_path / "default.json"
+    spec.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "init", str(spec)])
+    assert result.exit_code != 0
+    assert "default" in result.output
+    assert not (tmp_path / "papycli.conf").exists()
+
+
 # ---------------------------------------------------------------------------
 # papycli config use
 # ---------------------------------------------------------------------------
@@ -168,6 +180,7 @@ def test_cmd_use_reserved_key_default(
     runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
     result = runner.invoke(cli, ["config", "use", "default"])
     assert result.exit_code != 0
+    assert "default" in result.output
 
 
 # ---------------------------------------------------------------------------

@@ -72,6 +72,10 @@ def cmd_config_init(spec_file: str) -> None:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
+    if api_name == "default":
+        click.echo("Error: 'default' is a reserved name and cannot be used as an API name.", err=True)
+        sys.exit(1)
+
     conf = load_conf(conf_dir)
     register_initialized_api(conf, api_name, spec_path, base_url)
     save_conf(conf, conf_dir)
@@ -92,6 +96,10 @@ def cmd_config_init(spec_file: str) -> None:
 def cmd_config_use(api_name: str) -> None:
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
+
+    if api_name == "default":
+        click.echo("Error: 'default' is a reserved configuration key, not an API name.", err=True)
+        sys.exit(1)
 
     registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
     if api_name not in conf or not isinstance(conf[api_name], dict):
