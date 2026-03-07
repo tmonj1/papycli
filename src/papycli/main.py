@@ -55,14 +55,14 @@ def cmd_config(ctx: click.Context) -> None:
 
 
 @cmd_config.command(
-    "init",
+    "add",
     help=h(
-        "Initialize an API from an OpenAPI spec file.",
-        "OpenAPI spec ファイルから API を初期化する。",
+        "Register an API from an OpenAPI spec file.",
+        "OpenAPI spec ファイルから API を登録する。",
     ),
 )
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
-def cmd_config_init(spec_file: str) -> None:
+def cmd_config_add(spec_file: str) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
@@ -80,7 +80,7 @@ def cmd_config_init(spec_file: str) -> None:
     register_initialized_api(conf, api_name, spec_path, base_url)
     save_conf(conf, conf_dir)
 
-    click.echo(f"Initialized API '{api_name}'")
+    click.echo(f"Registered API '{api_name}'")
     if base_url:
         click.echo(f"  Base URL : {base_url}")
     else:
@@ -107,7 +107,7 @@ def cmd_config_use(api_name: str) -> None:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
         else:
-            click.echo("Error: No APIs registered. Run 'papycli config init <spec>' first.", err=True)
+            click.echo("Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True)
         sys.exit(1)
 
     set_default_api(conf, api_name)
@@ -129,7 +129,7 @@ def cmd_config_show() -> None:
 
     conf = load_conf(conf_dir)
     if not conf:
-        click.echo("(no configuration — run 'papycli config init <spec>' to get started)")
+        click.echo("(no configuration — run 'papycli config add <spec>' to get started)")
         return
 
     click.echo(json.dumps(conf, indent=2, ensure_ascii=False))

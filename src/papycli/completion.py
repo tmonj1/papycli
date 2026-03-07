@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 METHODS = ["get", "post", "put", "patch", "delete"]
-CONFIG_SUBCOMMANDS = ["completion-script", "init", "show", "use"]
+CONFIG_SUBCOMMANDS = ["add", "completion-script", "show", "use"]
 TOP_LEVEL_COMMANDS = METHODS + ["config", "summary"]
 
 # ---------------------------------------------------------------------------

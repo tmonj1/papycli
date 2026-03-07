@@ -41,7 +41,7 @@ def minimal_spec_file(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def petstore_conf_dir(tmp_path: Path) -> Path:
-    """petstore-oas3.json を init した conf dir を返す。"""
+    """petstore-oas3.json を add した conf dir を返す。"""
     api_name, base_url = init_api(PETSTORE_PATH, tmp_path)
     conf = load_conf(tmp_path)
     register_initialized_api(conf, api_name, PETSTORE_PATH, base_url)
@@ -88,56 +88,62 @@ def test_config_no_subcommand_shows_help() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["config"])
     assert result.exit_code == 0
-    assert "init" in result.output
+    assert "add" in result.output
     assert "use" in result.output
     assert "show" in result.output
 
 
 # ---------------------------------------------------------------------------
-# papycli config init
+# papycli config add
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_init_success(tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_add_success(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     assert result.exit_code == 0
-    assert "Initialized API 'myapi'" in result.output
+    assert "Registered API 'myapi'" in result.output
     assert "http://localhost:9000/api" in result.output
 
 
-def test_cmd_init_creates_conf(tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_add_creates_conf(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
     assert conf["default"] == "myapi"
     assert conf["myapi"]["url"] == "http://localhost:9000/api"
 
 
-def test_cmd_init_creates_apidef(tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_add_creates_apidef(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     apidef_path = tmp_path / "apis" / "myapi.json"
     assert apidef_path.exists()
 
 
-def test_cmd_init_nonexistent_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_add_nonexistent_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "init", str(tmp_path / "no_such.json")])
+    result = runner.invoke(cli, ["config", "add", str(tmp_path / "no_such.json")])
     assert result.exit_code != 0
 
 
-def test_cmd_init_reserved_name_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_add_reserved_name_default(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A spec file named 'default.json' must be rejected before writing config."""
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     spec = tmp_path / "default.json"
     spec.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "init", str(spec)])
+    result = runner.invoke(cli, ["config", "add", str(spec)])
     assert result.exit_code != 0
     assert "default" in result.output
     assert not (tmp_path / "papycli.conf").exists()
@@ -153,8 +159,8 @@ def test_cmd_use_switches_default(tmp_path: Path, minimal_spec_file: Path, monke
     runner = CliRunner()
     spec2 = tmp_path / "otherapi.json"
     spec2.write_text(json.dumps({**MINIMAL_SPEC, "servers": [{"url": "http://other"}]}), encoding="utf-8")
-    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
-    runner.invoke(cli, ["config", "init", str(spec2)])
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(spec2)])
 
     result = runner.invoke(cli, ["config", "use", "myapi"])
     assert result.exit_code == 0
@@ -177,7 +183,7 @@ def test_cmd_use_reserved_key_default(
     """'default' is a reserved conf key and must be rejected with a clear error."""
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     result = runner.invoke(cli, ["config", "use", "default"])
     assert result.exit_code != 0
     assert "default" in result.output
@@ -196,10 +202,12 @@ def test_cmd_conf_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert str(tmp_path) in result.output
 
 
-def test_cmd_conf_after_init(tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_conf_after_add(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "init", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     result = runner.invoke(cli, ["config", "show"])
     assert result.exit_code == 0
     assert "myapi" in result.output
