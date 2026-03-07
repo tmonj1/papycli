@@ -98,7 +98,7 @@ def cmd_use(api_name: str) -> None:
 
 @cli.command(
     "conf",
-    help=h("Show current configuration.", "現在の設定と環境変数を表示する。"),
+    help=h("Show current configuration.", "現在の設定を表示する。"),
 )
 def cmd_conf() -> None:
     conf_dir = get_conf_dir()
