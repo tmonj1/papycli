@@ -64,3 +64,30 @@ def set_default_api(conf: dict[str, Any], name: str) -> None:
 def get_default_api(conf: dict[str, Any]) -> str | None:
     """現在のデフォルト API 名を返す。未設定の場合は None。"""
     return conf.get("default")  # type: ignore[return-value]
+
+
+def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], str]:
+    """現在のデフォルト API の (apidef dict, base_url) を返す。"""
+    resolved_dir = conf_dir or get_conf_dir()
+    conf = load_conf(resolved_dir)
+    api_name = get_default_api(conf)
+    if not api_name:
+        raise RuntimeError("No default API configured. Run 'papycli init <spec>' first.")
+
+    api_entry = conf.get(api_name)
+    if not isinstance(api_entry, dict):
+        raise RuntimeError(f"Invalid configuration for API '{api_name}'.")
+
+    base_url = str(api_entry.get("url", ""))
+    apidef_filename = str(api_entry.get("apidef", f"{api_name}.json"))
+    apidef_path = get_apis_dir(resolved_dir) / apidef_filename
+
+    if not apidef_path.exists():
+        raise RuntimeError(
+            f"API definition file not found: {apidef_path}\n"
+            "Run 'papycli init <spec>' to regenerate it."
+        )
+
+    with apidef_path.open(encoding="utf-8") as f:
+        apidef: dict[str, Any] = json.load(f)
+    return apidef, base_url
