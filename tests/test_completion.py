@@ -151,7 +151,7 @@ def test_complete_config_subcommands_covers_all() -> None:
 
 def test_complete_config_no_further_completion() -> None:
     # config サブコマンドの引数は補完しない
-    result = ctx(["papycli", "config", "init", ""], 3)
+    result = ctx(["papycli", "config", "add", ""], 3)
     assert result == []
 
 

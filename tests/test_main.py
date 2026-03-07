@@ -41,7 +41,7 @@ def minimal_spec_file(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def petstore_conf_dir(tmp_path: Path) -> Path:
-    """petstore-oas3.json を init した conf dir を返す。"""
+    """petstore-oas3.json を add した conf dir を返す。"""
     api_name, base_url = init_api(PETSTORE_PATH, tmp_path)
     conf = load_conf(tmp_path)
     register_initialized_api(conf, api_name, PETSTORE_PATH, base_url)
@@ -105,7 +105,7 @@ def test_cmd_add_success(
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     assert result.exit_code == 0
-    assert "Initialized API 'myapi'" in result.output
+    assert "Registered API 'myapi'" in result.output
     assert "http://localhost:9000/api" in result.output
 
 
@@ -202,7 +202,9 @@ def test_cmd_conf_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert str(tmp_path) in result.output
 
 
-def test_cmd_conf_after_init(tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_conf_after_add(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
     runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
