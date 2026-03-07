@@ -55,14 +55,14 @@ def cmd_config(ctx: click.Context) -> None:
 
 
 @cmd_config.command(
-    "init",
+    "add",
     help=h(
-        "Initialize an API from an OpenAPI spec file.",
-        "OpenAPI spec ファイルから API を初期化する。",
+        "Register an API from an OpenAPI spec file.",
+        "OpenAPI spec ファイルから API を登録する。",
     ),
 )
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
-def cmd_config_init(spec_file: str) -> None:
+def cmd_config_add(spec_file: str) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 

@@ -57,7 +57,7 @@ API は `http://localhost:8080/api/v3/` で利用可能になります。
 ### 2. API を登録する
 
 ```bash
-papycli config init examples/petstore-oas3.json
+papycli config add examples/petstore-oas3.json
 ```
 
 ### 3. コマンドを試す
@@ -116,10 +116,10 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ## 独自 API の追加
 
-### ステップ 1 — `config init` を実行する
+### ステップ 1 — `config add` を実行する
 
 ```bash
-papycli config init your-api-spec.json
+papycli config add your-api-spec.json
 ```
 
 このコマンドは以下を行います：
@@ -150,8 +150,8 @@ spec に `servers[0].url` が含まれている場合は自動で使用されま
 
 ```bash
 # 複数の API を登録する
-papycli config init petstore-oas3.json
-papycli config init myapi.json
+papycli config add petstore-oas3.json
+papycli config add myapi.json
 
 # アクティブな API を切り替える
 papycli config use myapi
@@ -166,7 +166,7 @@ papycli config show
 
 ```
 # 設定管理コマンド
-papycli config init <spec-file>            OpenAPI spec ファイルから API を初期化する
+papycli config add <spec-file>             OpenAPI spec ファイルから API を登録する
 papycli config use <api-name>              アクティブな API を切り替える
 papycli config show                        現在の設定を表示する
 papycli config completion-script <bash|zsh>  シェル補完スクリプトを出力する

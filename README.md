@@ -59,7 +59,7 @@ The API will be available at `http://localhost:8080/api/v3/`.
 ### 2. Register the API
 
 ```bash
-papycli config init examples/petstore-oas3.json
+papycli config add examples/petstore-oas3.json
 ```
 
 ### 3. Try some commands
@@ -118,10 +118,10 @@ $ papycli get /pet/findByStatus -q status <TAB>
 
 ## Adding Your Own API
 
-### Step 1 — Run `config init`
+### Step 1 — Run `config add`
 
 ```bash
-papycli config init your-api-spec.json
+papycli config add your-api-spec.json
 ```
 
 This command will:
@@ -152,8 +152,8 @@ If the spec contains `servers[0].url`, it is used automatically. Otherwise, edit
 
 ```bash
 # Register multiple APIs
-papycli config init petstore-oas3.json
-papycli config init myapi.json
+papycli config add petstore-oas3.json
+papycli config add myapi.json
 
 # Switch the active API
 papycli config use myapi
@@ -168,7 +168,7 @@ papycli config show
 
 ```
 # Configuration management commands
-papycli config init <spec-file>            Initialize an API from an OpenAPI spec file
+papycli config add <spec-file>             Register an API from an OpenAPI spec file
 papycli config use <api-name>              Switch the active API
 papycli config show                        Show current configuration
 papycli config completion-script <bash|zsh>  Print a shell completion script
