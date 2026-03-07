@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any
 
 METHODS = ["get", "post", "put", "patch", "delete"]
-MANAGEMENT_COMMANDS = ["init", "use", "conf", "summary", "completion-script"]
-ALL_COMMANDS = METHODS + MANAGEMENT_COMMANDS
+CONFIG_SUBCOMMANDS = ["completion-script", "init", "show", "use"]
+TOP_LEVEL_COMMANDS = METHODS + ["config", "summary"]
 
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
@@ -113,12 +113,21 @@ def completions_for_context(
     """
     incomplete = words[current] if current < len(words) else ""
 
-    # サブコマンド名の補完
+    # トップレベルサブコマンド名の補完
     if current == 1:
-        return [c for c in ALL_COMMANDS if c.startswith(incomplete)]
+        return [c for c in TOP_LEVEL_COMMANDS if c.startswith(incomplete)]
+
+    if len(words) < 2:
+        return []
+
+    # config サブコマンドの補完
+    if words[1] == "config":
+        if current == 2:
+            return [c for c in CONFIG_SUBCOMMANDS if c.startswith(incomplete)]
+        return []
 
     # words[1] が HTTP メソッドでない場合は補完なし
-    if len(words) < 2 or words[1] not in METHODS:
+    if words[1] not in METHODS:
         return []
 
     method = words[1]

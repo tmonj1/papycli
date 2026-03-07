@@ -5,6 +5,8 @@ from typing import Any
 import pytest
 
 from papycli.completion import (
+    CONFIG_SUBCOMMANDS,
+    TOP_LEVEL_COMMANDS,
     completions_for_context,
     generate_script,
 )
@@ -66,8 +68,9 @@ def test_complete_subcommand_empty() -> None:
     assert "get" in result
     assert "post" in result
     assert "delete" in result
-    assert "init" in result
+    assert "config" in result
     assert "summary" in result
+    assert "init" not in result
 
 
 def test_complete_subcommand_prefix_g() -> None:
@@ -85,6 +88,10 @@ def test_complete_subcommand_prefix_p() -> None:
 
 def test_complete_subcommand_no_match() -> None:
     assert ctx(["papycli", "xyz"], 1) == []
+
+
+def test_top_level_commands_covers_expected() -> None:
+    assert set(TOP_LEVEL_COMMANDS) == {"get", "post", "put", "patch", "delete", "config", "summary"}
 
 
 # ---------------------------------------------------------------------------
@@ -115,9 +122,33 @@ def test_complete_resource_no_apidef() -> None:
     assert ctx_no_apidef(["papycli", "get", ""], 2) == []
 
 
+def test_complete_config_subcommands_empty() -> None:
+    result = ctx(["papycli", "config", ""], 2)
+    assert "init" in result
+    assert "use" in result
+    assert "show" in result
+    assert "completion-script" in result
+
+
+def test_complete_config_subcommands_prefix() -> None:
+    result = ctx(["papycli", "config", "s"], 2)
+    assert "show" in result
+    assert "init" not in result
+
+
+def test_complete_config_subcommands_covers_all() -> None:
+    assert set(CONFIG_SUBCOMMANDS) == {"init", "use", "show", "completion-script"}
+
+
+def test_complete_config_no_further_completion() -> None:
+    # config サブコマンドの引数は補完しない
+    result = ctx(["papycli", "config", "init", ""], 3)
+    assert result == []
+
+
 def test_complete_resource_non_method_command() -> None:
-    # "init" はメソッドコマンドではないのでリソース補完しない
-    result = ctx(["papycli", "init", ""], 2)
+    # "summary" はメソッドコマンドではないのでリソース補完しない
+    result = ctx(["papycli", "summary", ""], 2)
     assert result == []
 
 
