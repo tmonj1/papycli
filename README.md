@@ -1,14 +1,14 @@
 # papycli — OpenAPI 3.0 REST API を操作する Python 製 CLI
 
-`papycli` は OpenAPI 3.0 仕様を読み込み、REST API エンドポイントをターミナルから直接呼び出せるインタラクティブな CLI を提供します。[xapicli](https://github.com/tmonj1/xapicli) の Python 移植版です。
+`papycli` は OpenAPI 3.0 仕様を読み込み、REST API エンドポイントをターミナルから直接呼び出せるインタラクティブな CLI を提供します。
 
 ## 特徴
 
 - OpenAPI 3.0 仕様から CLI を自動生成
 - シェル補完（bash / zsh）対応
-- `$ref` の自動解決（外部ツール不要）
+- `$ref` の自動解決
 - 複数 API の登録・切り替え
-- pip でインストール可能（スクリプトのソース不要）
+- pip でインストール可能
 
 ## 必要環境
 
@@ -16,7 +16,7 @@
 |------|------|
 | Python | 3.8 以上 |
 
-外部ツール（`jq`、`getopt`、`json-refs` 等）は不要です。
+外部ツール（`jq` 等）は不要です。Python と pip のみで動作します。
 
 ---
 
