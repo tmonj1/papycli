@@ -101,9 +101,18 @@ def test_top_level_commands_covers_expected() -> None:
 
 def test_complete_resource_all() -> None:
     result = ctx(["papycli", "get", ""], 2)
-    assert "/pet" in result
+    # /pet has only POST and PUT — must not appear for GET
+    assert "/pet" not in result
     assert "/pet/findByStatus" in result
     assert "/store/inventory" in result
+
+
+def test_complete_resource_method_filter_post() -> None:
+    # /pet supports POST; /pet/findByStatus and /store/inventory do not
+    result = ctx(["papycli", "post", ""], 2)
+    assert "/pet" in result
+    assert "/pet/findByStatus" not in result
+    assert "/store/inventory" not in result
 
 
 def test_complete_resource_prefix() -> None:
