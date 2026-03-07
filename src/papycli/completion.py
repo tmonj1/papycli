@@ -63,8 +63,11 @@ def _find_op(
     return next((o for o in apidef[template] if o["method"] == method), None)
 
 
-def _complete_resources(apidef: dict[str, Any], incomplete: str) -> list[str]:
-    return [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
+def _complete_resources(apidef: dict[str, Any], method: str, incomplete: str) -> list[str]:
+    return [
+        p for p in sorted(apidef.keys())
+        if p.startswith(incomplete) and any(o["method"] == method for o in apidef[p])
+    ]
 
 
 def _complete_param_names(
@@ -138,7 +141,7 @@ def completions_for_context(
     if current == 2:
         if apidef is None:
             return []
-        return _complete_resources(apidef, incomplete)
+        return _complete_resources(apidef, method, incomplete)
 
     resource = words[2] if len(words) > 2 else ""
     prev = words[current - 1] if current >= 1 else ""
