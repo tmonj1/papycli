@@ -1,0 +1,168 @@
+"""シェル補完ロジックとスクリプト生成。
+
+補完の仕組み:
+  bash/zsh スクリプトが `papycli _complete <current_index> <words...>` を呼び出す。
+  `_complete` コマンドが補完候補を 1 行 1 候補の形式で標準出力に返す。
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+METHODS = ["get", "post", "put", "patch", "delete"]
+MANAGEMENT_COMMANDS = ["init", "use", "conf", "summary", "completion-script"]
+ALL_COMMANDS = METHODS + MANAGEMENT_COMMANDS
+
+# ---------------------------------------------------------------------------
+# シェルスクリプトテンプレート
+# ---------------------------------------------------------------------------
+
+BASH_SCRIPT = """\
+_papycli_completion() {
+    local IFS=$'\\n'
+    COMPREPLY=($(papycli _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
+}
+complete -o nospace -F _papycli_completion papycli
+"""
+
+ZSH_SCRIPT = """\
+_papycli() {
+    local -a completions
+    completions=(${(f)"$(papycli _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
+    if [[ ${#completions[@]} -gt 0 ]]; then
+        _describe '' completions
+    fi
+}
+compdef _papycli papycli
+"""
+
+
+def generate_script(shell: str) -> str:
+    """指定シェル向けの補完スクリプトを返す。"""
+    if shell == "bash":
+        return BASH_SCRIPT
+    return ZSH_SCRIPT
+
+
+# ---------------------------------------------------------------------------
+# 補完ロジック（純粋関数 — apidef を引数で受け取る）
+# ---------------------------------------------------------------------------
+
+
+def _find_op(
+    apidef: dict[str, Any], method: str, resource: str
+) -> dict[str, Any] | None:
+    """resource にマッチするテンプレートを探し、指定 method の operation を返す。"""
+    from papycli.api_call import match_path_template
+
+    match = match_path_template(resource, list(apidef.keys()))
+    if match is None:
+        return None
+    template, _ = match
+    return next((o for o in apidef[template] if o["method"] == method), None)
+
+
+def _complete_resources(apidef: dict[str, Any], incomplete: str) -> list[str]:
+    return [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
+
+
+def _complete_param_names(
+    apidef: dict[str, Any],
+    method: str,
+    resource: str,
+    kind: str,
+    incomplete: str,
+) -> list[str]:
+    op = _find_op(apidef, method, resource)
+    if op is None:
+        return []
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    return [p["name"] for p in op.get(key, []) if p["name"].startswith(incomplete)]
+
+
+def _complete_enum_values(
+    apidef: dict[str, Any],
+    method: str,
+    resource: str,
+    kind: str,
+    param_name: str,
+    incomplete: str,
+) -> list[str]:
+    op = _find_op(apidef, method, resource)
+    if op is None:
+        return []
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    for p in op.get(key, []):
+        if p["name"] == param_name and "enum" in p:
+            return [str(v) for v in p["enum"] if str(v).startswith(incomplete)]
+    return []
+
+
+def completions_for_context(
+    words: list[str],
+    current: int,
+    apidef: dict[str, Any] | None,
+) -> list[str]:
+    """コマンドラインのコンテキストに応じた補完候補を返す。
+
+    Args:
+        words:   コマンドライントークンのリスト（words[0] = "papycli"）
+        current: 補完中の単語のインデックス（0 始まり）
+        apidef:  現在の API 定義 dict。None の場合は空リストを返す。
+    """
+    incomplete = words[current] if current < len(words) else ""
+
+    # サブコマンド名の補完
+    if current == 1:
+        return [c for c in ALL_COMMANDS if c.startswith(incomplete)]
+
+    # words[1] が HTTP メソッドでない場合は補完なし
+    if len(words) < 2 or words[1] not in METHODS:
+        return []
+
+    method = words[1]
+
+    # リソースパスの補完
+    if current == 2:
+        if apidef is None:
+            return []
+        return _complete_resources(apidef, incomplete)
+
+    resource = words[2] if len(words) > 2 else ""
+    prev = words[current - 1] if current >= 1 else ""
+    prev_prev = words[current - 2] if current >= 2 else ""
+
+    if apidef is None:
+        return []
+
+    # -q NAME → クエリパラメータ名
+    if prev == "-q":
+        return _complete_param_names(apidef, method, resource, "query", incomplete)
+
+    # -q NAME VALUE → enum 値
+    if prev_prev == "-q":
+        return _complete_enum_values(apidef, method, resource, "query", prev, incomplete)
+
+    # -p NAME → ボディパラメータ名
+    if prev == "-p":
+        return _complete_param_names(apidef, method, resource, "body", incomplete)
+
+    # -p NAME VALUE → enum 値
+    if prev_prev == "-p":
+        return _complete_enum_values(apidef, method, resource, "body", prev, incomplete)
+
+    # オプション名
+    opts = ["-q", "-p", "-d", "-H", "--summary"]
+    return [o for o in opts if o.startswith(incomplete)]
+
+
+def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:
+    """apidef をディスクから読み込んで補完候補を返す。失敗した場合は空リスト。"""
+    from papycli.config import get_conf_dir, load_current_apidef
+
+    try:
+        apidef, _ = load_current_apidef(conf_dir or get_conf_dir())
+    except Exception:
+        apidef = None
+    return completions_for_context(words, current, apidef)
