@@ -8,7 +8,7 @@ import click
 import requests
 
 from papycli import __version__
-from papycli.api_call import call_api
+from papycli.api_call import call_api, match_path_template
 from papycli.config import (
     get_conf_dir,
     get_conf_path,
@@ -18,6 +18,7 @@ from papycli.config import (
     set_default_api,
 )
 from papycli.init_cmd import init_api, register_initialized_api
+from papycli.summary import format_endpoint_detail, format_summary_csv, print_summary
 
 
 @click.group(invoke_without_command=True, context_settings={"help_option_names": ["-h", "--help"]})
@@ -99,11 +100,37 @@ def cmd_conf() -> None:
 
 
 # ---------------------------------------------------------------------------
+# summary コマンド
+# ---------------------------------------------------------------------------
+
+
+@cli.command("summary")
+@click.argument("resource", required=False, default=None)
+@click.option("--csv", "as_csv", is_flag=True, help="CSV フォーマットで出力する")
+def cmd_summary(resource: str | None, as_csv: bool) -> None:
+    """登録済み API のエンドポイント一覧を表示する。
+
+    RESOURCE を指定するとそのパスプレフィックスで絞り込む。
+    """
+    conf_dir = get_conf_dir()
+    try:
+        apidef, _ = load_current_apidef(conf_dir)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if as_csv:
+        click.echo(format_summary_csv(apidef), nl=False)
+    else:
+        print_summary(apidef, resource_filter=resource)
+
+
+# ---------------------------------------------------------------------------
 # API 呼び出しコマンド (get / post / put / patch / delete)
 # ---------------------------------------------------------------------------
 
 
-def _print_response(resp: "requests.Response") -> None:
+def _print_response(resp: requests.Response) -> None:
     click.echo(f"HTTP {resp.status_code} {resp.reason}")
     content_type = resp.headers.get("Content-Type", "")
     if "application/json" in content_type:
@@ -129,16 +156,33 @@ def _api_command(method: str) -> click.Command:
                   help="生の JSON ボディ（-p を上書き）")
     @click.option("-H", "extra_headers", multiple=True, metavar="HEADER: VALUE",
                   help="カスタム HTTP ヘッダー（繰り返し可）")
+    @click.option("--summary", "show_summary", is_flag=True,
+                  help="リクエストを送らずにエンドポイント情報を表示する")
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
         body_params: tuple[tuple[str, str], ...],
         raw_body: str | None,
         extra_headers: tuple[str, ...],
+        show_summary: bool,
     ) -> None:
         conf_dir = get_conf_dir()
         try:
             apidef, base_url = load_current_apidef(conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+
+        if show_summary:
+            match = match_path_template(resource, list(apidef.keys()))
+            if match is None:
+                click.echo(f"Error: No matching path for '{resource}'", err=True)
+                sys.exit(1)
+            template, _ = match
+            click.echo(format_endpoint_detail(apidef, method, template))
+            return
+
+        try:
             resp = call_api(
                 method, resource, base_url, apidef,
                 query_params=query_params,

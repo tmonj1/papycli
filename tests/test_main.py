@@ -272,3 +272,77 @@ def test_cmd_get_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/anything"])
     assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# papycli summary
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_summary_all(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["summary"])
+    assert result.exit_code == 0
+    assert "/pet" in result.output
+    assert "/store/inventory" in result.output
+    assert "GET" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_summary_filtered(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["summary", "/pet"])
+    assert result.exit_code == 0
+    assert "/pet" in result.output
+    assert "/store" not in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_summary_csv(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["summary", "--csv"])
+    assert result.exit_code == 0
+    assert result.output.startswith("method,path,")
+    assert "GET" in result.output
+    assert "/pet/findByStatus" in result.output
+
+
+def test_cmd_summary_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["summary"])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
+# papycli get --summary (エンドポイント詳細表示)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_get_with_summary_flag(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/findByStatus", "--summary"])
+    assert result.exit_code == 0
+    assert "GET" in result.output
+    assert "/pet/findByStatus" in result.output
+    assert "status" in result.output
+    # HTTP リクエストは送らない（responses モックなしで成功する）
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_get_with_summary_flag_path_param(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/99", "--summary"])
+    assert result.exit_code == 0
+    assert "/pet/{petId}" in result.output
