@@ -175,8 +175,13 @@ def completions_for_context(
     if prev_prev == "-p":
         return _complete_enum_values(apidef, method, resource, "body", prev, incomplete)
 
-    # オプション名
-    opts = ["-q", "-p", "-d", "-H", "--summary", "-v", "--verbose"]
+    # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
+    op = _find_op(apidef, method, resource)
+    opts: list[str] = ["-H", "--summary", "-v", "--verbose"]
+    if op is None or op.get("query_parameters"):
+        opts = ["-q"] + opts
+    if op is None or op.get("post_parameters"):
+        opts = ["-p", "-d"] + opts
     return [o for o in opts if o.startswith(incomplete)]
 
 

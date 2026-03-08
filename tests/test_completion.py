@@ -258,19 +258,23 @@ def test_complete_body_enum_value() -> None:
 
 
 def test_complete_options_after_resource() -> None:
+    # /store/inventory は query も body もパラメータなし → -q, -p, -d は除外される
     words = ["papycli", "get", "/store/inventory", ""]
     result = ctx(words, 3)
-    assert "-q" in result
-    assert "-p" in result
+    assert "-q" not in result
+    assert "-p" not in result
+    assert "-d" not in result
     assert "--summary" in result
     assert "-v" in result
     assert "--verbose" in result
 
 
 def test_complete_options_prefix_dash() -> None:
+    # /store/inventory はパラメータなし → -q は除外、-H や --summary は表示
     words = ["papycli", "get", "/store/inventory", "-"]
     result = ctx(words, 3)
-    assert "-q" in result
+    assert "-q" not in result
+    assert "-H" in result
     assert "--summary" in result
     assert "-v" in result
 
@@ -288,6 +292,33 @@ def test_complete_options_no_apidef() -> None:
     words = ["papycli", "get", "/pet", ""]
     result = ctx_no_apidef(words, 3)
     assert result == []
+
+
+def test_complete_options_hides_q_when_no_query_params() -> None:
+    # POST /pet はクエリパラメータなし → -q は非表示
+    words = ["papycli", "post", "/pet", ""]
+    result = ctx(words, 3)
+    assert "-q" not in result
+    assert "-p" in result
+    assert "-d" in result
+
+
+def test_complete_options_hides_p_when_no_body_params() -> None:
+    # GET /pet/findByStatus はボディパラメータなし → -p, -d は非表示
+    words = ["papycli", "get", "/pet/findByStatus", ""]
+    result = ctx(words, 3)
+    assert "-q" in result
+    assert "-p" not in result
+    assert "-d" not in result
+
+
+def test_complete_options_shows_all_when_op_unknown() -> None:
+    # パスがテンプレートにマッチしない場合はすべてのオプションを表示
+    words = ["papycli", "get", "/unknown/path", ""]
+    result = ctx(words, 3)
+    assert "-q" in result
+    assert "-p" in result
+    assert "-d" in result
 
 
 # ---------------------------------------------------------------------------
