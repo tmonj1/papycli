@@ -103,12 +103,18 @@ $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 
 $ papycli get /pet/findByStatus <TAB>
-  -q  --summary  --help
+  -q  -p  -H  -d  --summary  --verbose
 
 $ papycli get /pet/findByStatus -q <TAB>
   status
 
 $ papycli get /pet/findByStatus -q status <TAB>
+  available  pending  sold
+
+$ papycli post /pet -p <TAB>
+  name  status  photoUrls
+
+$ papycli post /pet -p status <TAB>
   available  pending  sold
 ```
 
