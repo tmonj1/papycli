@@ -39,6 +39,8 @@ _papycli() {
     completions=(${(f)"$(papycli _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
     if [[ ${#completions[@]} -gt 0 ]]; then
         _describe '' completions
+    elif [[ "${words[2]}" == "config" && "${words[3]}" == "add" && $CURRENT -eq 4 ]]; then
+        _files
     fi
 }
 compdef _papycli papycli
