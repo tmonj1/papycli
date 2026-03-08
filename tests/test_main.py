@@ -631,6 +631,7 @@ def test_cmd_complete_body_param_names(
     assert result.exit_code == 0
     assert "name" in result.output
     assert "status" in result.output
+    assert "photoUrls" in result.output
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
