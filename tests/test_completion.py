@@ -335,6 +335,20 @@ def test_generate_bash_has_comp_words() -> None:
     assert "COMP_CWORD" in script
 
 
+def test_generate_bash_has_config_add_file_fallback() -> None:
+    script = generate_script("bash")
+    assert "compgen -f" in script
+    assert "compopt -o filenames" in script
+
+
+def test_generate_bash_config_add_fallback_condition() -> None:
+    script = generate_script("bash")
+    # config add コンテキストを検出する条件が含まれていること
+    assert '"config"' in script
+    assert '"add"' in script
+    assert "COMP_CWORD" in script
+
+
 def test_generate_zsh_has_current() -> None:
     script = generate_script("zsh")
     assert "CURRENT" in script

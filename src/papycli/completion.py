@@ -22,6 +22,13 @@ BASH_SCRIPT = """\
 _papycli_completion() {
     local IFS=$'\\n'
     COMPREPLY=($(papycli _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
+    if [[ ${#COMPREPLY[@]} -eq 0 \\
+          && "${COMP_WORDS[1]}" == "config" \\
+          && "${COMP_WORDS[2]}" == "add" \\
+          && "${COMP_CWORD}" -eq 3 ]]; then
+        COMPREPLY=($(compgen -f -- "${COMP_WORDS[COMP_CWORD]}"))
+        compopt -o filenames 2>/dev/null
+    fi
 }
 complete -o nospace -F _papycli_completion papycli
 """
