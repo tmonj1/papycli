@@ -90,7 +90,7 @@ def test_config_no_subcommand_shows_help() -> None:
     assert result.exit_code == 0
     assert "add" in result.output
     assert "use" in result.output
-    assert "show" in result.output
+    assert "list" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -277,25 +277,25 @@ def test_cmd_remove_reserved_key_default(
 
 
 # ---------------------------------------------------------------------------
-# papycli config show
+# papycli config list
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_conf_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cmd_list_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "show"])
+    result = runner.invoke(cli, ["config", "list"])
     assert result.exit_code == 0
     assert str(tmp_path) in result.output
 
 
-def test_cmd_conf_after_add(
+def test_cmd_list_after_add(
     tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
     runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
-    result = runner.invoke(cli, ["config", "show"])
+    result = runner.invoke(cli, ["config", "list"])
     assert result.exit_code == 0
     assert "myapi" in result.output
     assert "http://localhost:9000/api" in result.output
