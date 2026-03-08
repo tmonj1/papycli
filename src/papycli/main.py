@@ -160,10 +160,10 @@ def cmd_config_remove(api_name: str) -> None:
 
 
 @cmd_config.command(
-    "show",
-    help=h("Show current configuration.", "現在の設定を表示する。"),
+    "list",
+    help=h("List registered APIs and current configuration.", "登録済み API と現在の設定を一覧表示する。"),
 )
-def cmd_config_show() -> None:
+def cmd_config_list() -> None:
     conf_dir = get_conf_dir()
     conf_path = get_conf_path(conf_dir)
 

@@ -162,7 +162,7 @@ papycli config use myapi
 papycli config remove petstore-oas3
 
 # Show registered APIs and the current default
-papycli config show
+papycli config list
 ```
 
 ---
@@ -174,7 +174,7 @@ papycli config show
 papycli config add <spec-file>             Register an API from an OpenAPI spec file
 papycli config remove <api-name>           Remove a registered API
 papycli config use <api-name>              Switch the active API
-papycli config show                        Show current configuration
+papycli config list                        List registered APIs and current configuration
 papycli config completion-script <bash|zsh>  Print a shell completion script
 
 # API call commands

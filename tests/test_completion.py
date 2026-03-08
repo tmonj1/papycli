@@ -136,18 +136,18 @@ def test_complete_config_subcommands_empty() -> None:
     assert "add" in result
     assert "remove" in result
     assert "use" in result
-    assert "show" in result
+    assert "list" in result
     assert "completion-script" in result
 
 
 def test_complete_config_subcommands_prefix() -> None:
-    result = ctx(["papycli", "config", "s"], 2)
-    assert "show" in result
+    result = ctx(["papycli", "config", "l"], 2)
+    assert "list" in result
     assert "add" not in result
 
 
 def test_complete_config_subcommands_covers_all() -> None:
-    assert set(CONFIG_SUBCOMMANDS) == {"add", "remove", "use", "show", "completion-script"}
+    assert set(CONFIG_SUBCOMMANDS) == {"add", "remove", "use", "list", "completion-script"}
 
 
 def test_complete_config_no_further_completion() -> None:
