@@ -361,7 +361,7 @@ def test_generate_zsh_has_config_add_file_fallback() -> None:
 
 def test_generate_zsh_config_add_fallback_condition() -> None:
     script = generate_script("zsh")
-    # config add コンテキストを検出する条件が含まれていること
-    assert '"config"' in script
-    assert '"add"' in script
-    assert "CURRENT" in script
+    # config add コンテキストを検出する条件文が正確に含まれていること
+    assert '"${words[2]}" == "config"' in script
+    assert '"${words[3]}" == "add"' in script
+    assert "$CURRENT -eq 4" in script
