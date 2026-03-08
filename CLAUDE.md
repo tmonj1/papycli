@@ -37,27 +37,38 @@ papycli/
 │   └── papycli/
 │       ├── __init__.py
 │       ├── main.py          # エントリポイント・引数パース
-│       ├── init_cmd.py      # --init コマンド（spec の変換・保存）
+│       ├── init_cmd.py      # config add コマンド（spec の変換・保存）
 │       ├── api_call.py      # HTTP リクエスト実行
 │       ├── completion.py    # シェル補完スクリプト生成
 │       ├── config.py        # 設定ファイルの読み書き
+│       ├── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 │       ├── spec_loader.py   # OpenAPI spec の読み込み・$ref 解決
-│       └── summary.py       # --summary / --summary-csv
+│       └── summary.py       # summary コマンド・CSV 出力
 ├── tests/
+│   ├── test_api_call.py
+│   ├── test_completion.py
+│   ├── test_config.py
+│   ├── test_i18n.py
+│   ├── test_init_cmd.py
+│   ├── test_main.py
+│   ├── test_spec_loader.py
+│   └── test_summary.py
 ├── examples/
 │   ├── docker-compose.yml
 │   └── petstore-oas3.json
 ├── pyproject.toml
 ├── README.md
+├── README.ja.md
+├── design_doc.md
 └── CLAUDE.md
 ```
 
 ### 主要モジュール
 
 **`main.py`** — CLI エントリポイント
-引数をパースし、各コマンド（`init`、`use`、`conf`、`summary`、`completion-script`、メソッド呼び出し）に処理を委譲する。シェル補完用の `_complete` 内部コマンドもここで定義する。
+引数をパースし、各コマンド（`config add`/`use`/`remove`/`list`/`completion-script`、`summary`、メソッド呼び出し）に処理を委譲する。シェル補完用の `_complete` 内部コマンドもここで定義する。
 
-**`init_cmd.py`** — API 初期化
+**`init_cmd.py`** — API 初期化（`config add` コマンドの実処理）
 OpenAPI spec ファイルを受け取り、`$ref` を解決した上で papycli 内部の API 定義フォーマットに変換し、`$PAPYCLI_CONF_DIR/apis/<name>.json` に保存する。設定ファイル (`papycli.conf`) も更新する。
 
 **`spec_loader.py`** — spec 読み込み・変換
@@ -139,11 +150,12 @@ bash / zsh 向けの補完スクリプトを生成する。補完の候補はメ
 
 ```
 papycli <method> <resource> [options]
-papycli init <spec-file>
-papycli use <api-name>
-papycli conf
+papycli config add <spec-file>
+papycli config use <api-name>
+papycli config remove <api-name>
+papycli config list
+papycli config completion-script <bash|zsh>
 papycli summary [resource] [--csv]
-papycli completion-script <bash|zsh>
 papycli --version
 papycli --help / -h
 ```

@@ -4,7 +4,7 @@
 
 - Python 3.12 / uv でパッケージ管理
 - `examples/petstore-oas3.json` と `examples/docker-compose.yml` 準備済み
-- ソースコードはまだない状態
+- Milestone 1〜5 の実装が完了し、`papycli` コマンドとして動作する状態
 
 ---
 
@@ -35,16 +35,19 @@ papycli/
 │       ├── main.py          # CLI エントリポイント（click コマンド定義）
 │       ├── config.py        # 設定ファイル (papycli.conf) の読み書き
 │       ├── spec_loader.py   # OpenAPI spec 読み込み・$ref 解決・内部形式変換
-│       ├── init_cmd.py      # --init コマンドの処理
+│       ├── init_cmd.py      # config add コマンドの処理
 │       ├── api_call.py      # HTTP リクエスト実行・パステンプレートマッチング
-│       ├── summary.py       # --summary / --summary-csv の出力
-│       └── completion.py    # bash / zsh 補完スクリプト生成
+│       ├── summary.py       # summary コマンドの出力
+│       ├── completion.py    # bash / zsh 補完スクリプト生成
+│       └── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 ├── tests/
-│   ├── conftest.py          # pytest fixtures
-│   ├── test_spec_loader.py
-│   ├── test_config.py
-│   ├── test_init_cmd.py
 │   ├── test_api_call.py
+│   ├── test_completion.py
+│   ├── test_config.py
+│   ├── test_i18n.py
+│   ├── test_init_cmd.py
+│   ├── test_main.py
+│   ├── test_spec_loader.py
 │   └── test_summary.py
 ├── examples/
 │   ├── docker-compose.yml
@@ -52,6 +55,7 @@ papycli/
 ├── design_doc.md
 ├── CLAUDE.md
 ├── README.md
+├── README.ja.md
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -125,7 +129,7 @@ papycli/
 
 ---
 
-### Milestone 2 — spec ローダーと `--init` / `--conf` / `--use`
+### Milestone 2 — spec ローダーと `config add` / `config list` / `config use`
 
 **目的**: OpenAPI spec を読み込んで内部形式に変換し、設定ファイルを管理できるようにする。
 
@@ -139,15 +143,16 @@ papycli/
 - `config.py`
   - `PAPYCLI_CONF_DIR` 環境変数の解決（デフォルト `~/.papycli`）
   - `papycli.conf` の読み書き
+  - API エントリの登録・削除・デフォルト変更
 - `init_cmd.py`
   - spec ロード → 変換 → `apis/<name>.json` 保存 → conf 更新
-- `main.py` に `--init`、`--use`、`--conf` コマンド追加
+- `main.py` に `config add`、`config use`、`config remove`、`config list` コマンド追加
 - テスト: `test_spec_loader.py`、`test_config.py`、`test_init_cmd.py`
   - `$ref` 解決のパターン（内部参照、外部参照、循環参照ガード）
   - 変換結果の検証（petstore-oas3.json を使用）
   - config の CRUD
 
-**完了条件**: `papycli --init examples/petstore-oas3.json` が成功し、`~/.papycli/apis/petstore-oas3.json` が正しい内容で生成される。`papycli --conf` で設定が表示される。テストがパスする。
+**完了条件**: `papycli config add examples/petstore-oas3.json` が成功し、`~/.papycli/apis/petstore-oas3.json` が正しい内容で生成される。`papycli config list` で設定が表示される。テストがパスする。
 
 ---
 
@@ -214,7 +219,7 @@ papycli/
 - `main.py` に `--completion-script <bash|zsh>` コマンド追加
 - 手動テスト手順をドキュメント化
 
-**完了条件**: `eval "$(papycli --completion-script zsh)"` 後にタブ補完が動作する。メソッド・リソース・パラメータ名・enum 値が補完候補として表示される。
+**完了条件**: `eval "$(papycli config completion-script zsh)"` 後にタブ補完が動作する。メソッド・リソース・クエリパラメータ名・ボディパラメータ名・enum 値が補完候補として表示される。
 
 ---
 
