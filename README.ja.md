@@ -229,5 +229,3 @@ git clone https://github.com/<your-org>/papycli.git
 cd papycli
 pip install -e ".[dev]"
 ```
-
-詳細は [CLAUDE.md](CLAUDE.md) を参照してください。

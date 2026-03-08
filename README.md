@@ -14,8 +14,6 @@
 |------|-------|
 | Python | 3.12 or later |
 
-No external tools (e.g. `jq`) required. Works with Python and pip alone.
-
 ---
 
 ## Installation
@@ -231,5 +229,3 @@ git clone https://github.com/tmonj1/papycli.git
 cd papycli
 pip install -e ".[dev]"
 ```
-
-See [CLAUDE.md](CLAUDE.md) for details.
