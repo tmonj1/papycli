@@ -617,3 +617,32 @@ def test_cmd_complete_enum_values(
     assert "available" in result.output
     assert "pending" in result.output
     assert "sold" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_complete_body_param_names(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["_complete", "4", "papycli", "post", "/pet", "-p", ""]
+    )
+    assert result.exit_code == 0
+    assert "name" in result.output
+    assert "status" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_complete_body_enum_values(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["_complete", "5", "papycli", "post", "/pet", "-p", "status", ""]
+    )
+    assert result.exit_code == 0
+    assert "available" in result.output
+    assert "pending" in result.output
+    assert "sold" in result.output
