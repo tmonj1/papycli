@@ -190,6 +190,93 @@ def test_cmd_use_reserved_key_default(
 
 
 # ---------------------------------------------------------------------------
+# papycli config remove
+# ---------------------------------------------------------------------------
+
+
+def test_cmd_remove_success(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["config", "remove", "myapi"])
+    assert result.exit_code == 0
+    assert "Removed API 'myapi'" in result.output
+
+
+def test_cmd_remove_deletes_conf_entry(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "remove", "myapi"])
+    conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
+    assert "myapi" not in conf
+
+
+def test_cmd_remove_deletes_apidef_file(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    apidef_path = tmp_path / "apis" / "myapi.json"
+    assert apidef_path.exists()
+    runner.invoke(cli, ["config", "remove", "myapi"])
+    assert not apidef_path.exists()
+
+
+def test_cmd_remove_clears_default_when_only_api(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "remove", "myapi"])
+    conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
+    assert "default" not in conf
+
+
+def test_cmd_remove_reassigns_default_when_other_apis_remain(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    spec2 = tmp_path / "otherapi.json"
+    spec2_data = {**MINIMAL_SPEC, "servers": [{"url": "http://other"}]}
+    spec2.write_text(json.dumps(spec2_data), encoding="utf-8")
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(spec2)])
+    runner.invoke(cli, ["config", "use", "myapi"])
+
+    result = runner.invoke(cli, ["config", "remove", "myapi"])
+    assert result.exit_code == 0
+    conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
+    assert "myapi" not in conf
+    assert conf.get("default") == "otherapi"
+
+
+def test_cmd_remove_unknown_api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "remove", "unknown"])
+    assert result.exit_code != 0
+
+
+def test_cmd_remove_reserved_key_default(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["config", "remove", "default"])
+    assert result.exit_code != 0
+    assert "default" in result.output
+
+
+# ---------------------------------------------------------------------------
 # papycli config show
 # ---------------------------------------------------------------------------
 

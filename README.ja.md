@@ -156,6 +156,9 @@ papycli config add myapi.json
 # アクティブな API を切り替える
 papycli config use myapi
 
+# 登録済み API を削除する
+papycli config remove petstore-oas3
+
 # 登録済み API と現在のデフォルトを確認する
 papycli config show
 ```
@@ -167,6 +170,7 @@ papycli config show
 ```
 # 設定管理コマンド
 papycli config add <spec-file>             OpenAPI spec ファイルから API を登録する
+papycli config remove <api-name>           登録済み API を削除する
 papycli config use <api-name>              アクティブな API を切り替える
 papycli config show                        現在の設定を表示する
 papycli config completion-script <bash|zsh>  シェル補完スクリプトを出力する
