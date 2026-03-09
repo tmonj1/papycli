@@ -10,6 +10,7 @@ import requests
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
+from papycli.completion import generate_script, get_completions
 from papycli.config import (
     get_apis_dir,
     get_conf_dir,
@@ -20,7 +21,6 @@ from papycli.config import (
     save_conf,
     set_default_api,
 )
-from papycli.completion import generate_script, get_completions
 from papycli.i18n import h
 from papycli.init_cmd import init_api, register_initialized_api
 from papycli.summary import format_endpoint_detail, format_summary_csv, print_summary
@@ -327,6 +327,14 @@ def _api_command(method: str) -> click.Command:
             "送信前にパラメータを検証する（警告を stderr に出力、リクエストは送信）。",
         ),
     )
+    @click.option(
+        "--check-strict", "do_check_strict", is_flag=True,
+        help=h(
+            "Validate params before sending (warn on stderr, abort on failure with exit 1).",
+            "送信前にパラメータを検証する（警告を stderr に出力、"
+            "問題があればリクエスト中止・exit 1）。",
+        ),
+    )
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
@@ -336,7 +344,12 @@ def _api_command(method: str) -> click.Command:
         show_summary: bool,
         verbose: bool,
         do_check: bool,
+        do_check_strict: bool,
     ) -> None:
+        if do_check and do_check_strict:
+            click.echo("Error: --check and --check-strict cannot be used together.", err=True)
+            sys.exit(1)
+
         conf_dir = get_conf_dir()
         try:
             apidef, base_url = load_current_apidef(conf_dir)
@@ -353,11 +366,14 @@ def _api_command(method: str) -> click.Command:
             click.echo(format_endpoint_detail(apidef, method, template))
             return
 
-        if do_check:
-            for warning in check_request(
+        if do_check or do_check_strict:
+            warnings = check_request(
                 apidef, method, resource, query_params, body_params, raw_body
-            ):
+            )
+            for warning in warnings:
                 click.echo(warning, err=True)
+            if do_check_strict and warnings:
+                sys.exit(1)
 
         try:
             resp = call_api(

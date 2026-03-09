@@ -89,12 +89,12 @@ def check_request(
         try:
             parsed = json.loads(raw_body)
         except json.JSONDecodeError:
-            warnings.append("Warning: --check: failed to parse raw body as JSON")
+            warnings.append("Warning: failed to parse raw body as JSON")
             can_check_body = False
 
         if can_check_body and not isinstance(parsed, dict):
             warnings.append(
-                "Warning: --check: raw body is not a JSON object; parameter checks skipped"
+                "Warning: raw body is not a JSON object; parameter checks skipped"
             )
             can_check_body = False
 

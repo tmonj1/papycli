@@ -299,6 +299,7 @@ def test_complete_options_after_resource() -> None:
     assert "-v" in result
     assert "--verbose" in result
     assert "--check" in result
+    assert "--check-strict" in result
 
 
 def test_complete_options_prefix_dash() -> None:
