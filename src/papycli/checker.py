@@ -83,11 +83,18 @@ def check_request(
     if raw_body is not None:
         # -d JSON の場合: JSON をパースして各フィールドをチェック
         try:
-            body_dict: dict[str, Any] = json.loads(raw_body)
+            parsed = json.loads(raw_body)
         except json.JSONDecodeError:
             warnings.append("Warning: --check: failed to parse raw body as JSON")
-            body_dict = {}
+            parsed = {}
 
+        if not isinstance(parsed, dict):
+            warnings.append(
+                "Warning: --check: raw body is not a JSON object; parameter checks skipped"
+            )
+            parsed = {}
+
+        body_dict: dict[str, Any] = parsed
         provided_body = set(body_dict.keys())
         for p in b_params:
             if p.get("required") and p["name"] not in provided_body:

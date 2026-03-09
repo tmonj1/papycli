@@ -182,6 +182,15 @@ def test_raw_body_invalid_json() -> None:
     assert any("JSON" in w for w in warnings)
 
 
+def test_raw_body_non_dict_json() -> None:
+    # JSON 配列や数値などの非 dict 値は AttributeError にならず警告を返す
+    warnings = chk("post", "/pet", raw_body="[1, 2, 3]")
+    assert any("not a JSON object" in w for w in warnings)
+
+    warnings2 = chk("post", "/pet", raw_body="42")
+    assert any("not a JSON object" in w for w in warnings2)
+
+
 # ---------------------------------------------------------------------------
 # パス不明・メソッド不明はエラーなし（api_call 側に委ねる）
 # ---------------------------------------------------------------------------
