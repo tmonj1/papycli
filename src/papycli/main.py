@@ -227,6 +227,41 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 
 
 # ---------------------------------------------------------------------------
+# spec command
+# ---------------------------------------------------------------------------
+
+
+@cli.command(
+    "spec",
+    help=h(
+        "Show the raw API spec.\n\nFilter by RESOURCE path if given.",
+        "API スペック（内部 apidef 形式）を表示する。\n\n"
+        "RESOURCE を指定するとそのパスのエントリのみ表示する。",
+    ),
+)
+@click.argument("resource", required=False, default=None)
+def cmd_spec(resource: str | None) -> None:
+    conf_dir = get_conf_dir()
+    try:
+        apidef, _ = load_current_apidef(conf_dir)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if resource is None:
+        click.echo(json.dumps(apidef, indent=2, ensure_ascii=False))
+        return
+
+    match = match_path_template(resource, list(apidef.keys()))
+    if match is None:
+        click.echo(f"Error: No matching path for '{resource}'", err=True)
+        sys.exit(1)
+
+    template, _ = match
+    click.echo(json.dumps({template: apidef[template]}, indent=2, ensure_ascii=False))
+
+
+# ---------------------------------------------------------------------------
 # API call commands (get / post / put / patch / delete)
 # ---------------------------------------------------------------------------
 
