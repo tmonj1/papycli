@@ -157,9 +157,44 @@ def test_complete_config_no_further_completion() -> None:
 
 
 def test_complete_resource_non_method_command() -> None:
-    # "summary" はメソッドコマンドではないのでリソース補完しない
+    # "summary" はリソースパスと --csv を補完候補として提示する
     result = ctx(["papycli", "summary", ""], 2)
+    assert "/pet/findByStatus" in result
+    assert "--csv" in result
+
+
+# ---------------------------------------------------------------------------
+# summary コマンド補完
+# ---------------------------------------------------------------------------
+
+
+def test_complete_summary_resources() -> None:
+    result = ctx(["papycli", "summary", ""], 2)
+    assert "/pet/findByStatus" in result
+    assert "/store/inventory" in result
+    assert "--csv" in result
+
+
+def test_complete_summary_resource_prefix() -> None:
+    result = ctx(["papycli", "summary", "/pet"], 2)
+    assert "/pet/findByStatus" in result
+    assert "/store/inventory" not in result
+
+
+def test_complete_summary_csv_after_resource() -> None:
+    result = ctx(["papycli", "summary", "/pet", ""], 3)
+    assert "--csv" in result
+
+
+def test_complete_summary_nothing_after_csv() -> None:
+    result = ctx(["papycli", "summary", "--csv", ""], 3)
     assert result == []
+
+
+def test_complete_summary_no_apidef() -> None:
+    result = ctx_no_apidef(["papycli", "summary", ""], 2)
+    assert "--csv" in result
+    assert "/pet" not in result
 
 
 # ---------------------------------------------------------------------------

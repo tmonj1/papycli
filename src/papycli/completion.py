@@ -140,6 +140,19 @@ def completions_for_context(
             return [c for c in CONFIG_SUBCOMMANDS if c.startswith(incomplete)]
         return []
 
+    # summary コマンドの補完
+    if words[1] == "summary":
+        if current == 2:
+            candidates: list[str] = []
+            if apidef is not None:
+                candidates = [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
+            if "--csv".startswith(incomplete):
+                candidates.append("--csv")
+            return candidates
+        if current == 3 and words[2] != "--csv":
+            return ["--csv"] if "--csv".startswith(incomplete) else []
+        return []
+
     # words[1] が HTTP メソッドでない場合は補完なし
     if words[1] not in METHODS:
         return []
