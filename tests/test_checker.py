@@ -180,6 +180,8 @@ def test_raw_body_enum_violation() -> None:
 def test_raw_body_invalid_json() -> None:
     warnings = chk("post", "/pet", raw_body="not-json")
     assert any("JSON" in w for w in warnings)
+    # parse 失敗後は "missing" 警告を出さない（ノイズを避けるため早期 return）
+    assert not any("missing" in w for w in warnings)
 
 
 def test_raw_body_non_dict_json() -> None:

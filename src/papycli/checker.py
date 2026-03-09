@@ -18,6 +18,9 @@ def _check_value(param: dict[str, Any], raw_value: Any) -> list[str]:
     enum = param.get("enum")
 
     if ptype == "integer":
+        # Note: int(str(x)) rejects float strings like "1.5" (even if mathematically integer-like).
+        # For -d JSON where raw_value may already be a float (e.g. 1.5), this is intentional:
+        # the spec declares the type as integer, so floating-point values trigger a warning.
         try:
             int(str(raw_value))
         except ValueError:
@@ -50,7 +53,7 @@ def check_request(
 
     問題がなければ空リストを返す。
     """
-    from papycli.api_call import match_path_template
+    from papycli.api_call import match_path_template  # lazy import to avoid circular dependency
 
     warnings: list[str] = []
 
@@ -82,17 +85,21 @@ def check_request(
 
     if raw_body is not None:
         # -d JSON の場合: JSON をパースして各フィールドをチェック
+        can_check_body = True
         try:
             parsed = json.loads(raw_body)
         except json.JSONDecodeError:
             warnings.append("Warning: --check: failed to parse raw body as JSON")
-            parsed = {}
+            can_check_body = False
 
-        if not isinstance(parsed, dict):
+        if can_check_body and not isinstance(parsed, dict):
             warnings.append(
                 "Warning: --check: raw body is not a JSON object; parameter checks skipped"
             )
-            parsed = {}
+            can_check_body = False
+
+        if not can_check_body:
+            return warnings
 
         body_dict: dict[str, Any] = parsed
         provided_body = set(body_dict.keys())
