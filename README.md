@@ -7,6 +7,8 @@
 - Auto-generates a CLI from any OpenAPI 3.0 spec
 - Shell completion for bash and zsh
 - Register and switch between multiple APIs
+- Inspect API specs with `papycli spec`
+- Validate request parameters before sending with `--check` / `--check-strict`
 
 ## Requirements
 
@@ -97,13 +99,13 @@ Once shell completion is enabled, tab completion is available:
 
 ```
 $ papycli <TAB>
-  get  post  put  patch  delete  config  summary
+  get  post  put  patch  delete  config  spec  summary
 
 $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 
 $ papycli get /pet/findByStatus <TAB>
-  -q  -p  -H  -d  --summary  --verbose
+  -q  -p  -H  -d  --summary  --verbose  --check  --check-strict
 
 $ papycli get /pet/findByStatus -q <TAB>
   status
@@ -181,10 +183,13 @@ papycli config use <api-name>              Switch the active API
 papycli config list                        List registered APIs and current configuration
 papycli config completion-script <bash|zsh>  Print a shell completion script
 
-# API call commands
+# Inspection commands
+papycli spec [resource]             Show the raw internal API spec (filter by resource path)
 papycli summary [resource]          List available endpoints (filter by resource prefix)
                                       Required params marked with *, array params with []
 papycli summary --csv               Output endpoints in CSV format
+
+# API call commands
 papycli <method> <resource> [options]
 
 Methods:
@@ -201,6 +206,9 @@ Options:
                               →  {"category":{"id":"1","name":"Dogs"}}
   -d <json>               Raw JSON body (overrides -p)
   --summary               Show endpoint info without sending a request
+  --check                 Validate params before sending (warn on stderr, request is still sent)
+  --check-strict          Validate params before sending (warn on stderr, abort with exit 1 on failure)
+  --verbose / -v          Show HTTP status line
   --version               Show version
   --help / -h             Show help
 

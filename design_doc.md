@@ -37,11 +37,13 @@ papycli/
 │       ├── spec_loader.py   # OpenAPI spec 読み込み・$ref 解決・内部形式変換
 │       ├── init_cmd.py      # config add コマンドの処理
 │       ├── api_call.py      # HTTP リクエスト実行・パステンプレートマッチング
+│       ├── checker.py       # --check / --check-strict のパラメータ検証
 │       ├── summary.py       # summary コマンドの出力
 │       ├── completion.py    # bash / zsh 補完スクリプト生成
 │       └── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 ├── tests/
 │   ├── test_api_call.py
+│   ├── test_checker.py
 │   ├── test_completion.py
 │   ├── test_config.py
 │   ├── test_i18n.py
@@ -174,12 +176,19 @@ papycli/
   - `requests` による HTTP 実行
   - レスポンスの出力（JSON は整形表示、それ以外はそのまま）
 - `main.py` に `papycli <method> <resource>` コマンド追加
-- テスト: `test_api_call.py`
+- `main.py` に `papycli spec [resource]` コマンド追加（内部 API 定義の JSON 表示）
+- `checker.py`
+  - `--check` / `--check-strict` オプション用のパラメータ検証ロジック
+  - 必須パラメータの存在確認、型チェック（integer / boolean）、enum 値の検証
+  - `--check`: 問題があっても警告を出力してリクエストを送信する
+  - `--check-strict`: 問題があれば警告を出力してリクエストを中止し exit 1
+- テスト: `test_api_call.py`、`test_checker.py`
   - パステンプレートマッチングの各ケース
   - `-p` による JSON 構築（配列、ネスト）
   - `responses` ライブラリで HTTP をモックしたエンドツーエンドテスト
+  - `check_request()` の各検証ケース（必須・型・enum・raw body）
 
-**完了条件**: `papycli get /store/inventory`、`papycli post /pet -p name "My Dog" -p status available` 等が Petstore サーバーに対して動作する。テストがパスする。
+**完了条件**: `papycli get /store/inventory`、`papycli post /pet -p name "My Dog" -p status available` 等が Petstore サーバーに対して動作する。`papycli spec` で内部 API 定義が表示される。`--check` / `--check-strict` でパラメータ検証が動作する。テストがパスする。
 
 ---
 
@@ -217,9 +226,11 @@ papycli/
     4. パラメータ名補完: `-q <TAB>` → クエリパラメータ名の候補
     5. enum 値補完: `-q status <TAB>` → `available pending sold` 等
 - `main.py` に `--completion-script <bash|zsh>` コマンド追加
+- 補完候補の強化（`spec` コマンド、`summary --csv`、`--check`/`--check-strict` オプションを追加）
+- Windows 対応: `_complete` の出力を binary stream（LF のみ）に変更
 - 手動テスト手順をドキュメント化
 
-**完了条件**: `eval "$(papycli config completion-script zsh)"` 後にタブ補完が動作する。メソッド・リソース・クエリパラメータ名・ボディパラメータ名・enum 値が補完候補として表示される。
+**完了条件**: `eval "$(papycli config completion-script zsh)"` 後にタブ補完が動作する。メソッド・リソース・クエリパラメータ名・ボディパラメータ名・enum 値が補完候補として表示される。`spec`・`summary`・`--check`・`--check-strict` も補完候補に含まれる。
 
 ---
 
