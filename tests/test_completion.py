@@ -156,13 +156,6 @@ def test_complete_config_no_further_completion() -> None:
     assert result == []
 
 
-def test_complete_resource_non_method_command() -> None:
-    # "summary" はリソースパスと --csv を補完候補として提示する
-    result = ctx(["papycli", "summary", ""], 2)
-    assert "/pet/findByStatus" in result
-    assert "--csv" in result
-
-
 # ---------------------------------------------------------------------------
 # summary コマンド補完
 # ---------------------------------------------------------------------------

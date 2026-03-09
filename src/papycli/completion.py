@@ -149,7 +149,7 @@ def completions_for_context(
             if "--csv".startswith(incomplete):
                 candidates.append("--csv")
             return candidates
-        if current == 3 and words[2] != "--csv":
+        if current == 3 and (len(words) <= 2 or words[2] != "--csv"):
             return ["--csv"] if "--csv".startswith(incomplete) else []
         return []
 
