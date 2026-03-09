@@ -462,6 +462,67 @@ def test_cmd_get_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
 
 
 # ---------------------------------------------------------------------------
+# papycli --check オプション
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_check_warns_missing_required(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """必須パラメータ不足時に警告を出力し、リクエストは送信する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["post", "/pet", "--check"])
+    assert result.exit_code == 0
+    assert len(rsps.calls) == 1  # リクエストは送信された
+    assert "missing" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_check_warns_enum_violation(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "post", "/pet", "--check",
+        "-p", "name", "Rex",
+        "-p", "photoUrls", "http://example.com/a.jpg",
+        "-p", "status", "invalid_status",
+    ])
+    assert result.exit_code == 0
+    assert len(rsps.calls) == 1
+    assert "enum" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_check_no_warning_when_valid(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "post", "/pet", "--check",
+        "-p", "name", "Rex",
+        "-p", "photoUrls", "http://example.com/a.jpg",
+        "-p", "status", "available",
+    ])
+    assert result.exit_code == 0
+    assert len(rsps.calls) == 1
+    assert "Warning" not in result.output
+
+
+# ---------------------------------------------------------------------------
 # papycli summary
 # ---------------------------------------------------------------------------
 

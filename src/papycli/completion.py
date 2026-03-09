@@ -196,7 +196,7 @@ def completions_for_context(
 
     # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
     op = _find_op(apidef, method, resource)
-    opts: list[str] = ["-q", "-p", "-d", "-H", "--summary", "-v", "--verbose"]
+    opts: list[str] = ["-q", "-p", "-d", "-H", "--summary", "-v", "--verbose", "--check"]
     if op is not None:
         if not op.get("query_parameters"):
             opts = [o for o in opts if o != "-q"]
