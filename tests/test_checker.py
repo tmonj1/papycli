@@ -151,6 +151,16 @@ def test_type_boolean_valid_false() -> None:
     assert not any("boolean" in w for w in warnings)
 
 
+def test_type_boolean_valid_one() -> None:
+    warnings = chk("post", "/toggle", body_params=[("enabled", "1")])
+    assert not any("boolean" in w for w in warnings)
+
+
+def test_type_boolean_valid_zero() -> None:
+    warnings = chk("post", "/toggle", body_params=[("enabled", "0")])
+    assert not any("boolean" in w for w in warnings)
+
+
 def test_type_integer_query() -> None:
     warnings = chk("get", "/pet/findByStatus", query_params=[
         ("status", "available"), ("limit", "abc")
