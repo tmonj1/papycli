@@ -506,6 +506,63 @@ def test_cmd_summary_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
 
 # ---------------------------------------------------------------------------
+# papycli spec
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_all(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet" in data
+    assert "/store/inventory" in data
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_resource_exact(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "/pet/findByStatus"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet/findByStatus" in data
+    assert "/pet" not in data
+    assert "/store/inventory" not in data
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_resource_via_template(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "/pet/99"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet/{petId}" in data
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_resource_not_found(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "/no/such/path"])
+    assert result.exit_code != 0
+
+
+def test_cmd_spec_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec"])
+    assert result.exit_code != 0
+
+
+# ---------------------------------------------------------------------------
 # papycli get --summary (エンドポイント詳細表示)
 # ---------------------------------------------------------------------------
 
