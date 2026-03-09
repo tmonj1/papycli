@@ -523,6 +523,61 @@ def test_cmd_check_no_warning_when_valid(
 
 
 # ---------------------------------------------------------------------------
+# papycli <method> --check-strict
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_check_strict_aborts_on_failure(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """必須パラメータ不足時に警告を出力し、リクエストを中止して exit 1 する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["post", "/pet", "--check-strict"])
+    assert result.exit_code == 1
+    assert len(rsps.calls) == 0  # リクエストは送信されない
+    assert "missing" in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_check_strict_sends_when_valid(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """チェック問題なし時はリクエストを送信する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, [
+        "post", "/pet", "--check-strict",
+        "-p", "name", "Rex",
+        "-p", "photoUrls", "http://example.com/a.jpg",
+        "-p", "status", "available",
+    ])
+    assert result.exit_code == 0
+    assert len(rsps.calls) == 1
+    assert "Warning" not in result.output
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_check_and_check_strict_mutually_exclusive(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--check と --check-strict の同時指定はエラーになる。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["post", "/pet", "--check", "--check-strict"])
+    assert result.exit_code == 1
+    assert "cannot be used together" in result.output
+
+
+# ---------------------------------------------------------------------------
 # papycli summary
 # ---------------------------------------------------------------------------
 
