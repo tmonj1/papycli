@@ -9,6 +9,7 @@ import requests
 
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
+from papycli.checker import check_request
 from papycli.config import (
     get_apis_dir,
     get_conf_dir,
@@ -319,6 +320,13 @@ def _api_command(method: str) -> click.Command:
         "-v", "--verbose", is_flag=True,
         help=h("Show HTTP status line.", "HTTP ステータス行を表示する。"),
     )
+    @click.option(
+        "--check", "do_check", is_flag=True,
+        help=h(
+            "Validate params before sending (warn on stderr, request is still sent).",
+            "送信前にパラメータを検証する（警告を stderr に出力、リクエストは送信）。",
+        ),
+    )
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
@@ -327,6 +335,7 @@ def _api_command(method: str) -> click.Command:
         extra_headers: tuple[str, ...],
         show_summary: bool,
         verbose: bool,
+        do_check: bool,
     ) -> None:
         conf_dir = get_conf_dir()
         try:
@@ -343,6 +352,12 @@ def _api_command(method: str) -> click.Command:
             template, _ = match
             click.echo(format_endpoint_detail(apidef, method, template))
             return
+
+        if do_check:
+            for warning in check_request(
+                apidef, method, resource, query_params, body_params, raw_body
+            ):
+                click.echo(warning, err=True)
 
         try:
             resp = call_api(
