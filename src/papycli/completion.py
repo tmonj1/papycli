@@ -12,7 +12,7 @@ from typing import Any
 
 METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "completion-script", "list", "remove", "use"]
-TOP_LEVEL_COMMANDS = METHODS + ["config", "summary"]
+TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
@@ -138,6 +138,12 @@ def completions_for_context(
     if words[1] == "config":
         if current == 2:
             return [c for c in CONFIG_SUBCOMMANDS if c.startswith(incomplete)]
+        return []
+
+    # spec コマンドの補完
+    if words[1] == "spec":
+        if current == 2 and apidef is not None:
+            return [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
         return []
 
     # words[1] が HTTP メソッドでない場合は補完なし

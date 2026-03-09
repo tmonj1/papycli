@@ -69,6 +69,7 @@ def test_complete_subcommand_empty() -> None:
     assert "post" in result
     assert "delete" in result
     assert "config" in result
+    assert "spec" in result
     assert "summary" in result
     assert "init" not in result
 
@@ -91,7 +92,9 @@ def test_complete_subcommand_no_match() -> None:
 
 
 def test_top_level_commands_covers_expected() -> None:
-    assert set(TOP_LEVEL_COMMANDS) == {"get", "post", "put", "patch", "delete", "config", "summary"}
+    assert set(TOP_LEVEL_COMMANDS) == {
+        "get", "post", "put", "patch", "delete", "config", "spec", "summary"
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -339,6 +342,33 @@ def test_complete_delete_path_param() -> None:
     result = ctx(words, 3)
     # オプション名が候補に出る
     assert "-q" in result or "--summary" in result
+
+
+# ---------------------------------------------------------------------------
+# spec コマンド補完
+# ---------------------------------------------------------------------------
+
+
+def test_complete_spec_resources() -> None:
+    result = ctx(["papycli", "spec", ""], 2)
+    assert "/pet/findByStatus" in result
+    assert "/store/inventory" in result
+
+
+def test_complete_spec_resource_prefix() -> None:
+    result = ctx(["papycli", "spec", "/pet"], 2)
+    assert "/pet/findByStatus" in result
+    assert "/store/inventory" not in result
+
+
+def test_complete_spec_no_apidef() -> None:
+    result = ctx_no_apidef(["papycli", "spec", ""], 2)
+    assert result == []
+
+
+def test_complete_spec_no_further_completion() -> None:
+    result = ctx(["papycli", "spec", "/pet", ""], 3)
+    assert result == []
 
 
 # ---------------------------------------------------------------------------
