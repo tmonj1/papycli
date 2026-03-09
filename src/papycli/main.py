@@ -341,4 +341,4 @@ for _method in ("get", "post", "put", "patch", "delete"):
 def cmd_complete(current_index: int, words: tuple[str, ...]) -> None:
     results = get_completions(list(words), current_index, get_conf_dir())
     if results:
-        click.echo("\n".join(results))
+        sys.stdout.buffer.write(("\n".join(results) + "\n").encode("utf-8"))

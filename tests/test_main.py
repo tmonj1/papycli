@@ -647,3 +647,13 @@ def test_cmd_complete_body_enum_values(
     assert "available" in result.output
     assert "pending" in result.output
     assert "sold" in result.output
+
+
+def test_cmd_complete_output_no_crlf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`_complete` の出力が LF のみで、CR を含まないことを確認する (Windows 対応)。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["_complete", "1", "papycli", ""])
+    assert result.exit_code == 0
+    assert "\r" not in result.output
+    assert "get" in result.output
