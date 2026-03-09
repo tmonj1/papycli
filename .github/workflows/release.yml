@@ -58,9 +58,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
         run: |
-          PREV_TAG=$(gh release list --repo "$REPO" --limit 1 \
-            --json tagName --jq '.[0].tagName // ""')
+          # Exclude drafts, pre-releases, and the current tag to get the true previous release
+          PREV_TAG=$(gh release list --repo "$REPO" --limit 20 \
+            --json tagName,isDraft,isPrerelease \
+            --jq 'map(select((.isDraft | not) and (.isPrerelease | not) and (.tagName != env.TAG))) | .[0].tagName // ""')
           echo "prev_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Collect commits since previous release
@@ -69,16 +72,26 @@ jobs:
           TAG: ${{ github.ref_name }}
           PREV_TAG: ${{ steps.prev-tag.outputs.prev_tag }}
         run: |
-          if [ -n "$PREV_TAG" ]; then
+          set -euo pipefail
+          if [ -n "${PREV_TAG}" ]; then
             RANGE="${PREV_TAG}..${TAG}"
           else
-            RANGE="$TAG"
+            RANGE="${TAG}"
+          fi
+          # Validate that the range resolves before proceeding
+          if ! git rev-parse "${RANGE}" > /dev/null 2>&1; then
+            echo "Error: git range '${RANGE}' does not resolve." >&2
+            exit 1
           fi
           # Collect up to 100 subject lines; exclude merge commits
-          COMMITS=$(git log "$RANGE" --no-merges --pretty=format:"%s" | head -100)
-          echo "commits<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$COMMITS" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          COMMITS=$(git log "${RANGE}" --no-merges --pretty=format:"%s" | head -100)
+          # Use a unique delimiter to avoid collision with commit message content
+          DELIM=$(uuidgen)
+          {
+            echo "commits<<${DELIM}"
+            echo "${COMMITS}"
+            echo "${DELIM}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes with GitHub Models
         id: ai
