@@ -194,37 +194,42 @@ def _write_log(
     headers: dict[str, str],
     resp: requests.Response,
 ) -> None:
-    """リクエスト・レスポンスの情報を logfile に追記する。"""
-    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    """リクエスト・レスポンスの情報を logfile に追記する。
 
-    # クエリパラメータ: 同一キーは list にまとめて表示（_set_or_append を再利用）
-    q_dict: dict[str, Any] = {}
-    for k, v in query_params:
-        _set_or_append(q_dict, k, v)
-    q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
-
-    body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
-    masked = {
-        k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
-    }
-    headers_str = json.dumps(masked, ensure_ascii=False) if masked else "(none)"
-
+    エントリ構築（JSON 直列化含む）とファイル書き込みをまとめて try/except で囲む。
+    json.dumps が TypeError を送出した場合（フィルターが非シリアライズ可能な値を
+    設定した場合等）も警告を出力するだけで call_api() の呼び出しには影響しない。
+    """
     try:
-        resp_body = resp.json()
-        resp_str = json.dumps(resp_body, ensure_ascii=False)
-    except ValueError:
-        resp_str = resp.text or "(empty)"
+        timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    entry = (
-        f"[{timestamp}] {method.upper()} {url}\n"
-        f"  Query: {q_str}\n"
-        f"  Body: {body_str}\n"
-        f"  Headers: {headers_str}\n"
-        f"  Status: {resp.status_code}\n"
-        f"  Response: {resp_str}\n"
-    )
+        # クエリパラメータ: 同一キーは list にまとめて表示（_set_or_append を再利用）
+        q_dict: dict[str, Any] = {}
+        for k, v in query_params:
+            _set_or_append(q_dict, k, v)
+        q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
 
-    try:
+        body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
+        masked = {
+            k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
+        }
+        headers_str = json.dumps(masked, ensure_ascii=False) if masked else "(none)"
+
+        try:
+            resp_body = resp.json()
+            resp_str = json.dumps(resp_body, ensure_ascii=False)
+        except ValueError:
+            resp_str = resp.text or "(empty)"
+
+        entry = (
+            f"[{timestamp}] {method.upper()} {url}\n"
+            f"  Query: {q_str}\n"
+            f"  Body: {body_str}\n"
+            f"  Headers: {headers_str}\n"
+            f"  Status: {resp.status_code}\n"
+            f"  Response: {resp_str}\n"
+        )
+
         Path(logfile).parent.mkdir(parents=True, exist_ok=True)
         with Path(logfile).open("a", encoding="utf-8") as f:
             f.write(entry)

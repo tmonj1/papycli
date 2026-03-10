@@ -479,3 +479,23 @@ def test_call_api_log_non_sensitive_header_not_masked(tmp_path: Path) -> None:
 
     content = Path(logfile).read_text(encoding="utf-8")
     assert "visible_value" in content
+
+
+@rsps.activate
+def test_call_api_log_survives_non_serializable_body(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ログの JSON 直列化が失敗しても call_api() は正常終了し、警告を出す。"""
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    # フィルターが非シリアライズ可能な body を設定する状況を再現
+    with patch("papycli.api_call.json.dumps", side_effect=TypeError("not serializable")):
+        resp = call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert resp.status_code == 200
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert logfile in captured.err
