@@ -141,7 +141,12 @@ def completions_for_context(
     if words[1] == "config":
         if current == 2:
             return [c for c in CONFIG_SUBCOMMANDS if c.startswith(incomplete)]
-        if current == 3 and words[2] in ("remove", "use") and api_names is not None:
+        if (
+            current == 3
+            and len(words) > 2
+            and words[2] in ("remove", "use")
+            and api_names is not None
+        ):
             return [n for n in api_names if n.startswith(incomplete)]
         return []
 
@@ -213,7 +218,13 @@ def completions_for_context(
 
 
 def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:
-    """apidef と conf をディスクから読み込んで補完候補を返す。失敗した場合は空リスト。"""
+    """apidef と conf をディスクから読み込んで補完候補を返す。
+
+    読み込みに失敗した場合でも、トップレベルコマンドおよび config サブコマンド自体の補完は行われる。
+    conf や apidef に依存する補完（config remove / config use での API 名候補や、
+    メソッド・リソース・オプション等の API 定義由来の候補）は、対応するデータが読み込めなかった
+    場合は空になる。
+    """
     from papycli.config import get_conf_dir, load_conf, load_current_apidef
 
     resolved_dir = conf_dir or get_conf_dir()
