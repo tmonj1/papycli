@@ -204,6 +204,10 @@ def cmd_config_list() -> None:
     ),
 )
 def cmd_config_log(path: str | None, unset: bool) -> None:
+    if unset and path is not None:
+        click.echo("Error: --unset and PATH cannot be used together.", err=True)
+        sys.exit(1)
+
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
@@ -397,13 +401,14 @@ def _api_command(method: str) -> click.Command:
             sys.exit(1)
 
         conf_dir = get_conf_dir()
+        conf = load_conf(conf_dir)
         try:
-            apidef, base_url = load_current_apidef(conf_dir)
+            apidef, base_url = load_current_apidef(conf_dir, conf=conf)
         except Exception as e:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
-        logfile = get_logfile(load_conf(conf_dir))
+        logfile = get_logfile(conf)
 
         if show_summary:
             match = match_path_template(resource, list(apidef.keys()))

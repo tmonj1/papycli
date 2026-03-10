@@ -98,10 +98,18 @@ def unset_logfile(conf: dict[str, Any]) -> None:
     conf.pop("logfile", None)
 
 
-def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], str]:
-    """現在のデフォルト API の (apidef dict, base_url) を返す。"""
+def load_current_apidef(
+    conf_dir: Path | None = None,
+    *,
+    conf: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], str]:
+    """現在のデフォルト API の (apidef dict, base_url) を返す。
+
+    ``conf`` を渡すと設定ファイルの再読み込みをスキップする。
+    """
     resolved_dir = conf_dir or get_conf_dir()
-    conf = load_conf(resolved_dir)
+    if conf is None:
+        conf = load_conf(resolved_dir)
     api_name = get_default_api(conf)
     if not api_name:
         raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")

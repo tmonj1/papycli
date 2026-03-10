@@ -436,3 +436,46 @@ def test_call_api_log_creates_parent_dir(tmp_path: Path) -> None:
     call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
     assert Path(logfile).exists()
+
+
+@rsps.activate
+def test_call_api_log_timestamp_has_utc_offset(tmp_path: Path) -> None:
+    """ログのタイムスタンプが UTC オフセット付き ISO 8601 形式になっている。"""
+    import re as _re
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert _re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00", content)
+
+
+@rsps.activate
+def test_call_api_log_masks_authorization_header(tmp_path: Path) -> None:
+    """Authorization ヘッダーの値がログ上でマスクされる。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        extra_headers=["Authorization: Bearer secret_token"],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "secret_token" not in content
+    assert "***" in content
+
+
+@rsps.activate
+def test_call_api_log_non_sensitive_header_not_masked(tmp_path: Path) -> None:
+    """機密でないヘッダーの値はマスクされない。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        extra_headers=["X-Custom-Header: visible_value"],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "visible_value" in content

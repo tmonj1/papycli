@@ -175,6 +175,15 @@ def parse_headers(
 # ログ書き込み
 # ---------------------------------------------------------------------------
 
+_SENSITIVE_HEADERS = frozenset({
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "proxy-authorization",
+    "x-api-key",
+    "x-auth-token",
+})
+
 
 def _write_log(
     logfile: str,
@@ -186,7 +195,7 @@ def _write_log(
     resp: requests.Response,
 ) -> None:
     """リクエスト・レスポンスの情報を logfile に追記する。"""
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     # クエリパラメータ: 同一キーは list にまとめて表示
     q_dict: dict[str, Any] = {}
@@ -198,7 +207,10 @@ def _write_log(
     q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
 
     body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
-    headers_str = json.dumps(headers, ensure_ascii=False) if headers else "(none)"
+    masked = {
+        k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
+    }
+    headers_str = json.dumps(masked, ensure_ascii=False) if masked else "(none)"
 
     try:
         resp_body = resp.json()

@@ -885,3 +885,14 @@ def test_config_log_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     conf_path = tmp_path / "papycli.conf"
     conf = _json.loads(conf_path.read_text(encoding="utf-8"))
     assert "logfile" not in conf
+
+
+def test_config_log_unset_and_path_exclusive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--unset と PATH を同時指定するとエラー終了する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "log", "--unset", "/some/path"])
+    assert result.exit_code != 0
+    assert "Error" in result.output or "Error" in (result.stderr if hasattr(result, "stderr") else "")

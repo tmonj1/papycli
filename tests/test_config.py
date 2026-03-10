@@ -11,11 +11,14 @@ from papycli.config import (
     get_conf_dir,
     get_conf_path,
     get_default_api,
+    get_logfile,
     load_conf,
     register_api,
     remove_api,
     save_conf,
     set_default_api,
+    set_logfile,
+    unset_logfile,
 )
 
 
@@ -140,8 +143,6 @@ def test_remove_api_no_default_key_leaves_conf_stable() -> None:
 # ---------------------------------------------------------------------------
 # logfile
 # ---------------------------------------------------------------------------
-
-from papycli.config import get_logfile, set_logfile, unset_logfile
 
 
 def test_get_logfile_not_set() -> None:
