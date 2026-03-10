@@ -401,8 +401,8 @@ def _api_command(method: str) -> click.Command:
             sys.exit(1)
 
         conf_dir = get_conf_dir()
-        conf = load_conf(conf_dir)
         try:
+            conf = load_conf(conf_dir)
             apidef, base_url = load_current_apidef(conf_dir, conf=conf)
         except Exception as e:
             click.echo(f"Error: {e}", err=True)

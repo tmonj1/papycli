@@ -197,13 +197,10 @@ def _write_log(
     """リクエスト・レスポンスの情報を logfile に追記する。"""
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # クエリパラメータ: 同一キーは list にまとめて表示
+    # クエリパラメータ: 同一キーは list にまとめて表示（_set_or_append を再利用）
     q_dict: dict[str, Any] = {}
     for k, v in query_params:
-        if k in q_dict:
-            q_dict[k] = [q_dict[k], v] if not isinstance(q_dict[k], list) else [*q_dict[k], v]
-        else:
-            q_dict[k] = v
+        _set_or_append(q_dict, k, v)
     q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
 
     body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
@@ -309,6 +306,9 @@ def call_api(
     )
 
     if logfile:
-        _write_log(logfile, method, ctx.url, ctx.query_params, ctx.body, ctx.headers, resp)
+        # ログにはフィルター適用前のユーザー指定ヘッダー（headers）を使う。
+        # ctx.headers にはフィルタープラグインが追加したヘッダーが含まれる可能性があり、
+        # 機密情報が漏洩するリスクがあるため記録しない。
+        _write_log(logfile, method, ctx.url, ctx.query_params, ctx.body, headers, resp)
 
     return resp
