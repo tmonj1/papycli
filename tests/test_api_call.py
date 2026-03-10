@@ -38,6 +38,9 @@ APIDEF: dict[str, Any] = {
             "post_parameters": [
                 {"name": "name", "type": "string", "required": True},
                 {"name": "status", "type": "string", "required": False},
+                {"name": "id", "type": "integer", "required": False},
+                {"name": "available", "type": "boolean", "required": False},
+                {"name": "price", "type": "number", "required": False},
             ],
         },
         {"method": "put", "query_parameters": [], "post_parameters": []},
@@ -162,6 +165,75 @@ def test_build_body_empty() -> None:
 
 
 # ---------------------------------------------------------------------------
+# build_body — 型変換
+# ---------------------------------------------------------------------------
+
+POST_PARAMS: list[dict[str, Any]] = [
+    {"name": "id", "type": "integer", "required": False},
+    {"name": "available", "type": "boolean", "required": False},
+    {"name": "price", "type": "number", "required": False},
+    {"name": "name", "type": "string", "required": True},
+]
+
+
+def test_build_body_integer_coercion() -> None:
+    result = build_body([("id", "42")], POST_PARAMS)
+    assert result == {"id": 42}
+    assert isinstance(result["id"], int)
+
+
+def test_build_body_boolean_true_word() -> None:
+    result = build_body([("available", "true")], POST_PARAMS)
+    assert result == {"available": True}
+    assert isinstance(result["available"], bool)
+
+
+def test_build_body_boolean_false_word() -> None:
+    result = build_body([("available", "false")], POST_PARAMS)
+    assert result == {"available": False}
+    assert isinstance(result["available"], bool)
+
+
+def test_build_body_boolean_one() -> None:
+    result = build_body([("available", "1")], POST_PARAMS)
+    assert result == {"available": True}
+
+
+def test_build_body_boolean_zero() -> None:
+    result = build_body([("available", "0")], POST_PARAMS)
+    assert result == {"available": False}
+
+
+def test_build_body_number_coercion() -> None:
+    result = build_body([("price", "3.14")], POST_PARAMS)
+    assert result == {"price": 3.14}
+    assert isinstance(result["price"], float)
+
+
+def test_build_body_string_unchanged() -> None:
+    result = build_body([("name", "Dog")], POST_PARAMS)
+    assert result == {"name": "Dog"}
+    assert isinstance(result["name"], str)
+
+
+def test_build_body_invalid_integer_falls_back_to_string(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = build_body([("id", "not-a-number")], POST_PARAMS)
+    assert result == {"id": "not-a-number"}
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert "integer" in captured.err
+
+
+def test_build_body_no_post_params_keeps_string() -> None:
+    """post_parameters が渡されない場合は型変換しない（後方互換）。"""
+    result = build_body([("id", "42")])
+    assert result == {"id": "42"}
+    assert isinstance(result["id"], str)
+
+
+# ---------------------------------------------------------------------------
 # parse_headers
 # ---------------------------------------------------------------------------
 
@@ -283,3 +355,18 @@ def test_call_api_unknown_path() -> None:
 def test_call_api_wrong_method() -> None:
     with pytest.raises(ValueError, match="not defined"):
         call_api("patch", "/store/inventory", BASE_URL, APIDEF)
+
+
+@rsps.activate
+def test_call_api_post_integer_body_param() -> None:
+    """call_api が post_parameters の type 情報を使って整数変換する。"""
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={"id": 1}, status=200)
+    resp = call_api(
+        "post", "/pet", BASE_URL, APIDEF,
+        body_params=[("id", "1"), ("name", "My Dog")],
+    )
+    import json as _json
+    body = _json.loads(resp.request.body)  # type: ignore[union-attr]
+    assert body["id"] == 1
+    assert isinstance(body["id"], int)
+    assert body["name"] == "My Dog"

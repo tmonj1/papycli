@@ -3,11 +3,11 @@
 import json
 import os
 import re
+import sys
 from collections.abc import Sequence
 from typing import Any
 
 import requests
-
 
 # ---------------------------------------------------------------------------
 # パステンプレートマッチング
@@ -68,7 +68,7 @@ def expand_path(template: str, path_params: dict[str, str]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _set_or_append(obj: dict[str, Any], key: str, value: str) -> None:
+def _set_or_append(obj: dict[str, Any], key: str, value: Any) -> None:
     """dict にキーが既存なら配列に、なければ単値として設定する。"""
     if key not in obj:
         obj[key] = value
@@ -78,12 +78,47 @@ def _set_or_append(obj: dict[str, Any], key: str, value: str) -> None:
         obj[key] = [obj[key], value]
 
 
-def build_body(pairs: Sequence[tuple[str, str]]) -> dict[str, Any]:
+def _coerce_value(value: str, type_str: str, name: str) -> Any:
+    """API 定義の type に基づいて文字列値を適切な Python 型に変換する。
+
+    変換に失敗した場合は警告を出力して文字列のまま返す。
+    """
+    try:
+        if type_str == "integer":
+            return int(value)
+        if type_str == "number":
+            return float(value)
+        if type_str == "boolean":
+            if value.lower() in ("true", "1"):
+                return True
+            if value.lower() in ("false", "0"):
+                return False
+            raise ValueError(f"not a boolean value: {value!r}")
+    except (ValueError, TypeError) as e:
+        print(
+            f"Warning: cannot convert '{value}' to {type_str} for '{name}' ({e}),"
+            " sending as string",
+            file=sys.stderr,
+        )
+    return value
+
+
+def build_body(
+    pairs: Sequence[tuple[str, str]],
+    post_parameters: Sequence[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """(-p name value) ペアから JSON ボディ dict を構築する。
 
     - 同じキーを繰り返すと JSON 配列になる
     - ドット記法 (category.id) で 1 レベルのネストオブジェクトになる
+    - post_parameters が渡された場合、type フィールドに基づき値を適切な型に変換する
     """
+    type_map: dict[str, str] = (
+        {p["name"]: p.get("type", "string") for p in post_parameters}
+        if post_parameters
+        else {}
+    )
+
     result: dict[str, Any] = {}
     for name, value in pairs:
         if "." in name:
@@ -97,7 +132,9 @@ def build_body(pairs: Sequence[tuple[str, str]]) -> dict[str, Any]:
                 )
             _set_or_append(parent_obj, child, value)
         else:
-            _set_or_append(result, name, value)
+            type_str = type_map.get(name, "string")
+            coerced = _coerce_value(value, type_str, name)
+            _set_or_append(result, name, coerced)
     return result
 
 
@@ -164,8 +201,9 @@ def call_api(
     template, path_params = match
 
     ops: list[dict[str, Any]] = apidef[template]
-    if not any(op["method"] == method for op in ops):
-        available = [op["method"] for op in ops]
+    op = next((o for o in ops if o["method"] == method), None)
+    if op is None:
+        available = [o["method"] for o in ops]
         raise ValueError(
             f"Method '{method}' is not defined for '{template}'. "
             f"Available: {', '.join(available)}"
@@ -181,7 +219,7 @@ def call_api(
     if raw_body is not None:
         json_body = json.loads(raw_body)
     elif body_params:
-        json_body = build_body(body_params)
+        json_body = build_body(body_params, op.get("post_parameters"))
 
     return requests.request(
         method=method.upper(),
