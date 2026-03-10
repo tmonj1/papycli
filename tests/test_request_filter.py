@@ -137,6 +137,25 @@ def test_apply_filters_all_raising(capsys: pytest.CaptureFixture[str]) -> None:
     assert captured.err.count("Warning") == 2
 
 
+def test_apply_filters_invalid_return_type_skipped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """RequestContext 以外を返したフィルターはスキップされ、前の ctx を維持する。"""
+    def bad_return(ctx: RequestContext) -> RequestContext:
+        return None  # type: ignore[return-value]
+
+    ctx = RequestContext(method="get", url="http://example.com/")
+    result = apply_filters(
+        ctx,
+        [("bad-return", bad_return), ("good-filter", _add_header_filter)],
+    )
+    # bad-return はスキップ、good-filter は実行される
+    assert result.headers.get("X-Added") == "yes"
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert "bad-return" in captured.err
+
+
 # ---------------------------------------------------------------------------
 # load_filters
 # ---------------------------------------------------------------------------

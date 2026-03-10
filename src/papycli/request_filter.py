@@ -37,10 +37,16 @@ class RequestContext:
     """完全 URL（パスパラメータ展開済み）."""
 
     query_params: dict[str, list[str]] = field(default_factory=dict)
-    """クエリパラメータ（同一キーの複数値はリストで保持）."""
+    """クエリパラメータ（同一キーの複数値はリストで保持）.
 
-    body: dict[str, Any] | list[Any] | None = None
-    """JSON ボディ（-d 指定時は dict/list、未指定時は None）."""
+    .. note::
+        元の ``-q`` ペアはキーごとにまとめられるため、異なるキーが交互に現れる順序は
+        保持されない（例: ``[('a','1'),('b','1'),('a','2')]`` → キー 'a' の値が隣接する）。
+        フィルターがこの dict を変更した場合も、送信時の順序はキーの挿入順に従う。
+    """
+
+    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    """JSON ボディ（-d 指定時は任意の JSON 値（オブジェクト・配列・スカラ）、未指定時は None）."""
 
     headers: dict[str, str] = field(default_factory=dict)
     """カスタム HTTP ヘッダー."""
@@ -71,14 +77,24 @@ def apply_filters(
 ) -> RequestContext:
     """フィルターを順番に適用する。
 
-    例外を送出したフィルターは警告を出力してスキップし、残りのフィルターの処理は継続する。
+    例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
+    警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
     for name, func in filters:
         try:
-            ctx = func(ctx)
+            result = func(ctx)
         except Exception as e:
             print(
                 f"Warning: request filter '{name}' raised an exception: {e}",
                 file=sys.stderr,
             )
+            continue
+        if not isinstance(result, RequestContext):
+            print(
+                f"Warning: request filter '{name}' returned {type(result).__name__!r}"
+                " instead of RequestContext; skipping",
+                file=sys.stderr,
+            )
+            continue
+        ctx = result
     return ctx

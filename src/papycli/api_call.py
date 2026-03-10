@@ -235,7 +235,7 @@ def call_api(
     custom_env = os.environ.get("PAPYCLI_CUSTOM_HEADER")
     headers = parse_headers(extra_headers, custom_env)
 
-    json_body: dict[str, Any] | list[Any] | None = None
+    json_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
     if raw_body is not None:
         json_body = json.loads(raw_body)
     elif body_params:
