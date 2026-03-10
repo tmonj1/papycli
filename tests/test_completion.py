@@ -2,8 +2,6 @@
 
 from typing import Any
 
-import pytest
-
 from papycli.completion import (
     CONFIG_SUBCOMMANDS,
     TOP_LEVEL_COMMANDS,
@@ -154,8 +152,50 @@ def test_complete_config_subcommands_covers_all() -> None:
 
 
 def test_complete_config_no_further_completion() -> None:
-    # config サブコマンドの引数は補完しない
+    # config add の引数は補完しない（api_names なし）
     result = ctx(["papycli", "config", "add", ""], 3)
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# config remove / config use — API 名補完
+# ---------------------------------------------------------------------------
+
+API_NAMES = ["petstore", "myapi", "other-api"]
+
+
+def ctx_with_names(words: list[str], current: int) -> list[str]:
+    return completions_for_context(words, current, APIDEF, API_NAMES)
+
+
+def test_complete_config_remove_api_names() -> None:
+    result = ctx_with_names(["papycli", "config", "remove", ""], 3)
+    assert result == API_NAMES
+
+
+def test_complete_config_remove_prefix() -> None:
+    result = ctx_with_names(["papycli", "config", "remove", "pet"], 3)
+    assert result == ["petstore"]
+
+
+def test_complete_config_use_api_names() -> None:
+    result = ctx_with_names(["papycli", "config", "use", ""], 3)
+    assert result == API_NAMES
+
+
+def test_complete_config_use_prefix() -> None:
+    result = ctx_with_names(["papycli", "config", "use", "my"], 3)
+    assert result == ["myapi"]
+
+
+def test_complete_config_remove_no_api_names() -> None:
+    """api_names が None の場合は空リスト（conf 読み込み失敗時）。"""
+    result = completions_for_context(["papycli", "config", "remove", ""], 3, APIDEF, None)
+    assert result == []
+
+
+def test_complete_config_use_no_api_names() -> None:
+    result = completions_for_context(["papycli", "config", "use", ""], 3, APIDEF, None)
     assert result == []
 
 
