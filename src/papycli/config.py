@@ -83,9 +83,11 @@ def get_default_api(conf: dict[str, Any]) -> str | None:
 
 
 def get_logfile(conf: dict[str, Any]) -> str | None:
-    """現在のログファイルパスを返す。未設定または空文字列の場合は None。"""
+    """現在のログファイルパスを返す。未設定・空文字列・非文字列の場合は None。"""
     value = conf.get("logfile")
-    return str(value) if value else None
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def set_logfile(conf: dict[str, Any], path: str) -> None:

@@ -209,17 +209,29 @@ def cmd_config_log(path: str | None, unset: bool) -> None:
         sys.exit(1)
 
     conf_dir = get_conf_dir()
-    conf = load_conf(conf_dir)
+    try:
+        conf = load_conf(conf_dir)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
     if unset:
         unset_logfile(conf)
-        save_conf(conf, conf_dir)
+        try:
+            save_conf(conf, conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
         click.echo("Log file setting removed.")
         return
 
     if path is not None:
         set_logfile(conf, path)
-        save_conf(conf, conf_dir)
+        try:
+            save_conf(conf, conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
         click.echo(f"Log file set to: {path}")
         return
 

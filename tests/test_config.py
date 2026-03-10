@@ -157,6 +157,13 @@ def test_get_logfile_returns_path() -> None:
     assert get_logfile({"logfile": "/tmp/papycli.log"}) == "/tmp/papycli.log"
 
 
+def test_get_logfile_non_string_returns_none() -> None:
+    """logfile が非文字列型（数値等）の場合は None を返す。"""
+    assert get_logfile({"logfile": 123}) is None
+    assert get_logfile({"logfile": True}) is None
+    assert get_logfile({"logfile": []}) is None
+
+
 def test_set_logfile() -> None:
     conf: dict = {}
     set_logfile(conf, "/var/log/papycli.log")
