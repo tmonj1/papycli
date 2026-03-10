@@ -110,6 +110,7 @@ jobs:
             - IGNORE commits starting with "docs:" or "chore:" — do not include them at all.
             - Rewrite each item as a concise, user-friendly bullet point (do not copy the raw commit subject verbatim).
             - Omit any section that has no entries.
+            - Always output sections in this exact order when present: ## Features, then ## Bug Fixes, then ## Maintenance.
             - Output valid Markdown only. No preamble, no explanation outside the Markdown.
           prompt: |
             Generate release notes for ${{ github.ref_name }} from the following commit messages:
