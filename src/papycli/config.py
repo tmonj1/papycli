@@ -79,7 +79,23 @@ def set_default_api(conf: dict[str, Any], name: str) -> None:
 
 def get_default_api(conf: dict[str, Any]) -> str | None:
     """現在のデフォルト API 名を返す。未設定の場合は None。"""
-    return conf.get("default")  # type: ignore[return-value]
+    return conf.get("default")
+
+
+def get_logfile(conf: dict[str, Any]) -> str | None:
+    """現在のログファイルパスを返す。未設定または空文字列の場合は None。"""
+    value = conf.get("logfile")
+    return str(value) if value else None
+
+
+def set_logfile(conf: dict[str, Any], path: str) -> None:
+    """ログファイルのパスを設定する。"""
+    conf["logfile"] = path
+
+
+def unset_logfile(conf: dict[str, Any]) -> None:
+    """ログファイル設定を削除する（ログ無効化）。"""
+    conf.pop("logfile", None)
 
 
 def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], str]:

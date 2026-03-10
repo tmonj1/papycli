@@ -5,6 +5,8 @@ import os
 import re
 import sys
 from collections.abc import Sequence
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -170,6 +172,58 @@ def parse_headers(
 
 
 # ---------------------------------------------------------------------------
+# ログ書き込み
+# ---------------------------------------------------------------------------
+
+
+def _write_log(
+    logfile: str,
+    method: str,
+    url: str,
+    query_params: list[tuple[str, str]],
+    body: Any,
+    headers: dict[str, str],
+    resp: requests.Response,
+) -> None:
+    """リクエスト・レスポンスの情報を logfile に追記する。"""
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+
+    # クエリパラメータ: 同一キーは list にまとめて表示
+    q_dict: dict[str, Any] = {}
+    for k, v in query_params:
+        if k in q_dict:
+            q_dict[k] = [q_dict[k], v] if not isinstance(q_dict[k], list) else [*q_dict[k], v]
+        else:
+            q_dict[k] = v
+    q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
+
+    body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
+    headers_str = json.dumps(headers, ensure_ascii=False) if headers else "(none)"
+
+    try:
+        resp_body = resp.json()
+        resp_str = json.dumps(resp_body, ensure_ascii=False)
+    except ValueError:
+        resp_str = resp.text or "(empty)"
+
+    entry = (
+        f"[{timestamp}] {method.upper()} {url}\n"
+        f"  Query: {q_str}\n"
+        f"  Body: {body_str}\n"
+        f"  Headers: {headers_str}\n"
+        f"  Status: {resp.status_code}\n"
+        f"  Response: {resp_str}\n"
+    )
+
+    try:
+        Path(logfile).parent.mkdir(parents=True, exist_ok=True)
+        with Path(logfile).open("a", encoding="utf-8") as f:
+            f.write(entry)
+    except Exception as e:
+        print(f"Warning: failed to write log to '{logfile}': {e}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # HTTP 実行
 # ---------------------------------------------------------------------------
 
@@ -184,6 +238,7 @@ def call_api(
     body_params: Sequence[tuple[str, str]] = (),
     raw_body: str | None = None,
     extra_headers: Sequence[str] = (),
+    logfile: str | None = None,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
     from papycli.request_filter import RequestContext, apply_filters, load_filters
@@ -233,10 +288,15 @@ def call_api(
     ctx = apply_filters(ctx, load_filters())
 
     # method はフィルターから変更不可のため、API 定義マッチング時に確定した元の値を使う。
-    return requests.request(
+    resp = requests.request(
         method=method.upper(),
         url=ctx.url,
         params=ctx.query_params,
         json=ctx.body,
         headers=ctx.headers,
     )
+
+    if logfile:
+        _write_log(logfile, method, ctx.url, ctx.query_params, ctx.body, ctx.headers, resp)
+
+    return resp

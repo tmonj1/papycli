@@ -135,3 +135,40 @@ def test_remove_api_no_default_key_leaves_conf_stable() -> None:
     conf: dict = {"myapi": {"url": "http://a"}}
     remove_api(conf, "myapi")
     assert conf == {}
+
+
+# ---------------------------------------------------------------------------
+# logfile
+# ---------------------------------------------------------------------------
+
+from papycli.config import get_logfile, set_logfile, unset_logfile
+
+
+def test_get_logfile_not_set() -> None:
+    assert get_logfile({}) is None
+
+
+def test_get_logfile_empty_string() -> None:
+    assert get_logfile({"logfile": ""}) is None
+
+
+def test_get_logfile_returns_path() -> None:
+    assert get_logfile({"logfile": "/tmp/papycli.log"}) == "/tmp/papycli.log"
+
+
+def test_set_logfile() -> None:
+    conf: dict = {}
+    set_logfile(conf, "/var/log/papycli.log")
+    assert conf["logfile"] == "/var/log/papycli.log"
+
+
+def test_unset_logfile() -> None:
+    conf: dict = {"logfile": "/tmp/papycli.log"}
+    unset_logfile(conf)
+    assert "logfile" not in conf
+
+
+def test_unset_logfile_noop_when_not_set() -> None:
+    conf: dict = {}
+    unset_logfile(conf)
+    assert conf == {}

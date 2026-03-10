@@ -1,5 +1,6 @@
 """api_call モジュールのテスト."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -370,3 +371,68 @@ def test_call_api_post_integer_body_param() -> None:
     assert body["id"] == 1
     assert isinstance(body["id"], int)
     assert body["name"] == "My Dog"
+
+
+# ---------------------------------------------------------------------------
+# _write_log / call_api logging
+# ---------------------------------------------------------------------------
+
+
+@rsps.activate
+def test_call_api_writes_log(tmp_path: Path) -> None:
+    """logfile が設定されている場合、call_api 後にログが追記される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 1}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "GET" in content
+    assert "/store/inventory" in content
+    assert "Status: 200" in content
+    assert '{"dogs": 1}' in content
+
+
+@rsps.activate
+def test_call_api_log_includes_query_params(tmp_path: Path) -> None:
+    """クエリパラメータがログに記録される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        query_params=[("status", "available")],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "available" in content
+
+
+@rsps.activate
+def test_call_api_log_appends(tmp_path: Path) -> None:
+    """複数回呼び出すとログが追記される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert content.count("GET") == 2
+
+
+@rsps.activate
+def test_call_api_no_log_when_logfile_none() -> None:
+    """logfile が None のときはログファイルを生成しない。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    call_api("get", "/store/inventory", BASE_URL, APIDEF)
+    # 例外が起きなければ OK（ファイルシステムへの副作用なし）
+
+
+@rsps.activate
+def test_call_api_log_creates_parent_dir(tmp_path: Path) -> None:
+    """ログファイルの親ディレクトリが存在しない場合に自動作成される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "subdir" / "nested" / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert Path(logfile).exists()
