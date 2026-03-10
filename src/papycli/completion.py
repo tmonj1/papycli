@@ -115,15 +115,18 @@ def completions_for_context(
     words: list[str],
     current: int,
     apidef: dict[str, Any] | None,
+    api_names: list[str] | None = None,
 ) -> list[str]:
     """コマンドラインのコンテキストに応じた補完候補を返す。
 
     Args:
-        words:   コマンドライントークンのリスト（words[0] = "papycli"）
-        current: 補完中の単語のインデックス（0 始まり）
-        apidef:  現在の API 定義 dict。リソースパスやパラメータの補完に使用する。
-                 None の場合、それらの補完は空リストを返す（トップレベルや
-                 config サブコマンドの補完は apidef なしでも機能する）。
+        words:     コマンドライントークンのリスト（words[0] = "papycli"）
+        current:   補完中の単語のインデックス（0 始まり）
+        apidef:    現在の API 定義 dict。リソースパスやパラメータの補完に使用する。
+                   None の場合、それらの補完は空リストを返す（トップレベルや
+                   config サブコマンドの補完は apidef なしでも機能する）。
+        api_names: 登録済み API 名のリスト。config remove / config use の補完に使用する。
+                   None の場合、それらのサブコマンドは補完候補を返さない。
     """
     incomplete = words[current] if current < len(words) else ""
 
@@ -138,6 +141,8 @@ def completions_for_context(
     if words[1] == "config":
         if current == 2:
             return [c for c in CONFIG_SUBCOMMANDS if c.startswith(incomplete)]
+        if current == 3 and words[2] in ("remove", "use") and api_names is not None:
+            return [n for n in api_names if n.startswith(incomplete)]
         return []
 
     # summary コマンドの補完
@@ -208,11 +213,22 @@ def completions_for_context(
 
 
 def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:
-    """apidef をディスクから読み込んで補完候補を返す。失敗した場合は空リスト。"""
-    from papycli.config import get_conf_dir, load_current_apidef
+    """apidef と conf をディスクから読み込んで補完候補を返す。失敗した場合は空リスト。"""
+    from papycli.config import get_conf_dir, load_conf, load_current_apidef
+
+    resolved_dir = conf_dir or get_conf_dir()
 
     try:
-        apidef, _ = load_current_apidef(conf_dir or get_conf_dir())
+        conf = load_conf(resolved_dir)
+        api_names: list[str] | None = [
+            k for k in conf if k != "default" and isinstance(conf[k], dict)
+        ]
+    except Exception:
+        api_names = None
+
+    try:
+        apidef, _ = load_current_apidef(resolved_dir)
     except Exception:
         apidef = None
-    return completions_for_context(words, current, apidef)
+
+    return completions_for_context(words, current, apidef, api_names)
