@@ -186,6 +186,8 @@ def call_api(
     extra_headers: Sequence[str] = (),
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
+    from papycli.request_filter import RequestContext, apply_filters, load_filters
+
     if not base_url:
         raise RuntimeError(
             "Base URL is not configured. Edit papycli.conf and set the 'url' field."
@@ -215,16 +217,26 @@ def call_api(
     custom_env = os.environ.get("PAPYCLI_CUSTOM_HEADER")
     headers = parse_headers(extra_headers, custom_env)
 
-    json_body: dict[str, Any] | None = None
+    json_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
     if raw_body is not None:
         json_body = json.loads(raw_body)
     elif body_params:
         json_body = build_body(body_params, op.get("post_parameters"))
 
+    ctx = RequestContext(
+        method=method,
+        url=url,
+        query_params=list(query_params),
+        body=json_body,
+        headers=headers,
+    )
+    ctx = apply_filters(ctx, load_filters())
+
+    # method はフィルターから変更不可のため、API 定義マッチング時に確定した元の値を使う。
     return requests.request(
         method=method.upper(),
-        url=url,
-        params=list(query_params),
-        json=json_body,
-        headers=headers,
+        url=ctx.url,
+        params=ctx.query_params,
+        json=ctx.body,
+        headers=ctx.headers,
     )
