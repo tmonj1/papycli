@@ -232,8 +232,9 @@ def call_api(
     )
     ctx = apply_filters(ctx, load_filters())
 
+    # method はフィルターから変更不可のため、API 定義マッチング時に確定した元の値を使う。
     return requests.request(
-        method=ctx.method.upper(),
+        method=method.upper(),
         url=ctx.url,
         params=ctx.query_params,
         json=ctx.body,
