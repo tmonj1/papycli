@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import copy
 import importlib.metadata
 import sys
 from dataclasses import dataclass, field
@@ -77,12 +78,16 @@ def apply_filters(
 ) -> RequestContext:
     """フィルターを順番に適用する。
 
+    各フィルターはその呼び出し前の ``ctx`` のディープコピーを受け取る。
     例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
+    これにより、フィルターが失敗する前にコンテキストをインプレース変更していても
+    変更がキャンセルされ、後続フィルターへの影響を防ぐ。
     """
     for name, func in filters:
+        snapshot = copy.deepcopy(ctx)
         try:
-            result = func(ctx)
+            result = func(snapshot)
         except Exception as e:
             print(
                 f"Warning: request filter '{name}' raised an exception: {e}",

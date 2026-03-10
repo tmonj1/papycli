@@ -156,6 +156,35 @@ def test_apply_filters_invalid_return_type_skipped(
     assert "bad-return" in captured.err
 
 
+def test_apply_filters_inplace_mutation_before_raise_is_reverted(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """フィルターが例外を送出する前にインプレース変更しても、後続フィルターには反映されない。"""
+    def mutate_then_raise(ctx: RequestContext) -> RequestContext:
+        ctx.headers["X-Leaked"] = "leaked"
+        raise RuntimeError("oops")
+
+    ctx = RequestContext(method="get", url="http://example.com/")
+    result = apply_filters(ctx, [("bad-filter", mutate_then_raise)])
+    # 変更はキャンセルされる
+    assert "X-Leaked" not in result.headers
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+
+
+def test_apply_filters_inplace_mutation_before_bad_return_is_reverted(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """フィルターが不正な戻り値を返す前にインプレース変更しても、後続フィルターには反映されない。"""
+    def mutate_then_bad_return(ctx: RequestContext) -> RequestContext:
+        ctx.headers["X-Leaked"] = "leaked"
+        return None  # type: ignore[return-value]
+
+    ctx = RequestContext(method="get", url="http://example.com/")
+    result = apply_filters(ctx, [("bad-filter", mutate_then_bad_return)])
+    assert "X-Leaked" not in result.headers
+
+
 # ---------------------------------------------------------------------------
 # load_filters
 # ---------------------------------------------------------------------------
