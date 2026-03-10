@@ -170,24 +170,6 @@ def parse_headers(
 
 
 # ---------------------------------------------------------------------------
-# クエリパラメータ変換ヘルパー
-# ---------------------------------------------------------------------------
-
-
-def _to_query_dict(pairs: Sequence[tuple[str, str]]) -> dict[str, list[str]]:
-    """(key, value) ペアのシーケンスを dict[str, list[str]] に変換する。"""
-    result: dict[str, list[str]] = {}
-    for k, v in pairs:
-        result.setdefault(k, []).append(v)
-    return result
-
-
-def _from_query_dict(d: dict[str, list[str]]) -> list[tuple[str, str]]:
-    """dict[str, list[str]] を (key, value) ペアのリストに変換する。"""
-    return [(k, v) for k, vs in d.items() for v in vs]
-
-
-# ---------------------------------------------------------------------------
 # HTTP 実行
 # ---------------------------------------------------------------------------
 
@@ -244,7 +226,7 @@ def call_api(
     ctx = RequestContext(
         method=method,
         url=url,
-        query_params=_to_query_dict(query_params),
+        query_params=list(query_params),
         body=json_body,
         headers=headers,
     )
@@ -253,7 +235,7 @@ def call_api(
     return requests.request(
         method=ctx.method.upper(),
         url=ctx.url,
-        params=_from_query_dict(ctx.query_params),
+        params=ctx.query_params,
         json=ctx.body,
         headers=ctx.headers,
     )

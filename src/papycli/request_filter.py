@@ -37,13 +37,11 @@ class RequestContext:
     url: str
     """完全 URL（パスパラメータ展開済み）."""
 
-    query_params: dict[str, list[str]] = field(default_factory=dict)
-    """クエリパラメータ（同一キーの複数値はリストで保持）.
+    query_params: list[tuple[str, str]] = field(default_factory=list)
+    """クエリパラメータ（順序保持。同一キーを繰り返す場合は同名タプルを複数追加する）.
 
-    .. note::
-        元の ``-q`` ペアはキーごとにまとめられるため、異なるキーが交互に現れる順序は
-        保持されない（例: ``[('a','1'),('b','1'),('a','2')]`` → キー 'a' の値が隣接する）。
-        フィルターがこの dict を変更した場合も、送信時の順序はキーの挿入順に従う。
+    ``requests.request(params=...)`` と同じ形式で保持するため、キー間の順序は
+    元の ``-q`` オプション指定順のまま維持される。
     """
 
     body: dict[str, Any] | list[Any] | str | int | float | bool | None = None

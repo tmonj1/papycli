@@ -16,7 +16,7 @@ from papycli.request_filter import RequestContext, apply_filters, load_filters
 
 def test_request_context_defaults() -> None:
     ctx = RequestContext(method="get", url="http://example.com/api")
-    assert ctx.query_params == {}
+    assert ctx.query_params == []
     assert ctx.body is None
     assert ctx.headers == {}
 
@@ -25,13 +25,13 @@ def test_request_context_fields() -> None:
     ctx = RequestContext(
         method="post",
         url="http://example.com/pet",
-        query_params={"status": ["available"]},
+        query_params=[("status", "available")],
         body={"name": "Dog"},
         headers={"Authorization": "Bearer token"},
     )
     assert ctx.method == "post"
     assert ctx.url == "http://example.com/pet"
-    assert ctx.query_params == {"status": ["available"]}
+    assert ctx.query_params == [("status", "available")]
     assert ctx.body == {"name": "Dog"}
     assert ctx.headers == {"Authorization": "Bearer token"}
 
@@ -52,7 +52,7 @@ def _modify_url_filter(ctx: RequestContext) -> RequestContext:
 
 
 def _add_query_filter(ctx: RequestContext) -> RequestContext:
-    ctx.query_params.setdefault("injected", []).append("value")
+    ctx.query_params.append(("injected", "value"))
     return ctx
 
 
@@ -85,10 +85,10 @@ def test_apply_filters_modifies_url() -> None:
 
 
 def test_apply_filters_modifies_query_params() -> None:
-    ctx = RequestContext(method="get", url="http://example.com/", query_params={"a": ["1"]})
+    ctx = RequestContext(method="get", url="http://example.com/", query_params=[("a", "1")])
     result = apply_filters(ctx, [("q-filter", _add_query_filter)])
-    assert result.query_params["injected"] == ["value"]
-    assert result.query_params["a"] == ["1"]
+    assert ("injected", "value") in result.query_params
+    assert ("a", "1") in result.query_params
 
 
 def test_apply_filters_modifies_body() -> None:
@@ -278,7 +278,7 @@ def test_call_api_filter_modifies_query_params() -> None:
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
 
     def inject_query(ctx: RequestContext) -> RequestContext:
-        ctx.query_params.setdefault("token", []).append("abc")
+        ctx.query_params.append(("token", "abc"))
         return ctx
 
     ep = _make_ep("q-filter", inject_query)
