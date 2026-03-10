@@ -170,6 +170,24 @@ def parse_headers(
 
 
 # ---------------------------------------------------------------------------
+# クエリパラメータ変換ヘルパー
+# ---------------------------------------------------------------------------
+
+
+def _to_query_dict(pairs: Sequence[tuple[str, str]]) -> dict[str, list[str]]:
+    """(key, value) ペアのシーケンスを dict[str, list[str]] に変換する。"""
+    result: dict[str, list[str]] = {}
+    for k, v in pairs:
+        result.setdefault(k, []).append(v)
+    return result
+
+
+def _from_query_dict(d: dict[str, list[str]]) -> list[tuple[str, str]]:
+    """dict[str, list[str]] を (key, value) ペアのリストに変換する。"""
+    return [(k, v) for k, vs in d.items() for v in vs]
+
+
+# ---------------------------------------------------------------------------
 # HTTP 実行
 # ---------------------------------------------------------------------------
 
@@ -186,6 +204,8 @@ def call_api(
     extra_headers: Sequence[str] = (),
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
+    from papycli.request_filter import RequestContext, apply_filters, load_filters
+
     if not base_url:
         raise RuntimeError(
             "Base URL is not configured. Edit papycli.conf and set the 'url' field."
@@ -215,16 +235,25 @@ def call_api(
     custom_env = os.environ.get("PAPYCLI_CUSTOM_HEADER")
     headers = parse_headers(extra_headers, custom_env)
 
-    json_body: dict[str, Any] | None = None
+    json_body: dict[str, Any] | list[Any] | None = None
     if raw_body is not None:
         json_body = json.loads(raw_body)
     elif body_params:
         json_body = build_body(body_params, op.get("post_parameters"))
 
-    return requests.request(
-        method=method.upper(),
+    ctx = RequestContext(
+        method=method,
         url=url,
-        params=list(query_params),
-        json=json_body,
+        query_params=_to_query_dict(query_params),
+        body=json_body,
         headers=headers,
+    )
+    ctx = apply_filters(ctx, load_filters())
+
+    return requests.request(
+        method=ctx.method.upper(),
+        url=ctx.url,
+        params=_from_query_dict(ctx.query_params),
+        json=ctx.body,
+        headers=ctx.headers,
     )
