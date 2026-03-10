@@ -235,6 +235,27 @@ def test_load_filters_skips_failing_load(capsys: pytest.CaptureFixture[str]) -> 
     assert "bad-plugin" in captured.err
 
 
+def test_load_filters_skips_non_callable(capsys: pytest.CaptureFixture[str]) -> None:
+    """callable でないエントリポイントはロード時点でスキップされる。"""
+    bad_ep = MagicMock()
+    bad_ep.name = "non-callable-plugin"
+    bad_ep.load.return_value = "not_a_function"
+    good_ep = _make_ep("good-plugin", _add_header_filter)
+
+    with patch(
+        "papycli.request_filter.importlib.metadata.entry_points",
+        return_value=[bad_ep, good_ep],
+    ):
+        result = load_filters()
+
+    names = [name for name, _ in result]
+    assert "non-callable-plugin" not in names
+    assert "good-plugin" in names
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert "non-callable-plugin" in captured.err
+
+
 # ---------------------------------------------------------------------------
 # call_api との統合テスト
 # ---------------------------------------------------------------------------

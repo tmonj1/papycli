@@ -61,12 +61,20 @@ def load_filters() -> list[tuple[str, FilterFunc]]:
     for ep in sorted(eps, key=lambda e: e.name):
         try:
             func: FilterFunc = ep.load()
-            result.append((ep.name, func))
         except Exception as e:
             print(
                 f"Warning: failed to load request filter '{ep.name}': {e}",
                 file=sys.stderr,
             )
+            continue
+        if not callable(func):
+            print(
+                f"Warning: entry point '{ep.name}' for group"
+                f" '{ENTRY_POINT_GROUP}' is not callable and will be ignored.",
+                file=sys.stderr,
+            )
+            continue
+        result.append((ep.name, func))
     return result
 
 
