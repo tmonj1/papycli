@@ -83,7 +83,17 @@ def apply_filters(
     変更がキャンセルされ、後続フィルターへの影響を防ぐ。
     """
     for name, func in filters:
-        snapshot = copy.deepcopy(ctx)
+        # method と url は immutable な str なのでコピー不要。
+        # query_params の要素（tuple）も immutable なのでリストのシャローコピーで十分。
+        # headers の値は str なのでシャローコピーで十分。
+        # body だけは dict / list の可能性があるため deepcopy する。
+        snapshot = RequestContext(
+            method=ctx.method,
+            url=ctx.url,
+            query_params=list(ctx.query_params),
+            body=copy.deepcopy(ctx.body),
+            headers=dict(ctx.headers),
+        )
         try:
             result = func(snapshot)
         except Exception as e:
