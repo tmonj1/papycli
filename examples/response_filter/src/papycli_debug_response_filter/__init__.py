@@ -27,11 +27,15 @@ def _to_json(value: object) -> str:
 def response_filter(ctx: ResponseContext) -> ResponseContext:
     """Print response context fields to stderr and return it unchanged."""
     print("[papycli-debug-response-filter]", file=sys.stderr)
-    print(f"  Method : {ctx.method.upper()}", file=sys.stderr)
-    print(f"  URL    : {ctx.url}", file=sys.stderr)
-    print(f"  Status : {ctx.status_code} {ctx.reason}", file=sys.stderr)
+    print(f"  Method  : {ctx.method.upper()}", file=sys.stderr)
+    print(f"  URL     : {ctx.url}", file=sys.stderr)
+    print(f"  Status  : {ctx.status_code} {ctx.reason}", file=sys.stderr)
     print(
-        f"  Body   : {_to_json(ctx.body) if ctx.body is not None else '(none)'}",
+        f"  Headers : {_to_json(ctx.headers) if ctx.headers else '(none)'}",
+        file=sys.stderr,
+    )
+    print(
+        f"  Body    : {_to_json(ctx.body) if ctx.body is not None else '(none)'}",
         file=sys.stderr,
     )
 
