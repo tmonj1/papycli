@@ -9,6 +9,9 @@
 - Register and switch between multiple APIs
 - Inspect API specs with `papycli spec`
 - Validate request parameters before sending with `--check` / `--check-strict`
+- Automatically coerces `-p` values to the correct JSON type (integer, number, boolean) based on the API spec
+- Log requests and responses to a file with `papycli config log`
+- Extend request processing with request filter plugins (`papycli.request_filters` entry point)
 
 ## Requirements
 
@@ -181,6 +184,9 @@ papycli config add <spec-file>             Register an API from an OpenAPI spec 
 papycli config remove <api-name>           Remove a registered API
 papycli config use <api-name>              Switch the active API
 papycli config list                        List registered APIs and current configuration
+papycli config log                         Show the current log file path
+papycli config log <path>                  Set the log file path
+papycli config log --unset                 Disable logging
 papycli config completion-script <bash|zsh>  Print a shell completion script
 
 # Inspection commands
@@ -199,6 +205,9 @@ Options:
   -H <header: value>      Custom HTTP header (repeatable)
   -q <name> <value>       Query parameter (repeatable)
   -p <name> <value>       Body parameter (repeatable)
+                            - Values are coerced to the correct JSON type
+                              (integer, number, boolean) based on the API spec.
+                              Strings are passed as-is.
                             - Repeat the same key to build a JSON array:
                               -p tags foo -p tags bar  →  {"tags":["foo","bar"]}
                             - Use dot notation to build a nested object:
@@ -218,6 +227,42 @@ Environment variables:
                             Separate multiple headers with newlines:
                             export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
 ```
+
+---
+
+## Request Filter Plugins
+
+You can intercept and transform outgoing requests by writing a request filter plugin.
+
+A filter is a callable that receives a `RequestContext` and returns a modified `RequestContext`:
+
+```python
+# my_plugin.py
+from papycli.request_filter import RequestContext
+
+def request_filter(ctx: RequestContext) -> RequestContext:
+    ctx.headers["X-Request-ID"] = "my-id"
+    return ctx
+```
+
+Register it in your package's `pyproject.toml`:
+
+```toml
+[project.entry-points."papycli.request_filters"]
+my-filter = "my_plugin:request_filter"
+```
+
+Install the package and filters are applied automatically on every request, sorted by plugin name.
+
+`RequestContext` fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `method` | `str` | HTTP method (lowercase). Do not modify. |
+| `url` | `str` | Full URL with path parameters expanded. |
+| `query_params` | `list[tuple[str, str]]` | Query parameters. |
+| `body` | `dict \| list \| str \| int \| float \| bool \| None` | JSON request body. |
+| `headers` | `dict[str, str]` | Custom HTTP headers. |
 
 ---
 
