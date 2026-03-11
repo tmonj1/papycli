@@ -15,11 +15,14 @@ from papycli.config import (
     get_apis_dir,
     get_conf_dir,
     get_conf_path,
+    get_logfile,
     load_conf,
     load_current_apidef,
     remove_api,
     save_conf,
     set_default_api,
+    set_logfile,
+    unset_logfile,
 )
 from papycli.i18n import h
 from papycli.init_cmd import init_api, register_initialized_api
@@ -178,6 +181,65 @@ def cmd_config_list() -> None:
         return
 
     click.echo(json.dumps(conf, indent=2, ensure_ascii=False))
+
+
+@cmd_config.command(
+    "log",
+    help=h(
+        "View or set the log file path.\n\n"
+        "Run without arguments to show the current path.\n"
+        "Pass PATH to set a new log file.\n"
+        "Use --unset to disable logging.",
+        "ログファイルのパスを表示・設定する。\n\n"
+        "引数なしで現在のパスを表示。PATH を指定するとログファイルを設定。\n"
+        "--unset でログを無効化する。",
+    ),
+)
+@click.argument("path", required=False, default=None)
+@click.option(
+    "--unset", is_flag=True,
+    help=h(
+        "Remove the log file setting (disable logging).",
+        "ログファイル設定を削除する（ログ無効化）。",
+    ),
+)
+def cmd_config_log(path: str | None, unset: bool) -> None:
+    if unset and path is not None:
+        click.echo("Error: --unset and PATH cannot be used together.", err=True)
+        sys.exit(1)
+
+    conf_dir = get_conf_dir()
+    try:
+        conf = load_conf(conf_dir)
+    except Exception as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+
+    if unset:
+        unset_logfile(conf)
+        try:
+            save_conf(conf, conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        click.echo("Log file setting removed.")
+        return
+
+    if path is not None:
+        set_logfile(conf, path)
+        try:
+            save_conf(conf, conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        click.echo(f"Log file set to: {path}")
+        return
+
+    logfile = get_logfile(conf)
+    if logfile:
+        click.echo(f"Log file: {logfile}")
+    else:
+        click.echo("Log file: (not set)")
 
 
 @cmd_config.command(
@@ -352,10 +414,13 @@ def _api_command(method: str) -> click.Command:
 
         conf_dir = get_conf_dir()
         try:
-            apidef, base_url = load_current_apidef(conf_dir)
+            conf = load_conf(conf_dir)
+            apidef, base_url = load_current_apidef(conf_dir, conf=conf)
         except Exception as e:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
+
+        logfile = get_logfile(conf)
 
         if show_summary:
             match = match_path_template(resource, list(apidef.keys()))
@@ -382,6 +447,7 @@ def _api_command(method: str) -> click.Command:
                 body_params=body_params,
                 raw_body=raw_body,
                 extra_headers=extra_headers,
+                logfile=logfile,
             )
         except Exception as e:
             click.echo(f"Error: {e}", err=True)

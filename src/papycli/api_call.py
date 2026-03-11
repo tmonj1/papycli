@@ -5,6 +5,8 @@ import os
 import re
 import sys
 from collections.abc import Sequence
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -170,6 +172,79 @@ def parse_headers(
 
 
 # ---------------------------------------------------------------------------
+# ログ書き込み
+# ---------------------------------------------------------------------------
+
+_LOG_BODY_MAX_CHARS = 10_000
+
+_SENSITIVE_HEADERS = frozenset({
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "proxy-authorization",
+    "x-api-key",
+    "x-auth-token",
+})
+
+
+def _write_log(
+    logfile: str,
+    method: str,
+    url: str,
+    query_params: list[tuple[str, str]],
+    body: Any,
+    headers: dict[str, str],
+    resp: requests.Response,
+) -> None:
+    """リクエスト・レスポンスの情報を logfile に追記する。
+
+    エントリ構築（JSON 直列化含む）とファイル書き込みをまとめて try/except で囲む。
+    json.dumps が TypeError を送出した場合（フィルターが非シリアライズ可能な値を
+    設定した場合等）も警告を出力するだけで call_api() の呼び出しには影響しない。
+    """
+    try:
+        timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+        # クエリパラメータ: 同一キーは list にまとめて表示（_set_or_append を再利用）
+        q_dict: dict[str, Any] = {}
+        for k, v in query_params:
+            _set_or_append(q_dict, k, v)
+        q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
+
+        body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
+        if len(body_str) > _LOG_BODY_MAX_CHARS:
+            body_str = body_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
+        masked = {
+            k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
+        }
+        headers_str = json.dumps(masked, ensure_ascii=False) if masked else "(none)"
+
+        try:
+            resp_body = resp.json()
+            resp_str = json.dumps(resp_body, ensure_ascii=False)
+        except ValueError:
+            resp_str = resp.text or "(empty)"
+        if len(resp_str) > _LOG_BODY_MAX_CHARS:
+            resp_str = resp_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
+
+        entry = (
+            f"[{timestamp}] {method.upper()} {url}\n"
+            f"  Query: {q_str}\n"
+            f"  Body: {body_str}\n"
+            f"  Headers: {headers_str}\n"
+            f"  Status: {resp.status_code}\n"
+            f"  Response: {resp_str}\n"
+        )
+
+        log_path = Path(logfile).expanduser()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as f:
+            f.write(entry)
+    except Exception as e:
+        print(f"Warning: failed to write log to '{logfile}': {e}", file=sys.stderr)
+
+
+# ---------------------------------------------------------------------------
 # HTTP 実行
 # ---------------------------------------------------------------------------
 
@@ -184,6 +259,7 @@ def call_api(
     body_params: Sequence[tuple[str, str]] = (),
     raw_body: str | None = None,
     extra_headers: Sequence[str] = (),
+    logfile: str | None = None,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
     from papycli.request_filter import RequestContext, apply_filters, load_filters
@@ -233,10 +309,17 @@ def call_api(
     ctx = apply_filters(ctx, load_filters())
 
     # method はフィルターから変更不可のため、API 定義マッチング時に確定した元の値を使う。
-    return requests.request(
+    resp = requests.request(
         method=method.upper(),
         url=ctx.url,
         params=ctx.query_params,
         json=ctx.body,
         headers=ctx.headers,
     )
+
+    if logfile:
+        # ログにはフィルター適用前の値を使う。フィルタープラグインが追加した
+        # URL・クエリ・ボディ・ヘッダーには機密情報が含まれる可能性があるため記録しない。
+        _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
+
+    return resp

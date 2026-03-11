@@ -830,3 +830,69 @@ def test_cmd_complete_output_no_crlf(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert result.exit_code == 0
     assert "\r" not in result.output
     assert "get" in result.output
+
+
+# ---------------------------------------------------------------------------
+# config log
+# ---------------------------------------------------------------------------
+
+
+def test_config_log_not_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """logfile が未設定のとき '(not set)' を表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "log"])
+    assert result.exit_code == 0
+    assert "(not set)" in result.output
+
+
+def test_config_log_set_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """PATH を指定すると papycli.conf の logfile が更新され確認メッセージが出る。"""
+    import json as _json
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    logpath = str(tmp_path / "papycli.log")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "log", logpath])
+    assert result.exit_code == 0
+    assert logpath in result.output
+
+    conf_path = tmp_path / "papycli.conf"
+    conf = _json.loads(conf_path.read_text(encoding="utf-8"))
+    assert conf["logfile"] == logpath
+
+
+def test_config_log_show_after_set(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """logfile 設定後に引数なしで呼ぶとパスが表示される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    logpath = "/tmp/papycli.log"
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "log", logpath])
+    result = runner.invoke(cli, ["config", "log"])
+    assert result.exit_code == 0
+    assert logpath in result.output
+
+
+def test_config_log_unset(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """--unset で logfile 設定が削除される。"""
+    import json as _json
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "log", "/tmp/papycli.log"])
+    result = runner.invoke(cli, ["config", "log", "--unset"])
+    assert result.exit_code == 0
+    assert "removed" in result.output
+
+    conf_path = tmp_path / "papycli.conf"
+    conf = _json.loads(conf_path.read_text(encoding="utf-8"))
+    assert "logfile" not in conf
+
+
+def test_config_log_unset_and_path_exclusive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--unset と PATH を同時指定するとエラー終了する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "log", "--unset", "/some/path"])
+    assert result.exit_code != 0
+    assert "Error" in result.output or "Error" in (result.stderr if hasattr(result, "stderr") else "")

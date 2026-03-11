@@ -78,14 +78,43 @@ def set_default_api(conf: dict[str, Any], name: str) -> None:
 
 
 def get_default_api(conf: dict[str, Any]) -> str | None:
-    """現在のデフォルト API 名を返す。未設定の場合は None。"""
-    return conf.get("default")  # type: ignore[return-value]
+    """現在のデフォルト API 名を返す。未設定・空文字列・非文字列の場合は None。"""
+    value = conf.get("default")
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
-def load_current_apidef(conf_dir: Path | None = None) -> tuple[dict[str, Any], str]:
-    """現在のデフォルト API の (apidef dict, base_url) を返す。"""
+def get_logfile(conf: dict[str, Any]) -> str | None:
+    """現在のログファイルパスを返す。未設定・空文字列・非文字列の場合は None。"""
+    value = conf.get("logfile")
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def set_logfile(conf: dict[str, Any], path: str) -> None:
+    """ログファイルのパスを設定する。"""
+    conf["logfile"] = path
+
+
+def unset_logfile(conf: dict[str, Any]) -> None:
+    """ログファイル設定を削除する（ログ無効化）。"""
+    conf.pop("logfile", None)
+
+
+def load_current_apidef(
+    conf_dir: Path | None = None,
+    *,
+    conf: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], str]:
+    """現在のデフォルト API の (apidef dict, base_url) を返す。
+
+    ``conf`` を渡すと設定ファイルの再読み込みをスキップする。
+    """
     resolved_dir = conf_dir or get_conf_dir()
-    conf = load_conf(resolved_dir)
+    if conf is None:
+        conf = load_conf(resolved_dir)
     api_name = get_default_api(conf)
     if not api_name:
         raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")

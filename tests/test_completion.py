@@ -148,7 +148,7 @@ def test_complete_config_subcommands_prefix() -> None:
 
 
 def test_complete_config_subcommands_covers_all() -> None:
-    assert set(CONFIG_SUBCOMMANDS) == {"add", "remove", "use", "list", "completion-script"}
+    assert set(CONFIG_SUBCOMMANDS) == {"add", "completion-script", "list", "log", "remove", "use"}
 
 
 def test_complete_config_no_further_completion() -> None:

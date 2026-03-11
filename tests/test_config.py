@@ -11,11 +11,14 @@ from papycli.config import (
     get_conf_dir,
     get_conf_path,
     get_default_api,
+    get_logfile,
     load_conf,
     register_api,
     remove_api,
     save_conf,
     set_default_api,
+    set_logfile,
+    unset_logfile,
 )
 
 
@@ -92,6 +95,15 @@ def test_get_default_api_none_when_missing() -> None:
     assert get_default_api({}) is None
 
 
+def test_get_default_api_none_when_empty_string() -> None:
+    assert get_default_api({"default": ""}) is None
+
+
+def test_get_default_api_none_when_non_string() -> None:
+    assert get_default_api({"default": 123}) is None
+    assert get_default_api({"default": ["api1"]}) is None
+
+
 # ---------------------------------------------------------------------------
 # remove_api
 # ---------------------------------------------------------------------------
@@ -134,4 +146,46 @@ def test_remove_api_non_default_leaves_default_unchanged() -> None:
 def test_remove_api_no_default_key_leaves_conf_stable() -> None:
     conf: dict = {"myapi": {"url": "http://a"}}
     remove_api(conf, "myapi")
+    assert conf == {}
+
+
+# ---------------------------------------------------------------------------
+# logfile
+# ---------------------------------------------------------------------------
+
+
+def test_get_logfile_not_set() -> None:
+    assert get_logfile({}) is None
+
+
+def test_get_logfile_empty_string() -> None:
+    assert get_logfile({"logfile": ""}) is None
+
+
+def test_get_logfile_returns_path() -> None:
+    assert get_logfile({"logfile": "/tmp/papycli.log"}) == "/tmp/papycli.log"
+
+
+def test_get_logfile_non_string_returns_none() -> None:
+    """logfile が非文字列型（数値等）の場合は None を返す。"""
+    assert get_logfile({"logfile": 123}) is None
+    assert get_logfile({"logfile": True}) is None
+    assert get_logfile({"logfile": []}) is None
+
+
+def test_set_logfile() -> None:
+    conf: dict = {}
+    set_logfile(conf, "/var/log/papycli.log")
+    assert conf["logfile"] == "/var/log/papycli.log"
+
+
+def test_unset_logfile() -> None:
+    conf: dict = {"logfile": "/tmp/papycli.log"}
+    unset_logfile(conf)
+    assert "logfile" not in conf
+
+
+def test_unset_logfile_noop_when_not_set() -> None:
+    conf: dict = {}
+    unset_logfile(conf)
     assert conf == {}

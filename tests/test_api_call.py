@@ -1,5 +1,6 @@
 """api_call モジュールのテスト."""
 
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -370,3 +371,197 @@ def test_call_api_post_integer_body_param() -> None:
     assert body["id"] == 1
     assert isinstance(body["id"], int)
     assert body["name"] == "My Dog"
+
+
+# ---------------------------------------------------------------------------
+# _write_log / call_api logging
+# ---------------------------------------------------------------------------
+
+
+@rsps.activate
+def test_call_api_writes_log(tmp_path: Path) -> None:
+    """logfile が設定されている場合、call_api 後にログが追記される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 1}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "GET" in content
+    assert "/store/inventory" in content
+    assert "Status: 200" in content
+    assert '{"dogs": 1}' in content
+
+
+@rsps.activate
+def test_call_api_log_includes_query_params(tmp_path: Path) -> None:
+    """クエリパラメータがログに記録される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        query_params=[("status", "available")],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "available" in content
+
+
+@rsps.activate
+def test_call_api_log_appends(tmp_path: Path) -> None:
+    """複数回呼び出すとログが追記される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert content.count("GET") == 2
+
+
+@rsps.activate
+def test_call_api_no_log_when_logfile_none() -> None:
+    """logfile が None のときはログファイルを生成しない。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    call_api("get", "/store/inventory", BASE_URL, APIDEF)
+    # 例外が起きなければ OK（ファイルシステムへの副作用なし）
+
+
+@rsps.activate
+def test_call_api_log_creates_parent_dir(tmp_path: Path) -> None:
+    """ログファイルの親ディレクトリが存在しない場合に自動作成される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "subdir" / "nested" / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert Path(logfile).exists()
+
+
+@rsps.activate
+def test_call_api_log_timestamp_has_utc_offset(tmp_path: Path) -> None:
+    """ログのタイムスタンプが UTC オフセット付き ISO 8601 形式になっている。"""
+    import re as _re
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert _re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+00:00", content)
+
+
+@rsps.activate
+def test_call_api_log_masks_authorization_header(tmp_path: Path) -> None:
+    """Authorization ヘッダーの値がログ上でマスクされる。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        extra_headers=["Authorization: Bearer secret_token"],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "secret_token" not in content
+    assert "***" in content
+
+
+@rsps.activate
+def test_call_api_log_non_sensitive_header_not_masked(tmp_path: Path) -> None:
+    """機密でないヘッダーの値はマスクされない。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api(
+        "get", "/store/inventory", BASE_URL, APIDEF,
+        extra_headers=["X-Custom-Header: visible_value"],
+        logfile=logfile,
+    )
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "visible_value" in content
+
+
+@rsps.activate
+def test_call_api_log_survives_non_serializable_body(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """ログの JSON 直列化が失敗しても call_api() は正常終了し、警告を出す。"""
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    # フィルターが非シリアライズ可能な body を設定する状況を再現
+    with patch("papycli.api_call.json.dumps", side_effect=TypeError("not serializable")):
+        resp = call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert resp.status_code == 200
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert logfile in captured.err
+
+
+@rsps.activate
+def test_call_api_log_expanduser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """logfile に ~ を含むパスが正しく展開される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    logfile = "~/test.log"
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert (tmp_path / "test.log").exists()
+
+
+@rsps.activate
+def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
+    """ログにはフィルター適用前の URL・クエリ・ボディが記録される。"""
+    from papycli.request_filter import RequestContext
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def mutating_filter(ctx: RequestContext) -> RequestContext:
+        return RequestContext(
+            method=ctx.method,
+            url=ctx.url + "?injected=secret",
+            query_params=ctx.query_params + [("injected", "secret")],
+            body=ctx.body,
+            headers=ctx.headers,
+        )
+
+    with patch("papycli.request_filter.load_filters", return_value=[("mutating", mutating_filter)]):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "injected" not in content
+    assert "secret" not in content
+
+
+@rsps.activate
+def test_call_api_log_truncates_large_response(tmp_path: Path) -> None:
+    """レスポンスボディが大きい場合にログで切り詰められる。"""
+    from papycli.api_call import _LOG_BODY_MAX_CHARS
+
+    large_body = "x" * (_LOG_BODY_MAX_CHARS + 1000)
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", body=large_body, status=200,
+             content_type="text/plain")
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "...[truncated]" in content
+
+
+@rsps.activate
+def test_call_api_log_truncates_large_request_body(tmp_path: Path) -> None:
+    """リクエストボディが大きい場合にログで切り詰められる。"""
+    from papycli.api_call import _LOG_BODY_MAX_CHARS
+
+    large_value = "y" * (_LOG_BODY_MAX_CHARS + 1000)
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("post", "/pet", BASE_URL, APIDEF, raw_body=f'"{large_value}"', logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "...[truncated]" in content
