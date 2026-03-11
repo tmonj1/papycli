@@ -12,6 +12,7 @@
 - API 仕様に基づいて `-p` の値を適切な JSON 型（integer / number / boolean）に自動変換
 - `papycli config log` によるリクエスト/レスポンスのファイルログ
 - リクエストフィルタープラグイン（`papycli.request_filters` エントリポイント）によるリクエスト処理の拡張
+- レスポンスフィルタープラグイン（`papycli.response_filters` エントリポイント）によるレスポンスの参照・変換
 
 ## 必要環境
 
@@ -262,6 +263,44 @@ my-filter = "my_plugin:request_filter"
 | `query_params` | `list[tuple[str, str]]` | クエリパラメータ。 |
 | `body` | `dict \| list \| str \| int \| float \| bool \| None` | JSON リクエストボディ。 |
 | `headers` | `dict[str, str]` | カスタム HTTP ヘッダー。 |
+
+---
+
+## レスポンスフィルタープラグイン
+
+レスポンスフィルタープラグインを作成することで、受信後のレスポンスを参照・変換できます。
+
+フィルターは `ResponseContext` を受け取り、変更した `ResponseContext` を返す callable です：
+
+```python
+# my_plugin.py
+from papycli.request_filter import ResponseContext
+
+def response_filter(ctx: ResponseContext) -> ResponseContext:
+    if isinstance(ctx.body, dict):
+        ctx.body["_status"] = ctx.status_code
+    return ctx
+```
+
+パッケージの `pyproject.toml` にエントリポイントを登録します：
+
+```toml
+[project.entry-points."papycli.response_filters"]
+my-filter = "my_plugin:response_filter"
+```
+
+パッケージをインストールすると、すべてのレスポンスに対してフィルターがプラグイン名の昇順で自動適用されます。
+
+`ResponseContext` のフィールド：
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `method` | `str` | リクエストに使用した HTTP メソッド（小文字）。 |
+| `url` | `str` | リクエストに使用した完全 URL。 |
+| `status_code` | `int` | HTTP レスポンスステータスコード。 |
+| `reason` | `str` | HTTP レスポンスの理由フレーズ（例：`"OK"`、`"Not Found"`）。 |
+| `headers` | `dict[str, str]` | レスポンスヘッダー。 |
+| `body` | `dict \| list \| str \| int \| float \| bool \| None` | パース済みレスポンスボディ。このフィールドを変更するとレスポンスボディを差し替えられる。 |
 
 ---
 

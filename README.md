@@ -12,6 +12,7 @@
 - Automatically coerces `-p` values to the correct JSON type (integer, number, boolean) based on the API spec
 - Log requests and responses to a file with `papycli config log`
 - Extend request processing with request filter plugins (`papycli.request_filters` entry point)
+- Inspect and transform responses with response filter plugins (`papycli.response_filters` entry point)
 
 ## Requirements
 
@@ -263,6 +264,44 @@ Install the package and filters are applied automatically on every request, sort
 | `query_params` | `list[tuple[str, str]]` | Query parameters. |
 | `body` | `dict \| list \| str \| int \| float \| bool \| None` | JSON request body. |
 | `headers` | `dict[str, str]` | Custom HTTP headers. |
+
+---
+
+## Response Filter Plugins
+
+You can inspect and transform incoming responses by writing a response filter plugin.
+
+A filter is a callable that receives a `ResponseContext` and returns a modified `ResponseContext`:
+
+```python
+# my_plugin.py
+from papycli.request_filter import ResponseContext
+
+def response_filter(ctx: ResponseContext) -> ResponseContext:
+    if isinstance(ctx.body, dict):
+        ctx.body["_status"] = ctx.status_code
+    return ctx
+```
+
+Register it in your package's `pyproject.toml`:
+
+```toml
+[project.entry-points."papycli.response_filters"]
+my-filter = "my_plugin:response_filter"
+```
+
+Install the package and filters are applied automatically after every response, sorted by plugin name.
+
+`ResponseContext` fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `method` | `str` | HTTP method used for the request (lowercase). |
+| `url` | `str` | Full URL of the request. |
+| `status_code` | `int` | HTTP response status code. |
+| `reason` | `str` | HTTP response reason phrase (e.g. `"OK"`, `"Not Found"`). |
+| `headers` | `dict[str, str]` | Response headers. |
+| `body` | `dict \| list \| str \| int \| float \| bool \| None` | Parsed response body. Modify this field to replace the response body. |
 
 ---
 

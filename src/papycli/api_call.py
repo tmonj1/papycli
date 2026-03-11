@@ -262,7 +262,14 @@ def call_api(
     logfile: str | None = None,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
-    from papycli.request_filter import RequestContext, apply_filters, load_filters
+    from papycli.request_filter import (
+        RequestContext,
+        ResponseContext,
+        apply_filters,
+        apply_response_filters,
+        load_filters,
+        load_response_filters,
+    )
 
     if not base_url:
         raise RuntimeError(
@@ -316,6 +323,35 @@ def call_api(
         json=ctx.body,
         headers=ctx.headers,
     )
+
+    # レスポンスボディをパースして ResponseContext を構築し、フィルターを適用する。
+    content_type = resp.headers.get("Content-Type", "")
+    if "application/json" in content_type:
+        try:
+            resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None = resp.json()
+        except ValueError:
+            resp_body = resp.text or None
+    else:
+        resp_body = resp.text or None
+
+    resp_ctx = ResponseContext(
+        method=method,
+        url=resp.url,
+        status_code=resp.status_code,
+        reason=resp.reason or "",
+        headers=dict(resp.headers),
+        body=resp_body,
+    )
+    resp_ctx = apply_response_filters(resp_ctx, load_response_filters())
+
+    # フィルターがボディを変更した場合、resp._content に反映する。
+    if resp_ctx.body is not resp_body:
+        if resp_ctx.body is None:
+            resp._content = b""
+        elif isinstance(resp_ctx.body, str):
+            resp._content = resp_ctx.body.encode("utf-8")
+        else:
+            resp._content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
 
     if logfile:
         # ログにはフィルター適用前の値を使う。フィルタープラグインが追加した
