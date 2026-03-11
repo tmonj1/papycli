@@ -262,7 +262,14 @@ def call_api(
     logfile: str | None = None,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
-    from papycli.request_filter import RequestContext, apply_filters, load_filters
+    from papycli.request_filter import (
+        RequestContext,
+        ResponseContext,
+        apply_filters,
+        apply_response_filters,
+        load_filters,
+        load_response_filters,
+    )
 
     if not base_url:
         raise RuntimeError(
@@ -318,8 +325,89 @@ def call_api(
     )
 
     if logfile:
-        # ログにはフィルター適用前の値を使う。フィルタープラグインが追加した
-        # URL・クエリ・ボディ・ヘッダーには機密情報が含まれる可能性があるため記録しない。
+        # ログにはリクエスト側フィルター適用前の値（url/query/body/headers）とサーバーが
+        # 返した元のレスポンス（レスポンスフィルター適用前）を記録する。
         _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
+
+    # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
+    # レスポンスボディのパースと ResponseContext 構築を行う。
+    response_filters = load_response_filters()
+    if response_filters:
+        content_type = resp.headers.get("Content-Type", "").lower()
+        if "application/json" in content_type:
+            try:
+                resp_body: (
+                    dict[str, Any] | list[Any] | str | int | float | bool | None
+                ) = resp.json()
+            except ValueError:
+                resp_body = resp.text or None
+        else:
+            resp_body = resp.text or None
+
+        resp_ctx = ResponseContext(
+            method=method,
+            url=resp.url,
+            status_code=resp.status_code,
+            reason=resp.reason or "",
+            headers=dict(resp.headers),
+            body=resp_body,
+        )
+        resp_ctx = apply_response_filters(resp_ctx, response_filters)
+
+        # フィルターがフィールドを変更した場合、resp に反映する。
+        # ボディ: 値の等価比較で変更を検出し、_content・encoding・Content-Type を更新する。
+        # json.dumps が TypeError を送出した場合（非シリアライズ可能な値が含まれる場合等）は
+        # 警告を出力して元のレスポンスを維持する。
+        if resp_ctx.body != resp_body:
+            is_json_body = resp_ctx.body is not None and not isinstance(resp_ctx.body, str)
+            try:
+                if resp_ctx.body is None:
+                    new_content: bytes = b""
+                elif isinstance(resp_ctx.body, str):
+                    new_content = resp_ctx.body.encode("utf-8")
+                else:
+                    new_content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
+            except (TypeError, ValueError) as e:
+                print(
+                    f"Warning: response filter returned a non-serializable body ({e});"
+                    " keeping original response",
+                    file=sys.stderr,
+                )
+            else:
+                resp._content = new_content
+                resp.encoding = "utf-8"
+                # Content-Length を新しいバイト長に更新する。
+                resp_ctx.headers["Content-Length"] = str(len(new_content))
+                # Content-Type をボディのシリアライズ方式にあわせて更新する。
+                # resp_ctx.headers を更新し、後続ヘッダー処理で一括して resp.headers に適用する。
+                ct = resp_ctx.headers.get("Content-Type", "")
+                if is_json_body:
+                    # dict/list 等は JSON シリアライズされるため application/json に設定する。
+                    resp_ctx.headers["Content-Type"] = "application/json; charset=utf-8"
+                else:
+                    # str/None ボディは既存の Content-Type を尊重しつつ charset だけ更新する。
+                    if ct:
+                        parts = [p.strip() for p in ct.split(";") if p.strip()]
+                        if parts:
+                            base_type = parts[0]
+                            base_type_lower = base_type.lower()
+                            is_text = base_type_lower.startswith("text/")
+                            if is_text or base_type_lower == "application/json":
+                                other_params = [
+                                    p for p in parts[1:]
+                                    if not p.lower().startswith("charset=")
+                                ]
+                                resp_ctx.headers["Content-Type"] = "; ".join(
+                                    [base_type, *other_params, "charset=utf-8"]
+                                )
+                    else:
+                        resp_ctx.headers["Content-Type"] = "text/plain; charset=utf-8"
+        # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
+        if resp_ctx.status_code != resp.status_code:
+            resp.status_code = resp_ctx.status_code
+        if resp_ctx.reason != (resp.reason or ""):
+            resp.reason = resp_ctx.reason
+        if resp_ctx.headers != dict(resp.headers):
+            resp.headers = requests.structures.CaseInsensitiveDict(resp_ctx.headers)
 
     return resp

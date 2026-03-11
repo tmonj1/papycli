@@ -1,17 +1,24 @@
-"""リクエストフィルタープラグイン機構.
+"""リクエスト・レスポンスフィルタープラグイン機構.
 
 エントリポイントグループ ``papycli.request_filters`` に登録されたフィルター関数を
 プラグイン名の昇順で呼び出し、リクエスト前に URL・クエリパラメータ・ボディ・ヘッダーを
 変換できるようにする。
+
+同様に ``papycli.response_filters`` グループのフィルター関数を呼び出し、
+レスポンス受信後にステータスコード・理由フレーズ（reason）・ボディ・ヘッダーを参照・変更できるようにする。
 
 プラグイン側の ``pyproject.toml`` 設定例::
 
     [project.entry-points."papycli.request_filters"]
     my-filter = "my_plugin:request_filter"
 
+    [project.entry-points."papycli.response_filters"]
+    my-filter = "my_plugin:response_filter"
+
 フィルター関数のシグネチャ::
 
     def request_filter(context: RequestContext) -> RequestContext: ...
+    def response_filter(context: ResponseContext) -> ResponseContext: ...
 """
 
 from __future__ import annotations
@@ -23,8 +30,10 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 ENTRY_POINT_GROUP = "papycli.request_filters"
+RESPONSE_ENTRY_POINT_GROUP = "papycli.response_filters"
 
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
+ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext"]
 
 
 @dataclass
@@ -125,6 +134,106 @@ def apply_filters(
             print(
                 f"Warning: request filter '{name}' returned {type(result).__name__!r}"
                 " instead of RequestContext; skipping",
+                file=sys.stderr,
+            )
+            continue
+        ctx = result
+    return ctx
+
+
+# ---------------------------------------------------------------------------
+# レスポンスフィルター
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ResponseContext:
+    """レスポンスフィルターに渡されるコンテキスト."""
+
+    method: str
+    """リクエストに使用した HTTP メソッド（小文字）."""
+
+    url: str
+    """リクエストに使用した完全 URL."""
+
+    status_code: int
+    """HTTP レスポンスステータスコード."""
+
+    reason: str
+    """HTTP レスポンスの理由フレーズ（例: "OK", "Not Found"）."""
+
+    headers: dict[str, str] = field(default_factory=dict)
+    """レスポンスヘッダー."""
+
+    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    """パース済みレスポンスボディ.
+
+    Content-Type が application/json のレスポンスは JSON としてパースされた値、
+    それ以外はテキスト文字列（空の場合は None）が格納される。
+    フィルターはこのフィールドを変更することでレスポンスボディを差し替えられる。
+    """
+
+
+def load_response_filters() -> list[tuple[str, ResponseFilterFunc]]:
+    """``papycli.response_filters`` グループのプラグインをプラグイン名の昇順でロードする。
+
+    ロードに失敗したプラグインは警告を出力してスキップする。
+    """
+    eps = importlib.metadata.entry_points(group=RESPONSE_ENTRY_POINT_GROUP)
+    result: list[tuple[str, ResponseFilterFunc]] = []
+    for ep in sorted(eps, key=lambda e: e.name):
+        try:
+            func: ResponseFilterFunc = ep.load()
+        except Exception as e:
+            print(
+                f"Warning: failed to load response filter '{ep.name}': {e}",
+                file=sys.stderr,
+            )
+            continue
+        if not callable(func):
+            print(
+                f"Warning: entry point '{ep.name}' for group"
+                f" '{RESPONSE_ENTRY_POINT_GROUP}' is not callable and will be ignored.",
+                file=sys.stderr,
+            )
+            continue
+        result.append((ep.name, func))
+    return result
+
+
+def apply_response_filters(
+    ctx: ResponseContext,
+    filters: list[tuple[str, ResponseFilterFunc]],
+) -> ResponseContext:
+    """レスポンスフィルターを順番に適用する。
+
+    各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
+    ``body`` のみ ``copy.deepcopy``、それ以外はシャローコピーで作成される。
+
+    例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
+    警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
+    """
+    for name, func in filters:
+        snapshot = ResponseContext(
+            method=ctx.method,
+            url=ctx.url,
+            status_code=ctx.status_code,
+            reason=ctx.reason,
+            headers=dict(ctx.headers),
+            body=copy.deepcopy(ctx.body),
+        )
+        try:
+            result = func(snapshot)
+        except Exception as e:
+            print(
+                f"Warning: response filter '{name}' raised an exception: {e}",
+                file=sys.stderr,
+            )
+            continue
+        if not isinstance(result, ResponseContext):
+            print(
+                f"Warning: response filter '{name}' returned {type(result).__name__!r}"
+                " instead of ResponseContext; skipping",
                 file=sys.stderr,
             )
             continue

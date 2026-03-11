@@ -7,7 +7,14 @@ import pytest
 import responses as rsps
 
 from papycli.api_call import call_api
-from papycli.request_filter import RequestContext, apply_filters, load_filters
+from papycli.request_filter import (
+    RequestContext,
+    ResponseContext,
+    apply_filters,
+    apply_response_filters,
+    load_filters,
+    load_response_filters,
+)
 
 # ---------------------------------------------------------------------------
 # RequestContext
@@ -318,3 +325,431 @@ def test_call_api_no_filters() -> None:
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
 
     assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# ResponseContext
+# ---------------------------------------------------------------------------
+
+
+def test_response_context_defaults() -> None:
+    ctx = ResponseContext(method="get", url="http://example.com/api", status_code=200, reason="OK")
+    assert ctx.headers == {}
+    assert ctx.body is None
+
+
+def test_response_context_fields() -> None:
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api",
+        status_code=404,
+        reason="Not Found",
+        headers={"Content-Type": "application/json"},
+        body={"error": "not found"},
+    )
+    assert ctx.status_code == 404
+    assert ctx.reason == "Not Found"
+    assert ctx.body == {"error": "not found"}
+
+
+# ---------------------------------------------------------------------------
+# load_response_filters
+# ---------------------------------------------------------------------------
+
+
+def test_load_response_filters_empty() -> None:
+    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[]):
+        result = load_response_filters()
+    assert result == []
+
+
+def test_load_response_filters_load_error_skipped(capsys: pytest.CaptureFixture[str]) -> None:
+    ep = MagicMock()
+    ep.name = "bad-filter"
+    ep.load.side_effect = ImportError("missing module")
+    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+        result = load_response_filters()
+    assert result == []
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_load_response_filters_skips_non_callable(capsys: pytest.CaptureFixture[str]) -> None:
+    ep = MagicMock()
+    ep.name = "non-callable"
+    ep.load.return_value = "not a function"
+    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+        result = load_response_filters()
+    assert result == []
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_load_response_filters_sorted_by_name() -> None:
+    def f1(ctx: ResponseContext) -> ResponseContext:
+        return ctx
+
+    def f2(ctx: ResponseContext) -> ResponseContext:
+        return ctx
+
+    ep1 = MagicMock()
+    ep1.name = "z-filter"
+    ep1.load.return_value = f1
+    ep2 = MagicMock()
+    ep2.name = "a-filter"
+    ep2.load.return_value = f2
+
+    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep1, ep2]):
+        result = load_response_filters()
+
+    assert [name for name, _ in result] == ["a-filter", "z-filter"]
+
+
+# ---------------------------------------------------------------------------
+# apply_response_filters
+# ---------------------------------------------------------------------------
+
+
+def test_apply_response_filters_empty() -> None:
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body={"k": "v"})
+    result = apply_response_filters(ctx, [])
+    assert result.body == {"k": "v"}
+
+
+def test_apply_response_filters_modifies_body() -> None:
+    def add_field(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["added"] = True
+        return ctx
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body={"original": 1})
+    result = apply_response_filters(ctx, [("add-field", add_field)])
+    assert result.body == {"original": 1, "added": True}
+
+
+def test_apply_response_filters_chained() -> None:
+    def double_value(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["value"] = ctx.body["value"] * 2
+        return ctx
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body={"value": 3})
+    result = apply_response_filters(ctx, [("f1", double_value), ("f2", double_value)])
+    assert result.body == {"value": 12}
+
+
+def test_apply_response_filters_snapshot_prevents_inplace_leak() -> None:
+    """フィルターが例外前にインプレース変更しても、前の ctx が維持される。"""
+    def mutate_then_raise(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["leaked"] = True
+        raise RuntimeError("oops")
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body={"original": 1})
+    result = apply_response_filters(ctx, [("bad", mutate_then_raise)])
+    assert result.body == {"original": 1}
+    assert "leaked" not in (result.body or {})
+
+
+def test_apply_response_filters_exception_skipped(capsys: pytest.CaptureFixture[str]) -> None:
+    def bad(ctx: ResponseContext) -> ResponseContext:
+        raise ValueError("error")
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body="original")
+    result = apply_response_filters(ctx, [("bad", bad)])
+    assert result.body == "original"
+    assert "Warning" in capsys.readouterr().err
+
+
+def test_apply_response_filters_wrong_return_type_skipped(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def bad(ctx: ResponseContext) -> Any:
+        return {"not": "a ResponseContext"}
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body="original")
+    result = apply_response_filters(ctx, [("bad", bad)])
+    assert result.body == "original"
+    assert "Warning" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# call_api とレスポンスフィルターの統合
+# ---------------------------------------------------------------------------
+
+
+BASE_URL_RF = "http://petstore.example.com"
+APIDEF_RF: dict[str, Any] = {
+    "/store/inventory": [{"method": "get", "query_parameters": [], "post_parameters": []}],
+}
+
+
+@pytest.fixture(autouse=False)
+def no_request_filters() -> Any:
+    """call_api integration tests: リクエストフィルターを空にして hermetic にする。"""
+    with patch("papycli.request_filter.load_filters", return_value=[]):
+        yield
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_body(no_request_filters: Any) -> None:
+    """レスポンスフィルターがボディを変更すると resp._content に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def add_cats(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("add-cats", add_cats)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.json() == {"dogs": 1, "cats": 99}
+
+
+@rsps.activate
+def test_call_api_response_filter_receives_correct_context(no_request_filters: Any) -> None:
+    """ResponseContext に method・url・status_code・reason が正しく渡される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+    received: list[ResponseContext] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx)
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("capture", capture)]):
+        call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert len(received) == 1
+    ctx = received[0]
+    assert ctx.method == "get"
+    assert ctx.status_code == 200
+    assert ctx.reason == "OK"
+    assert "/store/inventory" in ctx.url
+
+
+@rsps.activate
+def test_call_api_response_filter_body_set_to_none(no_request_filters: Any) -> None:
+    """フィルターが body を None にすると resp._content が空になる。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def clear_body(ctx: ResponseContext) -> ResponseContext:
+        ctx.body = None
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("clear", clear_body)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.content == b""
+
+
+@rsps.activate
+def test_call_api_response_filter_no_filters_unchanged(no_request_filters: Any) -> None:
+    """レスポンスフィルターが 0 件のとき、レスポンスは変更されない。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.json() == {"dogs": 1}
+
+
+@rsps.activate
+def test_call_api_response_filter_noop_body_not_rewritten(no_request_filters: Any) -> None:
+    """フィルターがボディを論理的に変更しない場合、_content は書き換えられない。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def noop(ctx: ResponseContext) -> ResponseContext:
+        # ボディを等価な値で上書きするが変更はない
+        ctx.body = {"dogs": 1}
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("noop", noop)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    # モックが返した元のレスポンスボディ（生バイト列）
+    original_bytes = rsps.calls[0].response.content
+    # _content は書き換えられておらず、元のバイト列のまま
+    assert resp.content == original_bytes
+    # かつ、JSON としての値も正しく読める
+    assert resp.json() == {"dogs": 1}
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_status_code(no_request_filters: Any) -> None:
+    """フィルターが status_code を変更すると resp.status_code に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def change_status(ctx: ResponseContext) -> ResponseContext:
+        ctx.status_code = 201
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("s", change_status)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.status_code == 201
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_reason(no_request_filters: Any) -> None:
+    """フィルターが reason を変更すると resp.reason に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def change_reason(ctx: ResponseContext) -> ResponseContext:
+        ctx.reason = "Custom Reason"
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("r", change_reason)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.reason == "Custom Reason"
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_headers(no_request_filters: Any) -> None:
+    """フィルターが headers を変更すると resp.headers に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def add_header(ctx: ResponseContext) -> ResponseContext:
+        ctx.headers["X-Custom"] = "value"
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("h", add_header)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.headers["X-Custom"] == "value"
+
+
+@rsps.activate
+def test_call_api_response_filter_non_serializable_body_warns(
+    capsys: pytest.CaptureFixture[str],
+    no_request_filters: Any,
+) -> None:
+    """フィルターが非シリアライズ可能な値をボディに設定した場合、警告を出し元レスポンスを維持する。"""
+    import datetime
+
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def bad_body(ctx: ResponseContext) -> ResponseContext:
+        ctx.body = {"ts": datetime.datetime.now()}  # not JSON-serializable
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("b", bad_body)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    original_content = rsps.calls[0].response.content
+    assert resp.content == original_content
+    assert "Warning" in capsys.readouterr().err
+
+
+@rsps.activate
+def test_call_api_response_filter_circular_ref_body_warns(
+    capsys: pytest.CaptureFixture[str],
+    no_request_filters: Any,
+) -> None:
+    """json.dumps が ValueError（循環参照等）を送出した場合も警告を出し元レスポンスを維持する。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def circular_body(ctx: ResponseContext) -> ResponseContext:
+        d: dict = {}
+        d["self"] = d  # circular reference -> ValueError
+        ctx.body = d
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("c", circular_body)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    original_content = rsps.calls[0].response.content
+    assert resp.content == original_content
+    assert "Warning" in capsys.readouterr().err
+
+
+@rsps.activate
+def test_call_api_response_filter_updates_content_type_charset(no_request_filters: Any) -> None:
+    """ボディを書き換えた場合、Content-Type に charset=utf-8 が補完される。"""
+    rsps.add(
+        rsps.GET,
+        f"{BASE_URL_RF}/store/inventory",
+        json={"dogs": 1},
+        status=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    def add_key(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert "charset=utf-8" in resp.headers.get("Content-Type", "")
+    assert resp.json() == {"dogs": 1, "cats": 99}
+
+
+@rsps.activate
+def test_call_api_response_filter_replaces_existing_charset(no_request_filters: Any) -> None:
+    """既存の charset が utf-8 以外の場合、charset=utf-8 に置き換えられる。"""
+    rsps.add(
+        rsps.GET,
+        f"{BASE_URL_RF}/store/inventory",
+        json={"dogs": 1},
+        status=200,
+        headers={"Content-Type": "application/json; charset=iso-8859-1"},
+    )
+
+    def add_key(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    ct = resp.headers.get("Content-Type", "")
+    assert "charset=utf-8" in ct
+    assert "iso-8859-1" not in ct
+    assert resp.json() == {"dogs": 1, "cats": 99}
+
+
+@rsps.activate
+def test_call_api_response_filter_updates_content_length(no_request_filters: Any) -> None:
+    """ボディを書き換えた場合、Content-Length が新しいバイト長に更新される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+
+    def add_key(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    expected_len = len(resp.content)
+    assert resp.headers.get("Content-Length") == str(expected_len)
+
+
+@rsps.activate
+def test_call_api_response_filter_case_insensitive_content_type(no_request_filters: Any) -> None:
+    """Content-Type の大文字小文字を区別せず JSON としてパースする。"""
+    rsps.add(
+        rsps.GET,
+        f"{BASE_URL_RF}/store/inventory",
+        json={"dogs": 1},
+        status=200,
+        headers={"Content-Type": "Application/JSON"},
+    )
+    received: list[ResponseContext] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx)
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("c", capture)]):
+        call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert received[0].body == {"dogs": 1}
