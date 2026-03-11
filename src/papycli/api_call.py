@@ -379,9 +379,17 @@ def call_api(
                 # resp_ctx.headers を更新し、後続ヘッダー処理で一括して resp.headers に適用する。
                 ct = resp_ctx.headers.get("Content-Type", "")
                 if ct:
-                    base_type = ct.split(";", 1)[0].strip()
-                    if base_type.startswith("text/") or base_type == "application/json":
-                        resp_ctx.headers["Content-Type"] = f"{base_type}; charset=utf-8"
+                    parts = [p.strip() for p in ct.split(";") if p.strip()]
+                    if parts:
+                        base_type = parts[0]
+                        if base_type.startswith("text/") or base_type == "application/json":
+                            # charset 以外のパラメータを保持しつつ charset=utf-8 を設定する。
+                            other_params = [
+                                p for p in parts[1:] if not p.lower().startswith("charset=")
+                            ]
+                            resp_ctx.headers["Content-Type"] = "; ".join(
+                                [base_type, *other_params, "charset=utf-8"]
+                            )
         # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
         if resp_ctx.status_code != resp.status_code:
             resp.status_code = resp_ctx.status_code

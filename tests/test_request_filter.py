@@ -625,7 +625,6 @@ def test_call_api_response_filter_non_serializable_body_warns(
     import datetime
 
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
-    original_content = b'{"dogs": 1}'
 
     def bad_body(ctx: ResponseContext) -> ResponseContext:
         ctx.body = {"ts": datetime.datetime.now()}  # not JSON-serializable
@@ -634,6 +633,7 @@ def test_call_api_response_filter_non_serializable_body_warns(
     with patch("papycli.request_filter.load_response_filters", return_value=[("b", bad_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
+    original_content = rsps.calls[0].response.content
     assert resp.content == original_content
     assert "Warning" in capsys.readouterr().err
 
@@ -644,7 +644,6 @@ def test_call_api_response_filter_circular_ref_body_warns(
 ) -> None:
     """json.dumps が ValueError（循環参照等）を送出した場合も警告を出し元レスポンスを維持する。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
-    original_content = b'{"dogs": 1}'
 
     def circular_body(ctx: ResponseContext) -> ResponseContext:
         d: dict = {}
@@ -655,6 +654,7 @@ def test_call_api_response_filter_circular_ref_body_warns(
     with patch("papycli.request_filter.load_response_filters", return_value=[("c", circular_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
+    original_content = rsps.calls[0].response.content
     assert resp.content == original_content
     assert "Warning" in capsys.readouterr().err
 
