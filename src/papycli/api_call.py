@@ -355,15 +355,33 @@ def call_api(
         resp_ctx = apply_response_filters(resp_ctx, response_filters)
 
         # フィルターがフィールドを変更した場合、resp に反映する。
-        # ボディ: 値の等価比較で変更を検出し、_content と encoding を更新する。
+        # ボディ: 値の等価比較で変更を検出し、_content・encoding・Content-Type を更新する。
+        # json.dumps が TypeError を送出した場合（非シリアライズ可能な値が含まれる場合等）は
+        # 警告を出力して元のレスポンスを維持する。
         if resp_ctx.body != resp_body:
-            if resp_ctx.body is None:
-                resp._content = b""
-            elif isinstance(resp_ctx.body, str):
-                resp._content = resp_ctx.body.encode("utf-8")
+            try:
+                if resp_ctx.body is None:
+                    new_content: bytes = b""
+                elif isinstance(resp_ctx.body, str):
+                    new_content = resp_ctx.body.encode("utf-8")
+                else:
+                    new_content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
+            except TypeError as e:
+                print(
+                    f"Warning: response filter returned a non-serializable body ({e});"
+                    " keeping original response",
+                    file=sys.stderr,
+                )
             else:
-                resp._content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
-            resp.encoding = "utf-8"
+                resp._content = new_content
+                resp.encoding = "utf-8"
+                # Content-Type charset の補完は resp_ctx.headers に反映し、
+                # 後続のヘッダー更新処理で一括して resp.headers に適用する。
+                ct = resp_ctx.headers.get("Content-Type", "")
+                if ct and "charset=" not in ct:
+                    base_type = ct.split(";", 1)[0].strip()
+                    if base_type.startswith("text/") or base_type == "application/json":
+                        resp_ctx.headers["Content-Type"] = f"{base_type}; charset=utf-8"
         # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
         if resp_ctx.status_code != resp.status_code:
             resp.status_code = resp_ctx.status_code

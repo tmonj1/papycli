@@ -615,3 +615,47 @@ def test_call_api_response_filter_modifies_headers() -> None:
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.headers["X-Custom"] == "value"
+
+
+@rsps.activate
+def test_call_api_response_filter_non_serializable_body_warns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """フィルターが非シリアライズ可能な値をボディに設定した場合、警告を出し元レスポンスを維持する。"""
+    import datetime
+
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+    original_content = b'{"dogs": 1}'
+
+    def bad_body(ctx: ResponseContext) -> ResponseContext:
+        ctx.body = {"ts": datetime.datetime.now()}  # not JSON-serializable
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("b", bad_body)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.content == original_content
+    assert "Warning" in capsys.readouterr().err
+
+
+@rsps.activate
+def test_call_api_response_filter_updates_content_type_charset() -> None:
+    """ボディを書き換えた場合、Content-Type に charset=utf-8 が補完される。"""
+    rsps.add(
+        rsps.GET,
+        f"{BASE_URL_RF}/store/inventory",
+        json={"dogs": 1},
+        status=200,
+        headers={"Content-Type": "application/json"},
+    )
+
+    def add_key(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert "charset=utf-8" in resp.headers.get("Content-Type", "")
+    assert resp.json() == {"dogs": 1, "cats": 99}
