@@ -206,7 +206,7 @@ papycli <method> <resource> [options]
   -H <header: value>      カスタム HTTP ヘッダー（繰り返し可）
   -q <name> <value>       クエリパラメータ（繰り返し可）。
                             リソースパスにクエリ文字列を直接埋め込むことも可能:
-                            /pet/findByStatus?status=available
+                            '/pet/findByStatus?status=available'
                             インラインパラメータは -q より先に送信される。
   -p <name> <value>       ボディパラメータ（繰り返し可）
                             - API 仕様に基づいて値を適切な JSON 型（integer / number /

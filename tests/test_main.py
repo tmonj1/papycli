@@ -495,6 +495,8 @@ def test_cmd_get_inline_query_and_explicit_q_combined(
     req = rsps.calls[0].request
     assert "status=available" in req.url
     assert "limit=5" in req.url
+    # インラインクエリパラメータは -q パラメータより前に送信される
+    assert req.url.index("status=available") < req.url.index("limit=5")
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
