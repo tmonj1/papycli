@@ -333,7 +333,7 @@ def call_api(
     # レスポンスボディのパースと ResponseContext 構築を行う。
     response_filters = load_response_filters()
     if response_filters:
-        content_type = resp.headers.get("Content-Type", "")
+        content_type = resp.headers.get("Content-Type", "").lower()
         if "application/json" in content_type:
             try:
                 resp_body: (
@@ -375,6 +375,8 @@ def call_api(
             else:
                 resp._content = new_content
                 resp.encoding = "utf-8"
+                # Content-Length を新しいバイト長に更新する。
+                resp_ctx.headers["Content-Length"] = str(len(new_content))
                 # Content-Type charset を utf-8 に更新（既存の charset も置き換える）。
                 # resp_ctx.headers を更新し、後続ヘッダー処理で一括して resp.headers に適用する。
                 ct = resp_ctx.headers.get("Content-Type", "")
@@ -382,7 +384,9 @@ def call_api(
                     parts = [p.strip() for p in ct.split(";") if p.strip()]
                     if parts:
                         base_type = parts[0]
-                        if base_type.startswith("text/") or base_type == "application/json":
+                        base_type_lower = base_type.lower()
+                        is_text = base_type_lower.startswith("text/")
+                        if is_text or base_type_lower == "application/json":
                             # charset 以外のパラメータを保持しつつ charset=utf-8 を設定する。
                             other_params = [
                                 p for p in parts[1:] if not p.lower().startswith("charset=")
