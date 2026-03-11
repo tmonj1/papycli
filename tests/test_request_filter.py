@@ -639,6 +639,27 @@ def test_call_api_response_filter_non_serializable_body_warns(
 
 
 @rsps.activate
+def test_call_api_response_filter_circular_ref_body_warns(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """json.dumps が ValueError（循環参照等）を送出した場合も警告を出し元レスポンスを維持する。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+    original_content = b'{"dogs": 1}'
+
+    def circular_body(ctx: ResponseContext) -> ResponseContext:
+        d: dict = {}
+        d["self"] = d  # circular reference -> ValueError
+        ctx.body = d
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("c", circular_body)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.content == original_content
+    assert "Warning" in capsys.readouterr().err
+
+
+@rsps.activate
 def test_call_api_response_filter_updates_content_type_charset() -> None:
     """ボディを書き換えた場合、Content-Type に charset=utf-8 が補完される。"""
     rsps.add(
@@ -658,4 +679,29 @@ def test_call_api_response_filter_updates_content_type_charset() -> None:
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert "charset=utf-8" in resp.headers.get("Content-Type", "")
+    assert resp.json() == {"dogs": 1, "cats": 99}
+
+
+@rsps.activate
+def test_call_api_response_filter_replaces_existing_charset() -> None:
+    """既存の charset が utf-8 以外の場合、charset=utf-8 に置き換えられる。"""
+    rsps.add(
+        rsps.GET,
+        f"{BASE_URL_RF}/store/inventory",
+        json={"dogs": 1},
+        status=200,
+        headers={"Content-Type": "application/json; charset=iso-8859-1"},
+    )
+
+    def add_key(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.body, dict)
+        ctx.body["cats"] = 99
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    ct = resp.headers.get("Content-Type", "")
+    assert "charset=utf-8" in ct
+    assert "iso-8859-1" not in ct
     assert resp.json() == {"dogs": 1, "cats": 99}

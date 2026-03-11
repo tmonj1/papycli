@@ -366,7 +366,7 @@ def call_api(
                     new_content = resp_ctx.body.encode("utf-8")
                 else:
                     new_content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
-            except TypeError as e:
+            except (TypeError, ValueError) as e:
                 print(
                     f"Warning: response filter returned a non-serializable body ({e});"
                     " keeping original response",
@@ -375,10 +375,10 @@ def call_api(
             else:
                 resp._content = new_content
                 resp.encoding = "utf-8"
-                # Content-Type charset の補完は resp_ctx.headers に反映し、
-                # 後続のヘッダー更新処理で一括して resp.headers に適用する。
+                # Content-Type charset を utf-8 に更新（既存の charset も置き換える）。
+                # resp_ctx.headers を更新し、後続ヘッダー処理で一括して resp.headers に適用する。
                 ct = resp_ctx.headers.get("Content-Type", "")
-                if ct and "charset=" not in ct:
+                if ct:
                     base_type = ct.split(";", 1)[0].strip()
                     if base_type.startswith("text/") or base_type == "application/json":
                         resp_ctx.headers["Content-Type"] = f"{base_type}; charset=utf-8"
