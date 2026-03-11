@@ -40,6 +40,7 @@ papycli/
 │       ├── checker.py       # --check / --check-strict のパラメータ検証
 │       ├── summary.py       # summary コマンドの出力
 │       ├── completion.py    # bash / zsh 補完スクリプト生成
+│       ├── request_filter.py # リクエストフィルタープラグイン機構
 │       └── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 ├── tests/
 │   ├── test_api_call.py
@@ -49,6 +50,7 @@ papycli/
 │   ├── test_i18n.py
 │   ├── test_init_cmd.py
 │   ├── test_main.py
+│   ├── test_request_filter.py
 │   ├── test_spec_loader.py
 │   └── test_summary.py
 ├── examples/
@@ -231,6 +233,62 @@ papycli/
 - 手動テスト手順をドキュメント化
 
 **完了条件**: `eval "$(papycli config completion-script zsh)"` 後にタブ補完が動作する。メソッド・リソース・クエリパラメータ名・ボディパラメータ名・enum 値が補完候補として表示される。`spec`・`summary`・`--check`・`--check-strict` も補完候補に含まれる。
+
+---
+
+### Milestone 6 — リクエストフィルタープラグイン機構
+
+**目的**: サードパーティプラグインがリクエスト送信前に URL・クエリ・ボディ・ヘッダーを変換できる拡張ポイントを提供する。
+
+**実装内容**:
+- `request_filter.py`
+  - `RequestContext` データクラス（`method`, `url`, `query_params`, `body`, `headers`）
+  - `load_filters()`: `papycli.request_filters` エントリポイントグループからフィルターをロードし、callable 検証後にプラグイン名の昇順で返す
+  - `apply_filters()`: フィルターを順番に適用。各フィルター呼び出し前にスナップショットを作成し（body は deepcopy、他はシャローコピー）、例外・戻り値不正の場合は警告して前の ctx を維持する
+- `api_call.py` の `call_api()` でフィルターを適用するよう更新
+  - フィルター適用後の `method` は使用しない（API 定義マッチング時に確定した元の値を使う）
+- テスト: `test_request_filter.py`
+  - フィルターの読み込み・適用・例外処理・戻り値型検証など
+
+**プラグイン登録例** (`pyproject.toml`):
+
+```toml
+[project.entry-points."papycli.request_filters"]
+my-filter = "my_plugin:request_filter"
+```
+
+**完了条件**: `papycli.request_filters` エントリポイントに登録したフィルターが全リクエストで自動適用される。フィルターが例外を送出してもリクエスト送信に影響しない。テストがパスする。
+
+---
+
+### Milestone 7 — `config log` コマンドとリクエスト/レスポンスログ
+
+**目的**: リクエストとレスポンスの内容をファイルに記録できるようにし、デバッグや監査を容易にする。
+
+**実装内容**:
+- `config.py`
+  - `get_logfile()` / `set_logfile()` / `unset_logfile()`: ログファイルパスの取得・設定・削除
+  - `load_current_apidef()` に `conf` オプション引数を追加し、設定ファイルの二重読み込みを防止
+- `api_call.py`
+  - `_SENSITIVE_HEADERS`: ログに記録する際にマスクするヘッダー名の集合（Authorization, Cookie 等）
+  - `_LOG_BODY_MAX_CHARS`: ログに記録するボディの最大文字数（10,000 文字）。超過時は `...[truncated]` を付与
+  - `_write_log()`: フィルター適用前の URL・クエリ・ボディ・ヘッダーをログに記録。エラー時は警告のみでリクエストには影響しない
+  - `call_api()` に `logfile` 引数を追加。`~` 展開に `Path.expanduser()` を使用
+- `main.py` に `papycli config log [PATH] [--unset]` コマンド追加
+- テスト: `test_config.py`、`test_api_call.py`、`test_main.py`
+
+**ログフォーマット例**:
+
+```
+[2026-03-10T12:34:56+00:00] GET https://example.com/pet/99
+  Query: (none)
+  Body: (none)
+  Headers: {"Authorization": "***"}
+  Status: 200
+  Response: {"id": 99, "name": "My Dog"}
+```
+
+**完了条件**: `papycli config log ~/papycli.log` 設定後、リクエストごとにログファイルへ追記される。機密ヘッダーはマスクされる。大きなボディは切り詰められる。テストがパスする。
 
 ---
 
