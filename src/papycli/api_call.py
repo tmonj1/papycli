@@ -359,6 +359,7 @@ def call_api(
         # json.dumps が TypeError を送出した場合（非シリアライズ可能な値が含まれる場合等）は
         # 警告を出力して元のレスポンスを維持する。
         if resp_ctx.body != resp_body:
+            is_json_body = resp_ctx.body is not None and not isinstance(resp_ctx.body, str)
             try:
                 if resp_ctx.body is None:
                     new_content: bytes = b""
@@ -377,23 +378,30 @@ def call_api(
                 resp.encoding = "utf-8"
                 # Content-Length を新しいバイト長に更新する。
                 resp_ctx.headers["Content-Length"] = str(len(new_content))
-                # Content-Type charset を utf-8 に更新（既存の charset も置き換える）。
+                # Content-Type をボディのシリアライズ方式にあわせて更新する。
                 # resp_ctx.headers を更新し、後続ヘッダー処理で一括して resp.headers に適用する。
                 ct = resp_ctx.headers.get("Content-Type", "")
-                if ct:
-                    parts = [p.strip() for p in ct.split(";") if p.strip()]
-                    if parts:
-                        base_type = parts[0]
-                        base_type_lower = base_type.lower()
-                        is_text = base_type_lower.startswith("text/")
-                        if is_text or base_type_lower == "application/json":
-                            # charset 以外のパラメータを保持しつつ charset=utf-8 を設定する。
-                            other_params = [
-                                p for p in parts[1:] if not p.lower().startswith("charset=")
-                            ]
-                            resp_ctx.headers["Content-Type"] = "; ".join(
-                                [base_type, *other_params, "charset=utf-8"]
-                            )
+                if is_json_body:
+                    # dict/list 等は JSON シリアライズされるため application/json に設定する。
+                    resp_ctx.headers["Content-Type"] = "application/json; charset=utf-8"
+                else:
+                    # str/None ボディは既存の Content-Type を尊重しつつ charset だけ更新する。
+                    if ct:
+                        parts = [p.strip() for p in ct.split(";") if p.strip()]
+                        if parts:
+                            base_type = parts[0]
+                            base_type_lower = base_type.lower()
+                            is_text = base_type_lower.startswith("text/")
+                            if is_text or base_type_lower == "application/json":
+                                other_params = [
+                                    p for p in parts[1:]
+                                    if not p.lower().startswith("charset=")
+                                ]
+                                resp_ctx.headers["Content-Type"] = "; ".join(
+                                    [base_type, *other_params, "charset=utf-8"]
+                                )
+                    else:
+                        resp_ctx.headers["Content-Type"] = "text/plain; charset=utf-8"
         # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
         if resp_ctx.status_code != resp.status_code:
             resp.status_code = resp_ctx.status_code

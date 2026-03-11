@@ -488,8 +488,15 @@ APIDEF_RF: dict[str, Any] = {
 }
 
 
+@pytest.fixture(autouse=False)
+def no_request_filters() -> Any:
+    """call_api integration tests: リクエストフィルターを空にして hermetic にする。"""
+    with patch("papycli.request_filter.load_filters", return_value=[]):
+        yield
+
+
 @rsps.activate
-def test_call_api_response_filter_modifies_body() -> None:
+def test_call_api_response_filter_modifies_body(no_request_filters: Any) -> None:
     """レスポンスフィルターがボディを変更すると resp._content に反映される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
@@ -505,7 +512,7 @@ def test_call_api_response_filter_modifies_body() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_receives_correct_context() -> None:
+def test_call_api_response_filter_receives_correct_context(no_request_filters: Any) -> None:
     """ResponseContext に method・url・status_code・reason が正しく渡される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
     received: list[ResponseContext] = []
@@ -526,7 +533,7 @@ def test_call_api_response_filter_receives_correct_context() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_body_set_to_none() -> None:
+def test_call_api_response_filter_body_set_to_none(no_request_filters: Any) -> None:
     """フィルターが body を None にすると resp._content が空になる。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
@@ -541,7 +548,7 @@ def test_call_api_response_filter_body_set_to_none() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_no_filters_unchanged() -> None:
+def test_call_api_response_filter_no_filters_unchanged(no_request_filters: Any) -> None:
     """レスポンスフィルターが 0 件のとき、レスポンスは変更されない。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
@@ -552,7 +559,7 @@ def test_call_api_response_filter_no_filters_unchanged() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_noop_body_not_rewritten() -> None:
+def test_call_api_response_filter_noop_body_not_rewritten(no_request_filters: Any) -> None:
     """フィルターがボディを論理的に変更しない場合、_content は書き換えられない。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
@@ -573,7 +580,7 @@ def test_call_api_response_filter_noop_body_not_rewritten() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_modifies_status_code() -> None:
+def test_call_api_response_filter_modifies_status_code(no_request_filters: Any) -> None:
     """フィルターが status_code を変更すると resp.status_code に反映される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
 
@@ -588,7 +595,7 @@ def test_call_api_response_filter_modifies_status_code() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_modifies_reason() -> None:
+def test_call_api_response_filter_modifies_reason(no_request_filters: Any) -> None:
     """フィルターが reason を変更すると resp.reason に反映される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
 
@@ -603,7 +610,7 @@ def test_call_api_response_filter_modifies_reason() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_modifies_headers() -> None:
+def test_call_api_response_filter_modifies_headers(no_request_filters: Any) -> None:
     """フィルターが headers を変更すると resp.headers に反映される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
 
@@ -620,6 +627,7 @@ def test_call_api_response_filter_modifies_headers() -> None:
 @rsps.activate
 def test_call_api_response_filter_non_serializable_body_warns(
     capsys: pytest.CaptureFixture[str],
+    no_request_filters: Any,
 ) -> None:
     """フィルターが非シリアライズ可能な値をボディに設定した場合、警告を出し元レスポンスを維持する。"""
     import datetime
@@ -641,6 +649,7 @@ def test_call_api_response_filter_non_serializable_body_warns(
 @rsps.activate
 def test_call_api_response_filter_circular_ref_body_warns(
     capsys: pytest.CaptureFixture[str],
+    no_request_filters: Any,
 ) -> None:
     """json.dumps が ValueError（循環参照等）を送出した場合も警告を出し元レスポンスを維持する。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
@@ -660,7 +669,7 @@ def test_call_api_response_filter_circular_ref_body_warns(
 
 
 @rsps.activate
-def test_call_api_response_filter_updates_content_type_charset() -> None:
+def test_call_api_response_filter_updates_content_type_charset(no_request_filters: Any) -> None:
     """ボディを書き換えた場合、Content-Type に charset=utf-8 が補完される。"""
     rsps.add(
         rsps.GET,
@@ -683,7 +692,7 @@ def test_call_api_response_filter_updates_content_type_charset() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_replaces_existing_charset() -> None:
+def test_call_api_response_filter_replaces_existing_charset(no_request_filters: Any) -> None:
     """既存の charset が utf-8 以外の場合、charset=utf-8 に置き換えられる。"""
     rsps.add(
         rsps.GET,
@@ -708,7 +717,7 @@ def test_call_api_response_filter_replaces_existing_charset() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_updates_content_length() -> None:
+def test_call_api_response_filter_updates_content_length(no_request_filters: Any) -> None:
     """ボディを書き換えた場合、Content-Length が新しいバイト長に更新される。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
@@ -725,7 +734,7 @@ def test_call_api_response_filter_updates_content_length() -> None:
 
 
 @rsps.activate
-def test_call_api_response_filter_case_insensitive_content_type() -> None:
+def test_call_api_response_filter_case_insensitive_content_type(no_request_filters: Any) -> None:
     """Content-Type の大文字小文字を区別せず JSON としてパースする。"""
     rsps.add(
         rsps.GET,
