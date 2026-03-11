@@ -78,8 +78,11 @@ def set_default_api(conf: dict[str, Any], name: str) -> None:
 
 
 def get_default_api(conf: dict[str, Any]) -> str | None:
-    """現在のデフォルト API 名を返す。未設定の場合は None。"""
-    return conf.get("default")
+    """現在のデフォルト API 名を返す。未設定・空文字列・非文字列の場合は None。"""
+    value = conf.get("default")
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def get_logfile(conf: dict[str, Any]) -> str | None:

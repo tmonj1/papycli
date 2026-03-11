@@ -95,6 +95,15 @@ def test_get_default_api_none_when_missing() -> None:
     assert get_default_api({}) is None
 
 
+def test_get_default_api_none_when_empty_string() -> None:
+    assert get_default_api({"default": ""}) is None
+
+
+def test_get_default_api_none_when_non_string() -> None:
+    assert get_default_api({"default": 123}) is None
+    assert get_default_api({"default": ["api1"]}) is None
+
+
 # ---------------------------------------------------------------------------
 # remove_api
 # ---------------------------------------------------------------------------
