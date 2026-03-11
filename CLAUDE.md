@@ -59,6 +59,7 @@ papycli/
 │   └── test_summary.py
 ├── examples/
 │   ├── request_filter/      # リクエストフィルタープラグイン実装例
+│   ├── response_filter/     # レスポンスフィルタープラグイン実装例
 │   ├── docker-compose.yml
 │   └── petstore-oas3.json
 ├── pyproject.toml
