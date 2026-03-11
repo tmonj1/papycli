@@ -324,46 +324,52 @@ def call_api(
         headers=ctx.headers,
     )
 
-    # レスポンスボディをパースして ResponseContext を構築し、フィルターを適用する。
-    content_type = resp.headers.get("Content-Type", "")
-    if "application/json" in content_type:
-        try:
-            resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None = resp.json()
-        except ValueError:
-            resp_body = resp.text or None
-    else:
-        resp_body = resp.text or None
-
-    resp_ctx = ResponseContext(
-        method=method,
-        url=resp.url,
-        status_code=resp.status_code,
-        reason=resp.reason or "",
-        headers=dict(resp.headers),
-        body=resp_body,
-    )
-    resp_ctx = apply_response_filters(resp_ctx, load_response_filters())
-
-    # フィルターがフィールドを変更した場合、resp に反映する。
-    # ボディ: 値の等価比較で変更を検出し、_content を上書きする。
-    if resp_ctx.body != resp_body:
-        if resp_ctx.body is None:
-            resp._content = b""
-        elif isinstance(resp_ctx.body, str):
-            resp._content = resp_ctx.body.encode("utf-8")
-        else:
-            resp._content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
-    # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
-    if resp_ctx.status_code != resp.status_code:
-        resp.status_code = resp_ctx.status_code
-    if resp_ctx.reason != (resp.reason or ""):
-        resp.reason = resp_ctx.reason
-    if resp_ctx.headers != dict(resp.headers):
-        resp.headers = requests.structures.CaseInsensitiveDict(resp_ctx.headers)
-
     if logfile:
-        # ログにはリクエスト側フィルター適用前の値（url/query/body/headers）を使う。
-        # フィルタープラグインが追加した情報には機密情報が含まれる可能性があるため記録しない。
+        # ログにはリクエスト側フィルター適用前の値（url/query/body/headers）とサーバーが
+        # 返した元のレスポンス（レスポンスフィルター適用前）を記録する。
         _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
+
+    # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
+    # レスポンスボディのパースと ResponseContext 構築を行う。
+    response_filters = load_response_filters()
+    if response_filters:
+        content_type = resp.headers.get("Content-Type", "")
+        if "application/json" in content_type:
+            try:
+                resp_body: (
+                    dict[str, Any] | list[Any] | str | int | float | bool | None
+                ) = resp.json()
+            except ValueError:
+                resp_body = resp.text or None
+        else:
+            resp_body = resp.text or None
+
+        resp_ctx = ResponseContext(
+            method=method,
+            url=resp.url,
+            status_code=resp.status_code,
+            reason=resp.reason or "",
+            headers=dict(resp.headers),
+            body=resp_body,
+        )
+        resp_ctx = apply_response_filters(resp_ctx, response_filters)
+
+        # フィルターがフィールドを変更した場合、resp に反映する。
+        # ボディ: 値の等価比較で変更を検出し、_content と encoding を更新する。
+        if resp_ctx.body != resp_body:
+            if resp_ctx.body is None:
+                resp._content = b""
+            elif isinstance(resp_ctx.body, str):
+                resp._content = resp_ctx.body.encode("utf-8")
+            else:
+                resp._content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
+            resp.encoding = "utf-8"
+        # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
+        if resp_ctx.status_code != resp.status_code:
+            resp.status_code = resp_ctx.status_code
+        if resp_ctx.reason != (resp.reason or ""):
+            resp.reason = resp_ctx.reason
+        if resp_ctx.headers != dict(resp.headers):
+            resp.headers = requests.structures.CaseInsensitiveDict(resp_ctx.headers)
 
     return resp

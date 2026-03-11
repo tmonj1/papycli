@@ -290,7 +290,7 @@ Register it in your package's `pyproject.toml`:
 my-filter = "my_plugin:response_filter"
 ```
 
-Install the package and filters are applied automatically after every response, sorted by plugin name.
+Install the package and the filters are applied automatically after every response, sorted by plugin name.
 
 `ResponseContext` fields:
 

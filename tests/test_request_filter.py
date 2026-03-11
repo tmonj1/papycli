@@ -555,21 +555,20 @@ def test_call_api_response_filter_no_filters_unchanged() -> None:
 def test_call_api_response_filter_noop_body_not_rewritten() -> None:
     """フィルターがボディを論理的に変更しない場合、_content は書き換えられない。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
-    original_content: list[bytes] = []
 
     def noop(ctx: ResponseContext) -> ResponseContext:
         # ボディを等価な値で上書きするが変更はない
         ctx.body = {"dogs": 1}
         return ctx
 
-    def capture_content(ctx: ResponseContext) -> ResponseContext:
-        return ctx
-
     with patch("papycli.request_filter.load_response_filters", return_value=[("noop", noop)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
-        original_content.append(resp.content)
 
-    # コンテンツは元のままで値は正しく読める
+    # モックが返した元のレスポンスボディ（生バイト列）
+    original_bytes = rsps.calls[0].response.content
+    # _content は書き換えられておらず、元のバイト列のまま
+    assert resp.content == original_bytes
+    # かつ、JSON としての値も正しく読める
     assert resp.json() == {"dogs": 1}
 
 
