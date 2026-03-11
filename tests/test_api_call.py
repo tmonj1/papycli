@@ -499,3 +499,69 @@ def test_call_api_log_survives_non_serializable_body(
     captured = capsys.readouterr()
     assert "Warning" in captured.err
     assert logfile in captured.err
+
+
+@rsps.activate
+def test_call_api_log_expanduser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """logfile に ~ を含むパスが正しく展開される。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    logfile = "~/test.log"
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert (tmp_path / "test.log").exists()
+
+
+@rsps.activate
+def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
+    """ログにはフィルター適用前の URL・クエリ・ボディが記録される。"""
+    from papycli.request_filter import RequestContext
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def mutating_filter(ctx: RequestContext) -> RequestContext:
+        return RequestContext(
+            method=ctx.method,
+            url=ctx.url + "?injected=secret",
+            query_params=ctx.query_params + [("injected", "secret")],
+            body=ctx.body,
+            headers=ctx.headers,
+        )
+
+    with patch("papycli.request_filter.load_filters", return_value=[("mutating", mutating_filter)]):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "injected" not in content
+    assert "secret" not in content
+
+
+@rsps.activate
+def test_call_api_log_truncates_large_response(tmp_path: Path) -> None:
+    """レスポンスボディが大きい場合にログで切り詰められる。"""
+    from papycli.api_call import _LOG_BODY_MAX_CHARS
+
+    large_body = "x" * (_LOG_BODY_MAX_CHARS + 1000)
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", body=large_body, status=200,
+             content_type="text/plain")
+    logfile = str(tmp_path / "test.log")
+    call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "...[truncated]" in content
+
+
+@rsps.activate
+def test_call_api_log_truncates_large_request_body(tmp_path: Path) -> None:
+    """リクエストボディが大きい場合にログで切り詰められる。"""
+    from papycli.api_call import _LOG_BODY_MAX_CHARS
+
+    large_value = "y" * (_LOG_BODY_MAX_CHARS + 1000)
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+    call_api("post", "/pet", BASE_URL, APIDEF, raw_body=f'"{large_value}"', logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "...[truncated]" in content

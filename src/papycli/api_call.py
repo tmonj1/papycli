@@ -175,6 +175,8 @@ def parse_headers(
 # ログ書き込み
 # ---------------------------------------------------------------------------
 
+_LOG_BODY_MAX_CHARS = 10_000
+
 _SENSITIVE_HEADERS = frozenset({
     "authorization",
     "cookie",
@@ -210,6 +212,8 @@ def _write_log(
         q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
 
         body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
+        if len(body_str) > _LOG_BODY_MAX_CHARS:
+            body_str = body_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
         masked = {
             k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
         }
@@ -220,6 +224,8 @@ def _write_log(
             resp_str = json.dumps(resp_body, ensure_ascii=False)
         except ValueError:
             resp_str = resp.text or "(empty)"
+        if len(resp_str) > _LOG_BODY_MAX_CHARS:
+            resp_str = resp_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
 
         entry = (
             f"[{timestamp}] {method.upper()} {url}\n"
@@ -230,8 +236,9 @@ def _write_log(
             f"  Response: {resp_str}\n"
         )
 
-        Path(logfile).parent.mkdir(parents=True, exist_ok=True)
-        with Path(logfile).open("a", encoding="utf-8") as f:
+        log_path = Path(logfile).expanduser()
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with log_path.open("a", encoding="utf-8") as f:
             f.write(entry)
     except Exception as e:
         print(f"Warning: failed to write log to '{logfile}': {e}", file=sys.stderr)
@@ -311,9 +318,8 @@ def call_api(
     )
 
     if logfile:
-        # ログにはフィルター適用前のユーザー指定ヘッダー（headers）を使う。
-        # ctx.headers にはフィルタープラグインが追加したヘッダーが含まれる可能性があり、
-        # 機密情報が漏洩するリスクがあるため記録しない。
-        _write_log(logfile, method, ctx.url, ctx.query_params, ctx.body, headers, resp)
+        # ログにはフィルター適用前の値を使う。フィルタープラグインが追加した
+        # URL・クエリ・ボディ・ヘッダーには機密情報が含まれる可能性があるため記録しない。
+        _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
 
     return resp
