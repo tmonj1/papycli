@@ -1,7 +1,7 @@
 [project]
 name = "papycli-debug-filter"
 version = "0.1.0"
-description = "A papycli request filter plugin that prints request context to stdout"
+description = "A papycli request filter plugin that prints request context to stderr"
 requires-python = ">=3.12"
 dependencies = [
     "papycli>=0.6.0",

@@ -16,6 +16,14 @@ import sys
 from papycli.request_filter import RequestContext
 
 
+def _to_json(value: object) -> str:
+    """Serialize value to a JSON string, falling back to repr() on TypeError."""
+    try:
+        return json.dumps(value, ensure_ascii=False)
+    except TypeError:
+        return repr(value)
+
+
 def request_filter(ctx: RequestContext) -> RequestContext:
     """Print request context fields to stderr and return it unchanged."""
     q_dict: dict[str, object] = {}
@@ -31,8 +39,8 @@ def request_filter(ctx: RequestContext) -> RequestContext:
     print("[papycli-debug-filter]", file=sys.stderr)
     print(f"  Method : {ctx.method.upper()}", file=sys.stderr)
     print(f"  URL    : {ctx.url}", file=sys.stderr)
-    print(f"  Query  : {json.dumps(q_dict, ensure_ascii=False) if q_dict else '(none)'}", file=sys.stderr)
-    print(f"  Body   : {json.dumps(ctx.body, ensure_ascii=False) if ctx.body is not None else '(none)'}", file=sys.stderr)
-    print(f"  Headers: {json.dumps(ctx.headers, ensure_ascii=False) if ctx.headers else '(none)'}", file=sys.stderr)
+    print(f"  Query  : {_to_json(q_dict) if q_dict else '(none)'}", file=sys.stderr)
+    print(f"  Body   : {_to_json(ctx.body) if ctx.body is not None else '(none)'}", file=sys.stderr)
+    print(f"  Headers: {_to_json(ctx.headers) if ctx.headers else '(none)'}", file=sys.stderr)
 
     return ctx
