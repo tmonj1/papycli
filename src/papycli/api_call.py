@@ -344,18 +344,26 @@ def call_api(
     )
     resp_ctx = apply_response_filters(resp_ctx, load_response_filters())
 
-    # フィルターがボディを変更した場合、resp._content に反映する。
-    if resp_ctx.body is not resp_body:
+    # フィルターがフィールドを変更した場合、resp に反映する。
+    # ボディ: 値の等価比較で変更を検出し、_content を上書きする。
+    if resp_ctx.body != resp_body:
         if resp_ctx.body is None:
             resp._content = b""
         elif isinstance(resp_ctx.body, str):
             resp._content = resp_ctx.body.encode("utf-8")
         else:
             resp._content = json.dumps(resp_ctx.body, ensure_ascii=False).encode("utf-8")
+    # ステータスコード・理由フレーズ・ヘッダー: 変更があれば resp に反映する。
+    if resp_ctx.status_code != resp.status_code:
+        resp.status_code = resp_ctx.status_code
+    if resp_ctx.reason != (resp.reason or ""):
+        resp.reason = resp_ctx.reason
+    if resp_ctx.headers != dict(resp.headers):
+        resp.headers = requests.structures.CaseInsensitiveDict(resp_ctx.headers)
 
     if logfile:
-        # ログにはフィルター適用前の値を使う。フィルタープラグインが追加した
-        # URL・クエリ・ボディ・ヘッダーには機密情報が含まれる可能性があるため記録しない。
+        # ログにはリクエスト側フィルター適用前の値（url/query/body/headers）を使う。
+        # フィルタープラグインが追加した情報には機密情報が含まれる可能性があるため記録しない。
         _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
 
     return resp

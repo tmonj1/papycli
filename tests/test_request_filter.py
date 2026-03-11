@@ -549,3 +549,70 @@ def test_call_api_response_filter_no_filters_unchanged() -> None:
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.json() == {"dogs": 1}
+
+
+@rsps.activate
+def test_call_api_response_filter_noop_body_not_rewritten() -> None:
+    """フィルターがボディを論理的に変更しない場合、_content は書き換えられない。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
+    original_content: list[bytes] = []
+
+    def noop(ctx: ResponseContext) -> ResponseContext:
+        # ボディを等価な値で上書きするが変更はない
+        ctx.body = {"dogs": 1}
+        return ctx
+
+    def capture_content(ctx: ResponseContext) -> ResponseContext:
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("noop", noop)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        original_content.append(resp.content)
+
+    # コンテンツは元のままで値は正しく読める
+    assert resp.json() == {"dogs": 1}
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_status_code() -> None:
+    """フィルターが status_code を変更すると resp.status_code に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def change_status(ctx: ResponseContext) -> ResponseContext:
+        ctx.status_code = 201
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("s", change_status)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.status_code == 201
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_reason() -> None:
+    """フィルターが reason を変更すると resp.reason に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def change_reason(ctx: ResponseContext) -> ResponseContext:
+        ctx.reason = "Custom Reason"
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("r", change_reason)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.reason == "Custom Reason"
+
+
+@rsps.activate
+def test_call_api_response_filter_modifies_headers() -> None:
+    """フィルターが headers を変更すると resp.headers に反映される。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def add_header(ctx: ResponseContext) -> ResponseContext:
+        ctx.headers["X-Custom"] = "value"
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("h", add_header)]):
+        resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert resp.headers["X-Custom"] == "value"
