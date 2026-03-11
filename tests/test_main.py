@@ -447,6 +447,58 @@ def test_cmd_get_error_shows_status_on_stderr(
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
 @rsps.activate
+def test_cmd_get_with_inline_query_string(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """リソースパスのインラインクエリ文字列が -q と同様に送信される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/pet/findByStatus", json=[], status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/findByStatus?status=available"])
+    assert result.exit_code == 0
+    req = rsps.calls[0].request
+    assert "status=available" in req.url
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_with_inline_query_multiple_params(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """インラインクエリ文字列の複数パラメータが全て送信される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/pet/findByStatus", json=[], status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/findByStatus?status=available&limit=10"])
+    assert result.exit_code == 0
+    req = rsps.calls[0].request
+    assert "status=available" in req.url
+    assert "limit=10" in req.url
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_get_inline_query_and_explicit_q_combined(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """インラインクエリ文字列と -q オプションを併用すると両方が送信される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(rsps.GET, f"{BASE_URL}/pet/findByStatus", json=[], status=200)
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli, ["get", "/pet/findByStatus?status=available", "-q", "limit", "5"]
+    )
+    assert result.exit_code == 0
+    req = rsps.calls[0].request
+    assert "status=available" in req.url
+    assert "limit=5" in req.url
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
 def test_cmd_get_unknown_path(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
     runner = CliRunner()

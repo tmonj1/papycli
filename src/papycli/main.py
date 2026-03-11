@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from urllib.parse import parse_qsl
 
 import click
 import requests
@@ -411,6 +412,14 @@ def _api_command(method: str) -> click.Command:
         if do_check and do_check_strict:
             click.echo("Error: --check and --check-strict cannot be used together.", err=True)
             sys.exit(1)
+
+        # リソースに "?" が含まれる場合、クエリ文字列を分離してクエリパラメータに追加する。
+        # 例: /pet/findByStatus?status=available
+        #   → resource=/pet/findByStatus, query_params+=[("status", "available")]
+        if "?" in resource:
+            resource, _, inline_qs = resource.partition("?")
+            inline_params = tuple(parse_qsl(inline_qs, keep_blank_values=True))
+            query_params = inline_params + query_params
 
         conf_dir = get_conf_dir()
         try:
