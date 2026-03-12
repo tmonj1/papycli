@@ -8,7 +8,7 @@ import pytest
 
 from papycli.init_cmd import init_api, register_initialized_api
 
-PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore-oas3.json"
+PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 
 MINIMAL_SPEC: dict[str, Any] = {
     "openapi": "3.0.2",
