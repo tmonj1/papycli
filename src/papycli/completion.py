@@ -80,13 +80,17 @@ def _complete_resources(apidef: dict[str, Any], method: str, incomplete: str) ->
 
 
 def _used_param_names(words: list[str], flag: str) -> set[str]:
-    """words 中で flag NAME VALUE のパターンで使用済みのパラメータ名を返す。"""
+    """words 中で flag NAME( VALUE) のパターンで使用済みのパラメータ名を返す。"""
     used: set[str] = set()
     i = 0
     while i < len(words):
-        if words[i] == flag and i + 2 < len(words):
-            used.add(words[i + 1])
-            i += 3
+        if words[i] == flag and i + 1 < len(words):
+            name = words[i + 1]
+            # NAME が別のオプションフラグでも空文字でもない場合のみ使用済みとして扱う
+            if name and not name.startswith("-"):
+                used.add(name)
+            # flag と NAME までは確実に読み飛ばすが、VALUE は仮定しない
+            i += 2
         else:
             i += 1
     return used
