@@ -187,6 +187,14 @@ _SENSITIVE_HEADERS = frozenset({
 })
 
 
+def _format_query_str(query_params: list[tuple[str, str]]) -> str:
+    """クエリパラメータのリストを JSON 文字列に変換する。"""
+    q_dict: dict[str, Any] = {}
+    for k, v in query_params:
+        _set_or_append(q_dict, k, v)
+    return json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
+
+
 def _write_log(
     logfile: str,
     method: str,
@@ -195,9 +203,13 @@ def _write_log(
     body: Any,
     headers: dict[str, str],
     resp: requests.Response,
+    *,
+    filtered_ctx: Any = None,
 ) -> None:
     """リクエスト・レスポンスの情報を logfile に追記する。
 
+    filtered_ctx に RequestContext が渡された場合（フィルターが 1 件以上適用された場合）、
+    フィルター適用後の URL / クエリ / ボディ / ヘッダーを Filtered-* セクションとして追記する。
     エントリ構築（JSON 直列化含む）とファイル書き込みをまとめて try/except で囲む。
     json.dumps が TypeError を送出した場合（フィルターが非シリアライズ可能な値を
     設定した場合等）も警告を出力するだけで call_api() の呼び出しには影響しない。
@@ -205,11 +217,7 @@ def _write_log(
     try:
         timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-        # クエリパラメータ: 同一キーは list にまとめて表示（_set_or_append を再利用）
-        q_dict: dict[str, Any] = {}
-        for k, v in query_params:
-            _set_or_append(q_dict, k, v)
-        q_str = json.dumps(q_dict, ensure_ascii=False) if q_dict else "(none)"
+        q_str = _format_query_str(query_params)
 
         body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
         if len(body_str) > _LOG_BODY_MAX_CHARS:
@@ -227,11 +235,31 @@ def _write_log(
         if len(resp_str) > _LOG_BODY_MAX_CHARS:
             resp_str = resp_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
 
+        filtered_section = ""
+        if filtered_ctx is not None:
+            fq_str = _format_query_str(filtered_ctx.query_params)
+            fb = filtered_ctx.body
+            fb_str = json.dumps(fb, ensure_ascii=False) if fb is not None else "(none)"
+            if len(fb_str) > _LOG_BODY_MAX_CHARS:
+                fb_str = fb_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
+            fmasked = {
+                k: "***" if k.lower() in _SENSITIVE_HEADERS else v
+                for k, v in filtered_ctx.headers.items()
+            }
+            fh_str = json.dumps(fmasked, ensure_ascii=False) if fmasked else "(none)"
+            filtered_section = (
+                f"  Filtered-URL: {filtered_ctx.url}\n"
+                f"  Filtered-Query: {fq_str}\n"
+                f"  Filtered-Body: {fb_str}\n"
+                f"  Filtered-Headers: {fh_str}\n"
+            )
+
         entry = (
             f"[{timestamp}] {method.upper()} {url}\n"
             f"  Query: {q_str}\n"
             f"  Body: {body_str}\n"
             f"  Headers: {headers_str}\n"
+            f"{filtered_section}"
             f"  Status: {resp.status_code}\n"
             f"  Response: {resp_str}\n"
         )
@@ -313,7 +341,8 @@ def call_api(
         body=json_body,
         headers=headers,
     )
-    ctx = apply_filters(ctx, load_filters())
+    filters = load_filters()
+    ctx = apply_filters(ctx, filters)
 
     # method はフィルターから変更不可のため、API 定義マッチング時に確定した元の値を使う。
     resp = requests.request(
@@ -325,9 +354,12 @@ def call_api(
     )
 
     if logfile:
-        # ログにはリクエスト側フィルター適用前の値（url/query/body/headers）とサーバーが
-        # 返した元のレスポンス（レスポンスフィルター適用前）を記録する。
-        _write_log(logfile, method, url, list(query_params), json_body, headers, resp)
+        # フィルターが 1 件以上適用された場合は filtered_ctx を渡し、
+        # 適用後の URL / クエリ / ボディ / ヘッダーも Filtered-* セクションとして記録する。
+        _write_log(
+            logfile, method, url, list(query_params), json_body, headers, resp,
+            filtered_ctx=ctx if filters else None,
+        )
 
     # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
     # レスポンスボディのパースと ResponseContext 構築を行う。

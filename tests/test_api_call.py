@@ -514,7 +514,7 @@ def test_call_api_log_expanduser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
 @rsps.activate
 def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
-    """ログにはフィルター適用前の URL・クエリ・ボディが記録される。"""
+    """ログの先頭セクションにはフィルター適用前の URL・クエリ・ボディが記録される。"""
     from papycli.request_filter import RequestContext
     from unittest.mock import patch
 
@@ -534,8 +534,58 @@ def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
     content = Path(logfile).read_text(encoding="utf-8")
-    assert "injected" not in content
-    assert "secret" not in content
+    # 先頭の Query 行にはフィルター前の値が記録される（"injected" を含まない）
+    query_line = next(l for l in content.splitlines() if l.strip().startswith("Query:"))
+    assert "injected" not in query_line
+    assert "secret" not in query_line
+
+
+@rsps.activate
+def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Path) -> None:
+    """フィルターが 1 件以上適用された場合、Filtered-* セクションがログに追記される。"""
+    from papycli.request_filter import RequestContext
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def mutating_filter(ctx: RequestContext) -> RequestContext:
+        return RequestContext(
+            method=ctx.method,
+            url=ctx.url,
+            query_params=ctx.query_params + [("added", "value")],
+            body=ctx.body,
+            headers={**ctx.headers, "X-Added": "yes"},
+        )
+
+    with patch("papycli.request_filter.load_filters", return_value=[("mutating", mutating_filter)]):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "Filtered-URL:" in content
+    assert "Filtered-Query:" in content
+    assert "Filtered-Body:" in content
+    assert "Filtered-Headers:" in content
+    # フィルター後に追加されたパラメータ・ヘッダーが記録されている
+    filtered_query_line = next(l for l in content.splitlines() if "Filtered-Query:" in l)
+    assert "added" in filtered_query_line
+    filtered_headers_line = next(l for l in content.splitlines() if "Filtered-Headers:" in l)
+    assert "X-Added" in filtered_headers_line
+
+
+@rsps.activate
+def test_call_api_log_no_filtered_section_without_filters(tmp_path: Path) -> None:
+    """フィルターが 0 件の場合、Filtered-* セクションはログに含まれない。"""
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    with patch("papycli.request_filter.load_filters", return_value=[]):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    assert "Filtered-" not in content
 
 
 @rsps.activate
