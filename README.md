@@ -204,7 +204,10 @@ Methods:
 
 Options:
   -H <header: value>      Custom HTTP header (repeatable)
-  -q <name> <value>       Query parameter (repeatable)
+  -q <name> <value>       Query parameter (repeatable).
+                            You can also embed query parameters directly in the
+                            resource path: "/pet/findByStatus?status=available"
+                            Inline parameters are sent before any -q parameters.
   -p <name> <value>       Body parameter (repeatable)
                             - Values are coerced to the correct JSON type
                               (integer, number, boolean) based on the API spec.
