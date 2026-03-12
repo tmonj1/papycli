@@ -79,18 +79,40 @@ def _complete_resources(apidef: dict[str, Any], method: str, incomplete: str) ->
     ]
 
 
+def _used_param_names(words: list[str], flag: str) -> set[str]:
+    """words 中で flag NAME( VALUE) のパターンで使用済みのパラメータ名を返す。"""
+    used: set[str] = set()
+    i = 0
+    while i < len(words):
+        if words[i] == flag and i + 1 < len(words):
+            name = words[i + 1]
+            # NAME が別のオプションフラグでも空文字でもない場合のみ使用済みとして扱う
+            if name and not name.startswith("-"):
+                used.add(name)
+            # flag と NAME までは確実に読み飛ばすが、VALUE は仮定しない
+            i += 2
+        else:
+            i += 1
+    return used
+
+
 def _complete_param_names(
     apidef: dict[str, Any],
     method: str,
     resource: str,
     kind: str,
     incomplete: str,
+    used: set[str] | None = None,
 ) -> list[str]:
     op = _find_op(apidef, method, resource)
     if op is None:
         return []
     key = "query_parameters" if kind == "query" else "post_parameters"
-    return [p["name"] for p in op.get(key, []) if p["name"].startswith(incomplete)]
+    return [
+        p["name"]
+        for p in op.get(key, [])
+        if p["name"].startswith(incomplete) and (used is None or p["name"] not in used)
+    ]
 
 
 def _complete_enum_values(
@@ -190,7 +212,9 @@ def completions_for_context(
 
     # -q NAME → クエリパラメータ名
     if prev == "-q":
-        return _complete_param_names(apidef, method, resource, "query", incomplete)
+        return _complete_param_names(
+            apidef, method, resource, "query", incomplete, _used_param_names(words[:current], "-q")
+        )
 
     # -q NAME VALUE → enum 値
     if prev_prev == "-q":
@@ -198,7 +222,9 @@ def completions_for_context(
 
     # -p NAME → ボディパラメータ名
     if prev == "-p":
-        return _complete_param_names(apidef, method, resource, "body", incomplete)
+        return _complete_param_names(
+            apidef, method, resource, "body", incomplete, _used_param_names(words[:current], "-p")
+        )
 
     # -p NAME VALUE → enum 値
     if prev_prev == "-p":
