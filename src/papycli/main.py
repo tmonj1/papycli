@@ -299,7 +299,7 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 @cli.command(
     "spec",
     help=h(
-        "Show the raw API spec.\n\nFilter by RESOURCE path if given.\n\n"
+        "Show the internal API definition (apidef).\n\nFilter by RESOURCE path if given.\n\n"
         "Use --full to output the full OpenAPI spec as-is.",
         "API スペック（内部 apidef 形式）を表示する。\n\n"
         "RESOURCE を指定するとそのパスのエントリのみ表示する。\n\n"
@@ -315,6 +315,9 @@ def cmd_spec(resource: str | None, full: bool) -> None:
     conf_dir = get_conf_dir()
 
     if full:
+        if resource is not None:
+            click.echo("Error: RESOURCE cannot be combined with --full.", err=True)
+            sys.exit(1)
         try:
             raw_spec = load_current_raw_spec(conf_dir)
         except Exception as e:

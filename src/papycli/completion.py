@@ -187,8 +187,11 @@ def completions_for_context(
 
     # spec コマンドの補完
     if words[1] == "spec":
-        if current == 2 and apidef is not None:
-            return [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
+        if current == 2:
+            candidates = ["--full"] if "--full".startswith(incomplete) else []
+            if apidef is not None:
+                candidates += [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
+            return candidates
         return []
 
     # words[1] が HTTP メソッドでない場合は補完なし

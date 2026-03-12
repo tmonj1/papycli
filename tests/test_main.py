@@ -778,6 +778,16 @@ def test_cmd_spec_full_minimal(
     assert "/items" in data["paths"]
 
 
+def test_cmd_spec_full_with_resource_is_error(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["spec", "--full", "/items"])
+    assert result.exit_code != 0
+
+
 # ---------------------------------------------------------------------------
 # papycli get --summary (エンドポイント詳細表示)
 # ---------------------------------------------------------------------------

@@ -149,6 +149,10 @@ def load_current_raw_spec(conf_dir: Path | None = None) -> dict[str, Any]:
     if not api_name:
         raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")
 
+    api_entry = conf.get(api_name)
+    if not isinstance(api_entry, dict):
+        raise RuntimeError(f"Invalid configuration for API '{api_name}'.")
+
     spec_path = get_apis_dir(resolved_dir) / f"{api_name}.spec.json"
     if not spec_path.exists():
         raise RuntimeError(

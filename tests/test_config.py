@@ -227,6 +227,13 @@ def test_load_current_raw_spec_no_conf(tmp_path: Path) -> None:
         load_current_raw_spec(tmp_path)
 
 
+def test_load_current_raw_spec_invalid_entry(tmp_path: Path) -> None:
+    conf: dict = {"default": "myapi", "myapi": "not-a-dict"}  # type: ignore[type-arg]
+    save_conf(conf, tmp_path)
+    with pytest.raises(RuntimeError, match="Invalid configuration for API"):
+        load_current_raw_spec(tmp_path)
+
+
 def test_load_current_raw_spec_missing_file(tmp_path: Path) -> None:
     conf: dict = {  # type: ignore[type-arg]
         "default": "myapi",
