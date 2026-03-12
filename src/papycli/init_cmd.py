@@ -28,6 +28,11 @@ def init_api(spec_path: Path, conf_dir: Path) -> tuple[str, str]:
         json.dump(apidef, f, indent=2, ensure_ascii=False)
         f.write("\n")
 
+    spec_path_out = apis_dir / f"{api_name}.spec.json"
+    with spec_path_out.open("w", encoding="utf-8") as f:
+        json.dump(raw_spec, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+
     return api_name, base_url
 
 

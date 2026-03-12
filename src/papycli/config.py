@@ -136,3 +136,26 @@ def load_current_apidef(
     with apidef_path.open(encoding="utf-8") as f:
         apidef: dict[str, Any] = json.load(f)
     return apidef, base_url
+
+
+def load_current_raw_spec(conf_dir: Path | None = None) -> dict[str, Any]:
+    """現在のデフォルト API の生 OpenAPI spec dict を返す。
+
+    ``papycli config add`` 時に保存された ``{api_name}.spec.json`` を読み込む。
+    """
+    resolved_dir = conf_dir or get_conf_dir()
+    conf = load_conf(resolved_dir)
+    api_name = get_default_api(conf)
+    if not api_name:
+        raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")
+
+    spec_path = get_apis_dir(resolved_dir) / f"{api_name}.spec.json"
+    if not spec_path.exists():
+        raise RuntimeError(
+            f"Raw spec file not found: {spec_path}\n"
+            "Run 'papycli config add <spec>' to regenerate it."
+        )
+
+    with spec_path.open(encoding="utf-8") as f:
+        raw_spec: dict[str, Any] = json.load(f)
+    return raw_spec

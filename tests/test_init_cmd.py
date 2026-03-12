@@ -69,6 +69,19 @@ def test_init_api_creates_apis_dir(tmp_path: Path, minimal_spec_file: Path) -> N
     assert apis_dir.is_dir()
 
 
+def test_init_api_creates_raw_spec_file(tmp_path: Path, minimal_spec_file: Path) -> None:
+    init_api(minimal_spec_file, tmp_path)
+    spec_path = tmp_path / "apis" / "myapi.spec.json"
+    assert spec_path.exists()
+
+
+def test_init_api_raw_spec_content(tmp_path: Path, minimal_spec_file: Path) -> None:
+    init_api(minimal_spec_file, tmp_path)
+    raw_spec = json.loads((tmp_path / "apis" / "myapi.spec.json").read_text(encoding="utf-8"))
+    assert raw_spec["openapi"] == "3.0.2"
+    assert "/items" in raw_spec["paths"]
+
+
 def test_init_api_no_servers_returns_empty_url(tmp_path: Path) -> None:
     spec_no_server: dict[str, Any] = {"openapi": "3.0.2", "paths": {}}
     spec_file = tmp_path / "noserver.json"

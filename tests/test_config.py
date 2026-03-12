@@ -13,6 +13,7 @@ from papycli.config import (
     get_default_api,
     get_logfile,
     load_conf,
+    load_current_raw_spec,
     register_api,
     remove_api,
     save_conf,
@@ -189,3 +190,48 @@ def test_unset_logfile_noop_when_not_set() -> None:
     conf: dict = {}
     unset_logfile(conf)
     assert conf == {}
+
+
+# ---------------------------------------------------------------------------
+# load_current_raw_spec
+# ---------------------------------------------------------------------------
+
+MINIMAL_RAW_SPEC = {
+    "openapi": "3.0.2",
+    "servers": [{"url": "http://localhost:9000/api"}],
+    "paths": {"/items": {"get": {}}},
+}
+
+
+def _setup_raw_spec(tmp_path: Path, spec: dict) -> None:  # type: ignore[type-arg]
+    """apis/{api_name}.spec.json と conf を用意するヘルパー。"""
+    apis_dir = get_apis_dir(tmp_path)
+    apis_dir.mkdir(parents=True, exist_ok=True)
+    (apis_dir / "myapi.spec.json").write_text(json.dumps(spec), encoding="utf-8")
+    conf: dict = {  # type: ignore[type-arg]
+        "default": "myapi",
+        "myapi": {"openapispec": "myapi.json", "apidef": "myapi.json", "url": ""},
+    }
+    save_conf(conf, tmp_path)
+
+
+def test_load_current_raw_spec_returns_spec(tmp_path: Path) -> None:
+    _setup_raw_spec(tmp_path, MINIMAL_RAW_SPEC)
+    raw = load_current_raw_spec(tmp_path)
+    assert raw["openapi"] == "3.0.2"
+    assert "/items" in raw["paths"]
+
+
+def test_load_current_raw_spec_no_conf(tmp_path: Path) -> None:
+    with pytest.raises(RuntimeError, match="No default API"):
+        load_current_raw_spec(tmp_path)
+
+
+def test_load_current_raw_spec_missing_file(tmp_path: Path) -> None:
+    conf: dict = {  # type: ignore[type-arg]
+        "default": "myapi",
+        "myapi": {"openapispec": "myapi.json", "apidef": "myapi.json", "url": ""},
+    }
+    save_conf(conf, tmp_path)
+    with pytest.raises(RuntimeError, match="Raw spec file not found"):
+        load_current_raw_spec(tmp_path)

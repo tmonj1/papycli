@@ -19,6 +19,7 @@ from papycli.config import (
     get_logfile,
     load_conf,
     load_current_apidef,
+    load_current_raw_spec,
     remove_api,
     save_conf,
     set_default_api,
@@ -298,14 +299,30 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 @cli.command(
     "spec",
     help=h(
-        "Show the raw API spec.\n\nFilter by RESOURCE path if given.",
+        "Show the raw API spec.\n\nFilter by RESOURCE path if given.\n\n"
+        "Use --full to output the full OpenAPI spec as-is.",
         "API スペック（内部 apidef 形式）を表示する。\n\n"
-        "RESOURCE を指定するとそのパスのエントリのみ表示する。",
+        "RESOURCE を指定するとそのパスのエントリのみ表示する。\n\n"
+        "--full を指定すると OpenAPI spec 全体をそのまま出力する。",
     ),
 )
 @click.argument("resource", required=False, default=None)
-def cmd_spec(resource: str | None) -> None:
+@click.option("--full", is_flag=True, default=False, help=h(
+    "Output the full OpenAPI spec as-is.",
+    "OpenAPI spec 全体をそのまま出力する。",
+))
+def cmd_spec(resource: str | None, full: bool) -> None:
     conf_dir = get_conf_dir()
+
+    if full:
+        try:
+            raw_spec = load_current_raw_spec(conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        click.echo(json.dumps(raw_spec, indent=2, ensure_ascii=False))
+        return
+
     try:
         apidef, _ = load_current_apidef(conf_dir)
     except Exception as e:
