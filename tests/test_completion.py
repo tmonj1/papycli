@@ -5,6 +5,7 @@ from typing import Any
 from papycli.completion import (
     CONFIG_SUBCOMMANDS,
     TOP_LEVEL_COMMANDS,
+    _used_param_names,
     completions_for_context,
     generate_script,
 )
@@ -257,10 +258,10 @@ def test_complete_query_param_name_no_params() -> None:
 
 
 def test_complete_query_param_repeated_option() -> None:
-    # -q status available -q <TAB>
+    # -q status available -q <TAB> → status は使用済みなので除外される
     words = ["papycli", "get", "/pet/findByStatus", "-q", "status", "available", "-q", ""]
     result = ctx(words, 7)
-    assert "status" in result
+    assert "status" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +459,56 @@ def test_generate_zsh_script() -> None:
     assert "_papycli" in script
     assert "compdef" in script
     assert "papycli _complete" in script
+
+
+# ---------------------------------------------------------------------------
+# 使用済みパラメータ名の除外
+# ---------------------------------------------------------------------------
+
+
+def test_used_param_names_single() -> None:
+    words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", ""]
+    assert _used_param_names(words, "-p") == {"name"}
+
+
+def test_used_param_names_multiple() -> None:
+    words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", "status", "available", "-p", ""]
+    assert _used_param_names(words, "-p") == {"name", "status"}
+
+
+def test_used_param_names_empty() -> None:
+    words = ["papycli", "post", "/pet", "-p", ""]
+    assert _used_param_names(words, "-p") == set()
+
+
+def test_used_param_names_does_not_mix_flags() -> None:
+    words = ["papycli", "get", "/pet/findByStatus", "-q", "status", "available", "-p", ""]
+    assert _used_param_names(words, "-p") == set()
+    assert _used_param_names(words, "-q") == {"status"}
+
+
+def test_complete_body_param_excludes_used() -> None:
+    # name を使用済み → 候補に出ないこと
+    words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", ""]
+    result = ctx(words, 7)
+    assert "name" not in result
+    assert "status" in result
+    assert "photoUrls" in result
+
+
+def test_complete_body_param_excludes_multiple_used() -> None:
+    words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", "status", "available", "-p", ""]
+    result = ctx(words, 10)
+    assert "name" not in result
+    assert "status" not in result
+    assert "photoUrls" in result
+
+
+def test_complete_query_param_excludes_used() -> None:
+    # status を使用済み → 候補に出ないこと（findByStatus は status のみなので空リスト）
+    words = ["papycli", "get", "/pet/findByStatus", "-q", "status", "available", "-q", ""]
+    result = ctx(words, 7)
+    assert "status" not in result
 
 
 def test_generate_bash_has_comp_words() -> None:
