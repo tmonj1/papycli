@@ -621,6 +621,39 @@ def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) ->
 
 
 @rsps.activate
+def test_call_api_log_filtered_section_unserializable_fallback(tmp_path: Path) -> None:
+    """フィルター後の値が直列化不可でも、先頭セクションとレスポンスはログに書かれる。"""
+    from papycli.request_filter import RequestContext
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"ok": 1}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def noop_filter(ctx: RequestContext) -> RequestContext:
+        return ctx
+
+    # _format_query_str の 2 回目の呼び出し（filtered セクション用）だけ例外を送出させる
+    with (
+        patch(
+            "papycli.request_filter.load_filters",
+            return_value=[("noop", noop_filter)],
+        ),
+        patch(
+            "papycli.api_call._format_query_str",
+            side_effect=["(none)", TypeError("simulated serialization error")],
+        ),
+    ):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    # 先頭セクションとレスポンスは書かれている
+    assert "GET" in content
+    assert "Status: 200" in content
+    # Filtered-* はフォールバック値になっている
+    assert "(unserializable)" in content
+
+
+@rsps.activate
 def test_call_api_log_truncates_large_response(tmp_path: Path) -> None:
     """レスポンスボディが大きい場合にログで切り詰められる。"""
     from papycli.api_call import _LOG_BODY_MAX_CHARS

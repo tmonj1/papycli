@@ -246,22 +246,32 @@ def _write_log(
 
         filtered_section = ""
         if filtered_ctx is not None:
-            fq_str = _format_query_str(filtered_ctx.query_params)
-            fb = filtered_ctx.body
-            fb_str = json.dumps(fb, ensure_ascii=False) if fb is not None else "(none)"
-            if len(fb_str) > _LOG_BODY_MAX_CHARS:
-                fb_str = fb_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
-            fmasked = {
-                k: "***" if k.lower() in _SENSITIVE_HEADERS else v
-                for k, v in filtered_ctx.headers.items()
-            }
-            fh_str = json.dumps(fmasked, ensure_ascii=False) if fmasked else "(none)"
-            filtered_section = (
-                f"  Filtered-URL: {filtered_ctx.url}\n"
-                f"  Filtered-Query: {fq_str}\n"
-                f"  Filtered-Body: {fb_str}\n"
-                f"  Filtered-Headers: {fh_str}\n"
-            )
+            try:
+                fq_str = _format_query_str(filtered_ctx.query_params)
+                fb = filtered_ctx.body
+                fb_str = json.dumps(fb, ensure_ascii=False) if fb is not None else "(none)"
+                if len(fb_str) > _LOG_BODY_MAX_CHARS:
+                    fb_str = fb_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
+                fmasked = {
+                    k: "***" if k.lower() in _SENSITIVE_HEADERS else v
+                    for k, v in filtered_ctx.headers.items()
+                }
+                fh_str = json.dumps(fmasked, ensure_ascii=False) if fmasked else "(none)"
+                filtered_section = (
+                    f"  Filtered-URL: {filtered_ctx.url}\n"
+                    f"  Filtered-Query: {fq_str}\n"
+                    f"  Filtered-Body: {fb_str}\n"
+                    f"  Filtered-Headers: {fh_str}\n"
+                )
+            except Exception:
+                # フィルター適用後の値が JSON 直列化できない場合でも、
+                # ログエントリ全体の書き込みは継続する。
+                filtered_section = (
+                    "  Filtered-URL: (unserializable)\n"
+                    "  Filtered-Query: (unserializable)\n"
+                    "  Filtered-Body: (unserializable)\n"
+                    "  Filtered-Headers: (unserializable)\n"
+                )
 
         entry = (
             f"[{timestamp}] {method.upper()} {url}\n"
