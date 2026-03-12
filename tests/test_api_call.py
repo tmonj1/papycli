@@ -515,8 +515,9 @@ def test_call_api_log_expanduser(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 @rsps.activate
 def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
     """ログの先頭セクションにはフィルター適用前の URL・クエリ・ボディが記録される。"""
-    from papycli.request_filter import RequestContext
     from unittest.mock import patch
+
+    from papycli.request_filter import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -530,12 +531,15 @@ def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
             headers=ctx.headers,
         )
 
-    with patch("papycli.request_filter.load_filters", return_value=[("mutating", mutating_filter)]):
+    with patch(
+        "papycli.request_filter.load_filters",
+        return_value=[("mutating", mutating_filter)],
+    ):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
     content = Path(logfile).read_text(encoding="utf-8")
     # 先頭の Query 行にはフィルター前の値が記録される（"injected" を含まない）
-    query_line = next(l for l in content.splitlines() if l.strip().startswith("Query:"))
+    query_line = next(line for line in content.splitlines() if line.strip().startswith("Query:"))
     assert "injected" not in query_line
     assert "secret" not in query_line
 
@@ -543,8 +547,9 @@ def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
 @rsps.activate
 def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Path) -> None:
     """フィルターが 1 件以上適用された場合、Filtered-* セクションがログに追記される。"""
-    from papycli.request_filter import RequestContext
     from unittest.mock import patch
+
+    from papycli.request_filter import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -558,7 +563,10 @@ def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Pa
             headers={**ctx.headers, "X-Added": "yes"},
         )
 
-    with patch("papycli.request_filter.load_filters", return_value=[("mutating", mutating_filter)]):
+    with patch(
+        "papycli.request_filter.load_filters",
+        return_value=[("mutating", mutating_filter)],
+    ):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
     content = Path(logfile).read_text(encoding="utf-8")
@@ -567,9 +575,13 @@ def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Pa
     assert "Filtered-Body:" in content
     assert "Filtered-Headers:" in content
     # フィルター後に追加されたパラメータ・ヘッダーが記録されている
-    filtered_query_line = next(l for l in content.splitlines() if "Filtered-Query:" in l)
+    filtered_query_line = next(
+        line for line in content.splitlines() if "Filtered-Query:" in line
+    )
     assert "added" in filtered_query_line
-    filtered_headers_line = next(l for l in content.splitlines() if "Filtered-Headers:" in l)
+    filtered_headers_line = next(
+        line for line in content.splitlines() if "Filtered-Headers:" in line
+    )
     assert "X-Added" in filtered_headers_line
 
 
@@ -591,8 +603,9 @@ def test_call_api_log_no_filtered_section_without_filters(tmp_path: Path) -> Non
 @rsps.activate
 def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) -> None:
     """フィルターが機密ヘッダーを追加した場合、Filtered-Headers でマスクされる。"""
-    from papycli.request_filter import RequestContext
     from unittest.mock import patch
+
+    from papycli.request_filter import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -614,7 +627,7 @@ def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) ->
 
     content = Path(logfile).read_text(encoding="utf-8")
     filtered_headers_line = next(
-        l for l in content.splitlines() if "Filtered-Headers:" in l
+        line for line in content.splitlines() if "Filtered-Headers:" in line
     )
     assert "secret_token" not in filtered_headers_line
     assert "***" in filtered_headers_line
@@ -623,8 +636,9 @@ def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) ->
 @rsps.activate
 def test_call_api_log_filtered_section_unserializable_fallback(tmp_path: Path) -> None:
     """フィルター後の値が直列化不可でも、先頭セクションとレスポンスはログに書かれる。"""
-    from papycli.request_filter import RequestContext
     from unittest.mock import patch
+
+    from papycli.request_filter import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"ok": 1}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -651,6 +665,36 @@ def test_call_api_log_filtered_section_unserializable_fallback(tmp_path: Path) -
     assert "Status: 200" in content
     # Filtered-* はフォールバック値になっている
     assert "(unserializable)" in content
+
+
+@rsps.activate
+def test_call_api_log_filtered_section_unserializable_emits_warning(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """フィルター後の値が直列化不可の場合、警告を stderr に出力する。"""
+    from unittest.mock import patch
+
+    from papycli.request_filter import RequestContext
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def noop_filter(ctx: RequestContext) -> RequestContext:
+        return ctx
+
+    with (
+        patch(
+            "papycli.request_filter.load_filters",
+            return_value=[("noop", noop_filter)],
+        ),
+        patch(
+            "papycli.api_call._format_query_str",
+            side_effect=["(none)", TypeError("simulated serialization error")],
+        ),
+    ):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    assert "Warning" in capsys.readouterr().err
 
 
 @rsps.activate

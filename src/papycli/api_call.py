@@ -263,9 +263,13 @@ def _write_log(
                     f"  Filtered-Body: {fb_str}\n"
                     f"  Filtered-Headers: {fh_str}\n"
                 )
-            except Exception:
+            except (TypeError, ValueError) as e:
                 # フィルター適用後の値が JSON 直列化できない場合でも、
                 # ログエントリ全体の書き込みは継続する。
+                print(
+                    f"Warning: failed to serialize filtered request context for log ({e})",
+                    file=sys.stderr,
+                )
                 filtered_section = (
                     "  Filtered-URL: (unserializable)\n"
                     "  Filtered-Query: (unserializable)\n"
