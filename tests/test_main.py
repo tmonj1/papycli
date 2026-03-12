@@ -14,7 +14,7 @@ from papycli.config import load_conf, save_conf
 from papycli.init_cmd import init_api, register_initialized_api
 from papycli.main import cli
 
-PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore-oas3.json"
+PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 BASE_URL = "http://localhost:8080/api/v3"
 
 MINIMAL_SPEC: dict[str, Any] = {
