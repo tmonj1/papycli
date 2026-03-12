@@ -481,10 +481,10 @@ def test_used_param_names_empty() -> None:
     assert _used_param_names(words, "-p") == set()
 
 
-def test_used_param_names_ignores_incomplete_param_value() -> None:
+def test_used_param_names_counts_name_without_value() -> None:
     # -p name (値なし), -p status available, -p <TAB> の状況を再現
-    words = ["papycli", "post", "/pet", "-p", "name", "-p", "status", "available", "-p", ""]
     # name は値なしでも使用済みとして扱われ、status も使用済み → 両方除外される
+    words = ["papycli", "post", "/pet", "-p", "name", "-p", "status", "available", "-p", ""]
     assert _used_param_names(words, "-p") == {"name", "status"}
 
 
