@@ -589,6 +589,38 @@ def test_call_api_log_no_filtered_section_without_filters(tmp_path: Path) -> Non
 
 
 @rsps.activate
+def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) -> None:
+    """フィルターが機密ヘッダーを追加した場合、Filtered-Headers でマスクされる。"""
+    from papycli.request_filter import RequestContext
+    from unittest.mock import patch
+
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+    logfile = str(tmp_path / "test.log")
+
+    def auth_adding_filter(ctx: RequestContext) -> RequestContext:
+        return RequestContext(
+            method=ctx.method,
+            url=ctx.url,
+            query_params=ctx.query_params,
+            body=ctx.body,
+            headers={**ctx.headers, "Authorization": "Bearer secret_token"},
+        )
+
+    with patch(
+        "papycli.request_filter.load_filters",
+        return_value=[("auth", auth_adding_filter)],
+    ):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
+
+    content = Path(logfile).read_text(encoding="utf-8")
+    filtered_headers_line = next(
+        l for l in content.splitlines() if "Filtered-Headers:" in l
+    )
+    assert "secret_token" not in filtered_headers_line
+    assert "***" in filtered_headers_line
+
+
+@rsps.activate
 def test_call_api_log_truncates_large_response(tmp_path: Path) -> None:
     """レスポンスボディが大きい場合にログで切り詰められる。"""
     from papycli.api_call import _LOG_BODY_MAX_CHARS

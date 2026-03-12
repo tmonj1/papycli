@@ -7,7 +7,10 @@ import sys
 from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from papycli.request_filter import RequestContext
 
 import requests
 
@@ -204,12 +207,18 @@ def _write_log(
     headers: dict[str, str],
     resp: requests.Response,
     *,
-    filtered_ctx: Any = None,
+    filtered_ctx: "RequestContext | None" = None,
 ) -> None:
     """リクエスト・レスポンスの情報を logfile に追記する。
 
     filtered_ctx に RequestContext が渡された場合（フィルターが 1 件以上適用された場合）、
     フィルター適用後の URL / クエリ / ボディ / ヘッダーを Filtered-* セクションとして追記する。
+
+    マスキングポリシー:
+    - Headers / Filtered-Headers: _SENSITIVE_HEADERS に含まれるキーの値を "***" に置換する。
+    - Query / Filtered-Query および Body / Filtered-Body はマスク処理を行わない。
+      機密値をクエリやボディに含む場合は、ログファイルのアクセス制御で保護すること。
+
     エントリ構築（JSON 直列化含む）とファイル書き込みをまとめて try/except で囲む。
     json.dumps が TypeError を送出した場合（フィルターが非シリアライズ可能な値を
     設定した場合等）も警告を出力するだけで call_api() の呼び出しには影響しない。
