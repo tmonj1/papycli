@@ -518,6 +518,20 @@ def test_complete_query_param_excludes_used() -> None:
     assert "status" not in result
 
 
+def test_complete_query_param_name_not_excluded_while_typing() -> None:
+    # -q status<TAB> → status 自身を補完中なので候補に出ること
+    words = ["papycli", "get", "/pet/findByStatus", "-q", "status"]
+    result = ctx(words, 4)
+    assert "status" in result
+
+
+def test_complete_body_param_name_not_excluded_while_typing() -> None:
+    # -p name<TAB> → name 自身を補完中なので候補に出ること
+    words = ["papycli", "post", "/pet", "-p", "name"]
+    result = ctx(words, 4)
+    assert "name" in result
+
+
 def test_generate_bash_has_comp_words() -> None:
     script = generate_script("bash")
     assert "COMP_WORDS" in script

@@ -213,7 +213,7 @@ def completions_for_context(
     # -q NAME → クエリパラメータ名
     if prev == "-q":
         return _complete_param_names(
-            apidef, method, resource, "query", incomplete, _used_param_names(words, "-q")
+            apidef, method, resource, "query", incomplete, _used_param_names(words[:current], "-q")
         )
 
     # -q NAME VALUE → enum 値
@@ -223,7 +223,7 @@ def completions_for_context(
     # -p NAME → ボディパラメータ名
     if prev == "-p":
         return _complete_param_names(
-            apidef, method, resource, "body", incomplete, _used_param_names(words, "-p")
+            apidef, method, resource, "body", incomplete, _used_param_names(words[:current], "-p")
         )
 
     # -p NAME VALUE → enum 値
