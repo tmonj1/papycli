@@ -228,6 +228,18 @@ def test_cmd_remove_deletes_apidef_file(
     assert not apidef_path.exists()
 
 
+def test_cmd_remove_deletes_raw_spec_file(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    spec_path = tmp_path / "apis" / "myapi.spec.json"
+    assert spec_path.exists()
+    runner.invoke(cli, ["config", "remove", "myapi"])
+    assert not spec_path.exists()
+
+
 def test_cmd_remove_clears_default_when_only_api(
     tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

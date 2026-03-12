@@ -150,11 +150,14 @@ def cmd_config_remove(api_name: str) -> None:
     remove_api(conf, api_name)
     save_conf(conf, conf_dir)
 
-    # apidef ファイルを削除する
+    # apidef ファイルと raw spec ファイルを削除する
     apidef_filename = str(api_entry.get("apidef", f"{api_name}.json"))
     apidef_path = get_apis_dir(conf_dir) / apidef_filename
     if apidef_path.exists():
         apidef_path.unlink()
+    spec_path = get_apis_dir(conf_dir) / f"{api_name}.spec.json"
+    if spec_path.exists():
+        spec_path.unlink()
 
     click.echo(f"Removed API '{api_name}'")
     if prev_default == api_name:
@@ -308,8 +311,8 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 )
 @click.argument("resource", required=False, default=None)
 @click.option("--full", is_flag=True, default=False, help=h(
-    "Output the full OpenAPI spec as-is.",
-    "OpenAPI spec 全体をそのまま出力する。",
+    "Output the full stored OpenAPI spec (JSON).",
+    "内部に保存された OpenAPI spec 全体を JSON 形式で出力する。",
 ))
 def cmd_spec(resource: str | None, full: bool) -> None:
     conf_dir = get_conf_dir()
