@@ -458,6 +458,26 @@ def test_complete_spec_no_further_completion() -> None:
     assert result == []
 
 
+def test_complete_spec_full_resource() -> None:
+    # spec --full <TAB> → リソースパスが補完される
+    result = ctx(["papycli", "spec", "--full", ""], 3)
+    assert "/pet" in result
+    assert "/pet/findByStatus" in result
+
+
+def test_complete_spec_full_resource_prefix() -> None:
+    # spec --full /pet<TAB> → /pet プレフィックスのパスのみ
+    result = ctx(["papycli", "spec", "--full", "/pet"], 3)
+    assert "/pet/findByStatus" in result
+    assert "/store/inventory" not in result
+
+
+def test_complete_spec_full_resource_no_apidef() -> None:
+    # apidef なしでは補完候補なし
+    result = ctx_no_apidef(["papycli", "spec", "--full", ""], 3)
+    assert result == []
+
+
 # ---------------------------------------------------------------------------
 # generate_script
 # ---------------------------------------------------------------------------
