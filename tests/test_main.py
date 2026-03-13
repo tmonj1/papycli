@@ -840,6 +840,34 @@ def test_cmd_spec_full_with_resource_not_found(
     assert result.exit_code != 0
 
 
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full_with_resource_includes_schemas(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """/pet の --full 出力に参照スキーマ (Pet) が components.schemas に含まれる。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full", "/pet"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "components" in data
+    assert "schemas" in data["components"]
+    assert "Pet" in data["components"]["schemas"]
+
+
+def test_cmd_spec_full_with_resource_no_refs_no_components(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """$ref のない仕様では components キーが出力されない。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["spec", "--full", "/items"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "components" not in data
+
+
 # ---------------------------------------------------------------------------
 # papycli get --summary (エンドポイント詳細表示)
 # ---------------------------------------------------------------------------

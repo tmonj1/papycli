@@ -3,6 +3,7 @@
 import json
 import sys
 from pathlib import Path
+from typing import Any
 from urllib.parse import parse_qsl
 
 import click
@@ -28,6 +29,7 @@ from papycli.config import (
 )
 from papycli.i18n import h
 from papycli.init_cmd import init_api, register_initialized_api
+from papycli.spec_loader import collect_schema_refs
 from papycli.summary import format_endpoint_detail, format_summary_csv, print_summary
 
 
@@ -332,7 +334,12 @@ def cmd_spec(resource: str | None, full: bool) -> None:
                 click.echo(f"Error: No matching path for '{resource}'", err=True)
                 sys.exit(1)
             template, _ = match
-            click.echo(json.dumps({template: paths[template]}, indent=2, ensure_ascii=False))
+            path_entry = paths[template]
+            output: dict[str, Any] = {template: path_entry}
+            ref_schemas = collect_schema_refs(path_entry, raw_spec)
+            if ref_schemas:
+                output["components"] = {"schemas": ref_schemas}
+            click.echo(json.dumps(output, indent=2, ensure_ascii=False))
         else:
             click.echo(json.dumps(raw_spec, indent=2, ensure_ascii=False))
         return

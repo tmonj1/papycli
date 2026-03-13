@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from papycli.spec_loader import (
+    collect_schema_refs,
     extract_base_url,
     load_spec,
     resolve_refs,
@@ -278,3 +279,162 @@ def test_petstore_find_by_status_query_param() -> None:
 def test_petstore_base_url() -> None:
     spec = load_spec(PETSTORE_PATH)
     assert extract_base_url(spec) == "http://localhost:8080/api/v3"
+
+
+# ---------------------------------------------------------------------------
+# collect_schema_refs
+# ---------------------------------------------------------------------------
+
+
+def _ref_spec() -> dict[str, Any]:
+    """$ref を含むテスト用 spec。"""
+    return {
+        "paths": {
+            "/pets": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Pet"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "components": {
+            "schemas": {
+                "Pet": {
+                    "type": "object",
+                    "properties": {
+                        "category": {"$ref": "#/components/schemas/Category"},
+                        "name": {"type": "string"},
+                    },
+                },
+                "Category": {"type": "object", "properties": {"id": {"type": "integer"}}},
+                "Unrelated": {"type": "string"},
+            }
+        },
+    }
+
+
+def test_collect_schema_refs_direct() -> None:
+    """直接参照されているスキーマが収集される。"""
+    spec = _ref_spec()
+    path_entry = spec["paths"]["/pets"]
+    result = collect_schema_refs(path_entry, spec)
+    assert "Pet" in result
+
+
+def test_collect_schema_refs_transitive() -> None:
+    """推移的参照（Pet → Category）も収集される。"""
+    spec = _ref_spec()
+    path_entry = spec["paths"]["/pets"]
+    result = collect_schema_refs(path_entry, spec)
+    assert "Category" in result
+
+
+def test_collect_schema_refs_excludes_unrelated() -> None:
+    """参照されていないスキーマは含まれない。"""
+    spec = _ref_spec()
+    path_entry = spec["paths"]["/pets"]
+    result = collect_schema_refs(path_entry, spec)
+    assert "Unrelated" not in result
+
+
+def test_collect_schema_refs_no_refs() -> None:
+    """$ref がない場合は空 dict を返す。"""
+    spec = _ref_spec()
+    result = collect_schema_refs({"get": {"responses": {"200": {"description": "ok"}}}}, spec)
+    assert result == {}
+
+
+def test_collect_schema_refs_circular_guard() -> None:
+    """循環参照でも無限ループしない。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "schemas": {
+                "A": {"properties": {"b": {"$ref": "#/components/schemas/B"}}},
+                "B": {"properties": {"a": {"$ref": "#/components/schemas/A"}}},
+            }
+        }
+    }
+    obj = {"$ref": "#/components/schemas/A"}
+    result = collect_schema_refs(obj, spec)
+    assert "A" in result
+    assert "B" in result
+
+
+def test_collect_schema_refs_null_components() -> None:
+    """components が null（None）の spec でも AttributeError が起きない。"""
+    spec: dict[str, Any] = {"components": None}
+    result = collect_schema_refs({"$ref": "#/components/schemas/Foo"}, spec)
+    assert result == {}
+
+
+def test_collect_schema_refs_null_schemas() -> None:
+    """components.schemas が null（None）の spec でも AttributeError が起きない。"""
+    spec: dict[str, Any] = {"components": {"schemas": None}}
+    result = collect_schema_refs({"$ref": "#/components/schemas/Foo"}, spec)
+    assert result == {}
+
+
+def test_collect_schema_refs_non_schema_internal_ref_traversed() -> None:
+    """#/components/parameters/... のような非スキーマ内部 ref は解決して走査される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "parameters": {
+                "PetId": {
+                    "name": "petId",
+                    "in": "path",
+                    "schema": {"$ref": "#/components/schemas/Pet"},
+                }
+            },
+            "schemas": {
+                "Pet": {"type": "object"},
+            },
+        }
+    }
+    obj = {"parameters": [{"$ref": "#/components/parameters/PetId"}]}
+    result = collect_schema_refs(obj, spec)
+    assert "Pet" in result
+
+
+def test_collect_schema_refs_subpath_ref_ignored() -> None:
+    """#/components/schemas/Pet/properties/foo のようなサブパス ref は無視される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "schemas": {
+                "Pet": {"type": "object"},
+            }
+        }
+    }
+    obj = {"$ref": "#/components/schemas/Pet/properties/foo"}
+    result = collect_schema_refs(obj, spec)
+    # サブパスなので収集しない（"foo" や "Pet" が誤って収集されてはいけない）
+    assert result == {}
+
+
+def test_collect_schema_refs_escaped_schema_name() -> None:
+    """スキーマ名に JSON Pointer エスケープ (~1, ~0) が含まれる場合も正しく収集される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "schemas": {
+                "my/schema": {"type": "object"},
+            }
+        }
+    }
+    obj = {"$ref": "#/components/schemas/my~1schema"}
+    result = collect_schema_refs(obj, spec)
+    assert "my/schema" in result
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_collect_schema_refs_petstore_pet() -> None:
+    """petstore の /pet パスから Pet スキーマが収集される。"""
+    spec = load_spec(PETSTORE_PATH)
+    path_entry = spec["paths"]["/pet"]
+    result = collect_schema_refs(path_entry, spec)
+    assert "Pet" in result

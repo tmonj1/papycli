@@ -16,6 +16,11 @@ def load_spec(path: Path) -> dict[str, Any]:
         return json.load(f)  # type: ignore[no-any-return]
 
 
+def _decode_pointer_token(token: str) -> str:
+    """JSON Pointer トークンのエスケープを解除する (~1 → /, ~0 → ~)。"""
+    return token.replace("~1", "/").replace("~0", "~")
+
+
 def _resolve_json_pointer(ref: str, root: dict[str, Any]) -> Any:
     """'#/a/b/c' 形式の JSON Pointer を解決する。"""
     if not ref.startswith("#/"):
@@ -23,7 +28,7 @@ def _resolve_json_pointer(ref: str, root: dict[str, Any]) -> Any:
     parts = ref[2:].split("/")
     node: Any = root
     for part in parts:
-        part = part.replace("~1", "/").replace("~0", "~")
+        part = _decode_pointer_token(part)
         if not isinstance(node, dict) or part not in node:
             raise KeyError(f"$ref target not found: {ref!r}")
         node = node[part]
@@ -132,6 +137,52 @@ def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
             apidef[path] = methods
 
     return apidef
+
+
+def collect_schema_refs(
+    obj: Any,
+    spec: dict[str, Any],
+) -> dict[str, Any]:
+    """obj 内の $ref から参照される components/schemas エントリを推移的に収集する。
+
+    Returns:
+        参照されたスキーマ名をキー、スキーマ定義を値とする dict。
+    """
+    components = spec.get("components")
+    schemas_raw = components.get("schemas") if isinstance(components, dict) else None
+    schemas: dict[str, Any] = schemas_raw if isinstance(schemas_raw, dict) else {}
+    result: dict[str, Any] = {}
+    _visited: set[str] = set()        # 収集済みスキーマ名（循環ガード）
+    _visited_refs: set[str] = set()   # 非スキーマ内部 ref の循環ガード
+
+    def _collect(node: Any) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if ref and isinstance(ref, str) and ref.startswith("#/"):
+                parts = ref[2:].split("/")
+                if len(parts) == 3 and parts[0] == "components" and parts[1] == "schemas":
+                    # #/components/schemas/{SchemaName} への参照
+                    name = _decode_pointer_token(parts[2])
+                    if name not in _visited and name in schemas:
+                        _visited.add(name)
+                        result[name] = schemas[name]
+                        _collect(schemas[name])
+                elif ref not in _visited_refs:
+                    # その他の内部 ref（parameters, pathItems 等）→ 解決して走査
+                    _visited_refs.add(ref)
+                    try:
+                        _collect(_resolve_json_pointer(ref, spec))
+                    except (ValueError, KeyError):
+                        pass
+            else:
+                for v in node.values():
+                    _collect(v)
+        elif isinstance(node, list):
+            for item in node:
+                _collect(item)
+
+    _collect(obj)
+    return result
 
 
 def extract_base_url(spec: dict[str, Any]) -> str:
