@@ -386,28 +386,29 @@ def call_api(
             filtered_ctx=ctx if filters else None,
         )
 
+    # レスポンスボディを一度だけパースし、チェックとレスポンスフィルターで共有する。
+    # Content-Type が application/json の場合のみ JSON としてパースを試みる。
+    content_type_for_body = resp.headers.get("Content-Type", "").lower()
+    resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None
+    if "application/json" in content_type_for_body:
+        try:
+            resp_body = resp.json()
+        except ValueError:
+            resp_body = resp.text or None
+    else:
+        resp_body = resp.text or None
+
     # レスポンスチェック（response filter 適用前に実施）
     if do_response_check and raw_spec is not None:
         from papycli.response_checker import check_response
-        check_warnings = check_response(resp, raw_spec, method, template)
+        check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
         for w in check_warnings:
             print(w, file=sys.stderr)
 
     # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
-    # レスポンスボディのパースと ResponseContext 構築を行う。
+    # ResponseContext を構築する（ボディは事前にパース済みの resp_body を使い回す）。
     response_filters = load_response_filters()
     if response_filters:
-        content_type = resp.headers.get("Content-Type", "").lower()
-        if "application/json" in content_type:
-            try:
-                resp_body: (
-                    dict[str, Any] | list[Any] | str | int | float | bool | None
-                ) = resp.json()
-            except ValueError:
-                resp_body = resp.text or None
-        else:
-            resp_body = resp.text or None
-
         resp_ctx = ResponseContext(
             method=method,
             url=resp.url,

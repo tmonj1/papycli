@@ -133,13 +133,21 @@ def _check_value(
                 _check_value(item, items_schema, item_path, warnings)
 
 
+_UNSET = object()
+
+
 def check_response(
     resp: requests.Response,
     raw_spec: dict[str, Any],
     method: str,
     template: str,
+    *,
+    _body: Any = _UNSET,
 ) -> list[str]:
     """レスポンスが OpenAPI スキーマ定義に合致しているかチェックする。
+
+    Args:
+        _body: 事前にパース済みのレスポンスボディ。省略時は resp.json() でパースする。
 
     Returns:
         警告メッセージのリスト（問題なければ空リスト）。
@@ -148,18 +156,27 @@ def check_response(
     if "application/json" not in content_type:
         return []
 
-    try:
-        body = resp.json()
-    except ValueError:
-        return ["[response] body: failed to parse JSON response"]
+    if _body is _UNSET:
+        try:
+            body = resp.json()
+        except ValueError:
+            return ["[response] body: failed to parse JSON response"]
+    else:
+        body = _body
 
     paths = raw_spec.get("paths", {})
     path_item = paths.get(template, {})
     operation = path_item.get(method, {})
     responses = operation.get("responses", {})
 
+    # ステータスコードを完全一致 → 範囲指定（例: 2XX）→ default の順で探索する
     status_str = str(resp.status_code)
-    response_def = responses.get(status_str) or responses.get("default")
+    range_str = f"{resp.status_code // 100}XX"
+    response_def = (
+        responses.get(status_str)
+        or responses.get(range_str)
+        or responses.get("default")
+    )
     if response_def is None:
         return []
 

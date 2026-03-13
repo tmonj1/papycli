@@ -378,3 +378,44 @@ def test_check_response_json_parse_error() -> None:
     resp.json.side_effect = ValueError("invalid json")
     warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
     assert any("failed to parse" in w for w in warnings)
+
+
+def test_check_response_range_status_code() -> None:
+    """2XX のようなレンジ指定のレスポンス定義を使って検証される。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "2XX": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    # 201 は "200" に一致しないが "2XX" にフォールバックされる
+    resp = _make_resp({"name": "foo"}, status_code=201)
+    warnings = check_response(resp, spec, "get", "/items")
+    assert any("required field 'id' is missing" in w for w in warnings)
+
+
+def test_check_response_with_preparsed_body() -> None:
+    """_body を渡すと resp.json() が呼ばれない。"""
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.headers = {"Content-Type": "application/json"}
+    # resp.json() が呼ばれたらテスト失敗
+    resp.json.side_effect = AssertionError("resp.json() should not be called")
+    preparsed = {"id": "not_an_int"}
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items", _body=preparsed)
+    assert any("expected integer" in w for w in warnings)

@@ -919,7 +919,7 @@ def test_cmd_response_check_valid(
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
     assert result.exit_code == 0
-    assert "[response]" not in result.stderr
+    assert "[response]" not in result.output
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
@@ -927,7 +927,7 @@ def test_cmd_response_check_valid(
 def test_cmd_response_check_violation(
     petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """型違反があると stderr に [response] 警告が含まれる。"""
+    """型違反があると出力に [response] 警告が含まれる。"""
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
     # id が string（本来は integer）
     rsps.add(
@@ -939,7 +939,7 @@ def test_cmd_response_check_violation(
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
     assert result.exit_code == 0
-    assert "[response]" in result.stderr
+    assert "[response]" in result.output
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
@@ -958,7 +958,7 @@ def test_cmd_response_check_without_flag_no_warning(
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1"])
     assert result.exit_code == 0
-    assert "[response]" not in result.stderr
+    assert "[response]" not in result.output
 
 
 # ---------------------------------------------------------------------------
