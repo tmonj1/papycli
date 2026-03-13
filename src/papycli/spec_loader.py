@@ -134,6 +134,42 @@ def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
     return apidef
 
 
+def collect_schema_refs(
+    obj: Any,
+    spec: dict[str, Any],
+    _visited: set[str] | None = None,
+) -> dict[str, Any]:
+    """obj 内の $ref から参照される components/schemas エントリを推移的に収集する。
+
+    Returns:
+        参照されたスキーマ名をキー、スキーマ定義を値とする dict。
+    """
+    if _visited is None:
+        _visited = set()
+
+    schemas: dict[str, Any] = spec.get("components", {}).get("schemas", {})
+    result: dict[str, Any] = {}
+
+    def _collect(node: Any) -> None:
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if ref and isinstance(ref, str) and ref.startswith("#/components/schemas/"):
+                name = ref.split("/")[-1]
+                if name not in _visited and name in schemas:
+                    _visited.add(name)
+                    result[name] = schemas[name]
+                    _collect(schemas[name])
+            else:
+                for v in node.values():
+                    _collect(v)
+        elif isinstance(node, list):
+            for item in node:
+                _collect(item)
+
+    _collect(obj)
+    return result
+
+
 def extract_base_url(spec: dict[str, Any]) -> str:
     """spec から servers[0].url を返す。存在しない場合は空文字。"""
     servers = spec.get("servers", [])
