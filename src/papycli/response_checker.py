@@ -53,12 +53,26 @@ def _check_value(
     schema_type = schema.get("type")
 
     # 型チェック
-    if schema_type and not _type_matches(value, schema_type):
-        warnings.append(
-            f"[response] {path or '/'}: "
-            f"expected {schema_type}, got {_python_type_name(value)}"
-        )
-        return  # 型不一致の場合は以降のチェックをスキップ
+    # schema_type が文字列の場合は単一型チェック、リストの場合はいずれかの型に一致するかチェック。
+    # schema_type が None（省略）の場合は型チェックをスキップする。
+    if isinstance(schema_type, str):
+        if not _type_matches(value, schema_type):
+            warnings.append(
+                f"[response] {path or '/'}: "
+                f"expected {schema_type}, got {_python_type_name(value)}"
+            )
+            return  # 型不一致の場合は以降のチェックをスキップ
+    elif isinstance(schema_type, list):
+        if not any(_type_matches(value, t) for t in schema_type):
+            warnings.append(
+                f"[response] {path or '/'}: "
+                f"expected one of {schema_type}, got {_python_type_name(value)}"
+            )
+            return
+
+    # null 値はこれ以上チェックしない
+    if value is None:
+        return
 
     # enum チェック
     if "enum" in schema and value not in schema["enum"]:
@@ -67,8 +81,15 @@ def _check_value(
             f"value {value!r} is not in enum {schema['enum']}"
         )
 
-    # オブジェクト検証
-    if schema_type == "object" and isinstance(value, dict):
+    # オブジェクト検証:
+    # type == "object" の場合、または type が省略されていてもスキーマに
+    # オブジェクトキーワード（properties / required / additionalProperties）があり
+    # かつ実際の値が dict の場合は検証する。
+    _object_keywords = ("properties", "required", "additionalProperties")
+    is_object_schema = schema_type == "object" or (
+        schema_type is None and any(k in schema for k in _object_keywords)
+    )
+    if is_object_schema and isinstance(value, dict):
         properties: dict[str, Any] = schema.get("properties", {})
         required: list[str] = schema.get("required", [])
 
@@ -94,8 +115,13 @@ def _check_value(
                         f"[response] {path or '/'}: unexpected field '{key}'"
                     )
 
-    # 配列検証
-    elif schema_type == "array" and isinstance(value, list):
+    # 配列検証:
+    # type == "array" の場合、または type が省略されていても items があり
+    # かつ実際の値が list の場合は検証する。
+    is_array_schema = schema_type == "array" or (
+        schema_type is None and "items" in schema
+    )
+    if is_array_schema and isinstance(value, list):
         items_schema = schema.get("items")
         if isinstance(items_schema, dict):
             for i, item in enumerate(value):

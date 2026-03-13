@@ -160,6 +160,39 @@ def test_check_value_path_shown_in_root() -> None:
     assert "/:" in warnings[0]
 
 
+def test_check_value_no_type_with_properties() -> None:
+    """type が省略されていても properties があれば required チェックが行われる。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {
+        "required": ["id"],
+        "properties": {"id": {"type": "integer"}},
+    }
+    _check_value({"name": "foo"}, schema, "", warnings)
+    assert any("required field 'id' is missing" in w for w in warnings)
+
+
+def test_check_value_list_type_match() -> None:
+    """type がリスト（union 型）の場合、いずれかの型と一致すれば OK。"""
+    warnings: list[str] = []
+    _check_value("hello", {"type": ["string", "null"]}, "/x", warnings)
+    assert warnings == []
+
+
+def test_check_value_list_type_mismatch() -> None:
+    """type がリストでいずれにも一致しない場合は警告する。"""
+    warnings: list[str] = []
+    _check_value(123, {"type": ["string", "null"]}, "/x", warnings)
+    assert any("expected one of" in w for w in warnings)
+
+
+def test_check_value_no_type_with_items() -> None:
+    """type が省略されていても items があれば配列アイテム検証が行われる。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {"items": {"type": "integer"}}
+    _check_value([1, "bad"], schema, "", warnings)
+    assert any("expected integer" in w for w in warnings)
+
+
 # ---------------------------------------------------------------------------
 # check_response
 # ---------------------------------------------------------------------------
