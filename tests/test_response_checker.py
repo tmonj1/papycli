@@ -193,6 +193,38 @@ def test_check_value_no_type_with_items() -> None:
     assert any("expected integer" in w for w in warnings)
 
 
+def test_check_value_union_type_object_validates_properties() -> None:
+    """type が ["object", "null"] の場合でもオブジェクト検証が行われる。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {
+        "type": ["object", "null"],
+        "required": ["id"],
+        "properties": {"id": {"type": "integer"}},
+    }
+    _check_value({"name": "foo"}, schema, "", warnings)
+    assert any("required field 'id' is missing" in w for w in warnings)
+
+
+def test_check_value_union_type_array_validates_items() -> None:
+    """type が ["array", "null"] の場合でも配列アイテム検証が行われる。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {
+        "type": ["array", "null"],
+        "items": {"type": "integer"},
+    }
+    _check_value([1, "bad"], schema, "/tags", warnings)
+    assert any("expected integer" in w for w in warnings)
+
+
+def test_check_value_root_array_path_starts_with_slash() -> None:
+    """ルートレベルの配列アイテムのパスが '/' から始まる。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {"type": "array", "items": {"type": "integer"}}
+    _check_value([1, "bad"], schema, "", warnings)
+    assert warnings
+    assert warnings[0].startswith("[response] /[")
+
+
 # ---------------------------------------------------------------------------
 # check_response
 # ---------------------------------------------------------------------------

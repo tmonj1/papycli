@@ -82,12 +82,13 @@ def _check_value(
         )
 
     # オブジェクト検証:
-    # type == "object" の場合、または type が省略されていてもスキーマに
-    # オブジェクトキーワード（properties / required / additionalProperties）があり
-    # かつ実際の値が dict の場合は検証する。
+    # type == "object"、union 型リストに "object" が含まれる、または
+    # type が省略されていてもオブジェクトキーワードがある場合に検証する。
     _object_keywords = ("properties", "required", "additionalProperties")
-    is_object_schema = schema_type == "object" or (
-        schema_type is None and any(k in schema for k in _object_keywords)
+    is_object_schema = (
+        schema_type == "object"
+        or (isinstance(schema_type, list) and "object" in schema_type)
+        or (schema_type is None and any(k in schema for k in _object_keywords))
     )
     if is_object_schema and isinstance(value, dict):
         properties: dict[str, Any] = schema.get("properties", {})
@@ -116,16 +117,20 @@ def _check_value(
                     )
 
     # 配列検証:
-    # type == "array" の場合、または type が省略されていても items があり
-    # かつ実際の値が list の場合は検証する。
-    is_array_schema = schema_type == "array" or (
-        schema_type is None and "items" in schema
+    # type == "array"、union 型リストに "array" が含まれる、または
+    # type が省略されていても items がある場合に検証する。
+    is_array_schema = (
+        schema_type == "array"
+        or (isinstance(schema_type, list) and "array" in schema_type)
+        or (schema_type is None and "items" in schema)
     )
     if is_array_schema and isinstance(value, list):
         items_schema = schema.get("items")
         if isinstance(items_schema, dict):
             for i, item in enumerate(value):
-                _check_value(item, items_schema, f"{path}[{i}]", warnings)
+                # ルートレベル（path が空）の配列アイテムも "/" から始まるパスにする
+                item_path = f"{path}[{i}]" if path else f"/[{i}]"
+                _check_value(item, items_schema, item_path, warnings)
 
 
 def check_response(

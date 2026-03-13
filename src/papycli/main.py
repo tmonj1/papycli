@@ -478,14 +478,6 @@ def _api_command(method: str) -> click.Command:
 
         logfile = get_logfile(conf)
 
-        raw_spec: dict[str, Any] | None = None
-        if do_response_check:
-            try:
-                raw_spec = load_current_raw_spec(conf_dir)
-            except Exception as e:
-                click.echo(f"Error: {e}", err=True)
-                sys.exit(1)
-
         if show_summary:
             match = match_path_template(resource, list(apidef.keys()))
             if match is None:
@@ -494,6 +486,14 @@ def _api_command(method: str) -> click.Command:
             template, _ = match
             click.echo(format_endpoint_detail(apidef, method, template))
             return
+
+        raw_spec: dict[str, Any] | None = None
+        if do_response_check:
+            try:
+                raw_spec = load_current_raw_spec(conf_dir)
+            except Exception as e:
+                click.echo(f"Error: {e}", err=True)
+                sys.exit(1)
 
         if do_check or do_check_strict:
             warnings = check_request(
