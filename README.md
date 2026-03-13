@@ -203,7 +203,7 @@ papycli config completion-script <bash|zsh>  Print a shell completion script
 
 # Inspection commands
 papycli spec [resource]             Show the raw internal API spec (filter by resource path)
-papycli spec --full                 Output the full stored OpenAPI spec (internal JSON representation)
+papycli spec --full [resource]      Output the stored OpenAPI spec (filter by resource path if given)
 papycli summary [resource]          List available endpoints (filter by resource prefix)
                                       Required params marked with *, array params with []
 papycli summary --csv               Output endpoints in CSV format

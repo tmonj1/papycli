@@ -192,6 +192,10 @@ def completions_for_context(
             if apidef is not None:
                 candidates += [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
             return candidates
+        # spec --full <TAB> → リソースパスを補完
+        if current == 3 and len(words) > 2 and words[2] == "--full":
+            if apidef is not None:
+                return [p for p in sorted(apidef.keys()) if p.startswith(incomplete)]
         return []
 
     # words[1] が HTTP メソッドでない場合は補完なし
