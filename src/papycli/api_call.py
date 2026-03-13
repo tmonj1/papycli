@@ -311,6 +311,8 @@ def call_api(
     raw_body: str | None = None,
     extra_headers: Sequence[str] = (),
     logfile: str | None = None,
+    raw_spec: dict[str, Any] | None = None,
+    do_response_check: bool = False,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
     from papycli.request_filter import (
@@ -383,6 +385,13 @@ def call_api(
             logfile, method, url, list(query_params), json_body, headers, resp,
             filtered_ctx=ctx if filters else None,
         )
+
+    # レスポンスチェック（response filter 適用前に実施）
+    if do_response_check and raw_spec is not None:
+        from papycli.response_checker import check_response
+        check_warnings = check_response(resp, raw_spec, method, template)
+        for w in check_warnings:
+            print(w, file=sys.stderr)
 
     # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
     # レスポンスボディのパースと ResponseContext 構築を行う。
