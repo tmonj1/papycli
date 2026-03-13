@@ -367,6 +367,27 @@ def test_collect_schema_refs_circular_guard() -> None:
     assert "B" in result
 
 
+def test_collect_schema_refs_non_schema_internal_ref_traversed() -> None:
+    """#/components/parameters/... のような非スキーマ内部 ref は解決して走査される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "parameters": {
+                "PetId": {
+                    "name": "petId",
+                    "in": "path",
+                    "schema": {"$ref": "#/components/schemas/Pet"},
+                }
+            },
+            "schemas": {
+                "Pet": {"type": "object"},
+            },
+        }
+    }
+    obj = {"parameters": [{"$ref": "#/components/parameters/PetId"}]}
+    result = collect_schema_refs(obj, spec)
+    assert "Pet" in result
+
+
 def test_collect_schema_refs_subpath_ref_ignored() -> None:
     """#/components/schemas/Pet/properties/foo のようなサブパス ref は無視される。"""
     spec: dict[str, Any] = {
