@@ -115,6 +115,12 @@ def _check_value(
                     warnings.append(
                         f"[response] {path or '/'}: unexpected field '{key}'"
                     )
+    elif is_object_schema and schema_type is None:
+        # type が省略されているが object キーワードから object スキーマと判断した場合、
+        # value が dict でなければ型違反として警告する。
+        warnings.append(
+            f"[response] {path or '/'}: expected object, got {_python_type_name(value)}"
+        )
 
     # 配列検証:
     # type == "array"、union 型リストに "array" が含まれる、または
@@ -131,6 +137,12 @@ def _check_value(
                 # ルートレベル（path が空）の配列アイテムも "/" から始まるパスにする
                 item_path = f"{path}[{i}]" if path else f"/[{i}]"
                 _check_value(item, items_schema, item_path, warnings)
+    elif is_array_schema and schema_type is None:
+        # type が省略されているが items から array スキーマと判断した場合、
+        # value が list でなければ型違反として警告する。
+        warnings.append(
+            f"[response] {path or '/'}: expected array, got {_python_type_name(value)}"
+        )
 
 
 _UNSET = object()

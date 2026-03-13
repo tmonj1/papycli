@@ -916,6 +916,8 @@ def test_cmd_response_check_valid(
         status=200,
         content_type="application/json",
     )
+    # Click 8.3.1 では mix_stderr パラメータが削除されており、デフォルトで
+    # stderr は output に混在する。result.output で警告の有無を確認する。
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
     assert result.exit_code == 0

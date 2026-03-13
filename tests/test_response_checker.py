@@ -171,6 +171,24 @@ def test_check_value_no_type_with_properties() -> None:
     assert any("required field 'id' is missing" in w for w in warnings)
 
 
+def test_check_value_no_type_with_properties_not_dict() -> None:
+    """type が省略されているが object キーワードがある場合、dict 以外は型違反として警告する。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {
+        "properties": {"id": {"type": "integer"}},
+    }
+    _check_value("not_an_object", schema, "/x", warnings)
+    assert any("expected object" in w for w in warnings)
+
+
+def test_check_value_no_type_with_items_not_list() -> None:
+    """type が省略されているが items がある場合、list 以外は型違反として警告する。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {"items": {"type": "integer"}}
+    _check_value("not_an_array", schema, "/x", warnings)
+    assert any("expected array" in w for w in warnings)
+
+
 def test_check_value_list_type_match() -> None:
     """type がリスト（union 型）の場合、いずれかの型と一致すれば OK。"""
     warnings: list[str] = []
