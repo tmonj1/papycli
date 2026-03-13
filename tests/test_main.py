@@ -916,12 +916,11 @@ def test_cmd_response_check_valid(
         status=200,
         content_type="application/json",
     )
-    # Click 8.3.1 では mix_stderr パラメータが削除されており、デフォルトで
-    # stderr は output に混在する。result.output で警告の有無を確認する。
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
+    combined = result.output + getattr(result, "stderr", "")
     assert result.exit_code == 0
-    assert "[response]" not in result.output
+    assert "[response]" not in combined
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
@@ -940,8 +939,9 @@ def test_cmd_response_check_violation(
     )
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
+    combined = result.output + getattr(result, "stderr", "")
     assert result.exit_code == 0
-    assert "[response]" in result.output
+    assert "[response]" in combined
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
@@ -959,8 +959,9 @@ def test_cmd_response_check_without_flag_no_warning(
     )
     runner = CliRunner()
     result = runner.invoke(cli, ["get", "/pet/1"])
+    combined = result.output + getattr(result, "stderr", "")
     assert result.exit_code == 0
-    assert "[response]" not in result.output
+    assert "[response]" not in combined
 
 
 # ---------------------------------------------------------------------------

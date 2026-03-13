@@ -168,14 +168,8 @@ def check_response(
     if "application/json" not in content_type:
         return []
 
-    if _body is _UNSET:
-        try:
-            body = resp.json()
-        except ValueError:
-            return ["[response] body: failed to parse JSON response"]
-    else:
-        body = _body
-
+    # スキーマが存在する場合のみボディをパースする（空ボディや定義なしのステータスでの
+    # 誤警告を防ぐため、先にレスポンス定義とスキーマを確認する）。
     paths = raw_spec.get("paths", {})
     path_item = paths.get(template, {})
     operation = path_item.get(method, {})
@@ -200,6 +194,14 @@ def check_response(
     )
     if not isinstance(schema, dict):
         return []
+
+    if _body is _UNSET:
+        try:
+            body = resp.json()
+        except ValueError:
+            return ["[response] body: failed to parse JSON response"]
+    else:
+        body = _body
 
     warnings: list[str] = []
     _check_value(body, schema, "", warnings)
