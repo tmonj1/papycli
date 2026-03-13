@@ -70,6 +70,13 @@ def _check_value(
             )
             return
 
+    # enum チェック（null 値も対象: type が null/null 含む union で enum に含まれない場合も警告）
+    if "enum" in schema and value not in schema["enum"]:
+        warnings.append(
+            f"[response] {path or '/'}: "
+            f"value {value!r} is not in enum {schema['enum']}"
+        )
+
     # null 値のチェック:
     # type が省略されていて object/array キーワードがある場合は null を型違反として警告する。
     # type == "null" またはリストに "null" が含まれる場合は上の型チェックで通過済みのため、
@@ -85,13 +92,6 @@ def _check_value(
                 f"[response] {path or '/'}: expected array, got null"
             )
         return
-
-    # enum チェック
-    if "enum" in schema and value not in schema["enum"]:
-        warnings.append(
-            f"[response] {path or '/'}: "
-            f"value {value!r} is not in enum {schema['enum']}"
-        )
 
     # オブジェクト検証:
     # type == "object"、union 型リストに "object" が含まれる、または
@@ -177,7 +177,10 @@ def check_response(
         警告メッセージのリスト（問題なければ空リスト）。
     """
     content_type = resp.headers.get("Content-Type", "").lower()
-    if "application/json" not in content_type:
+    # charset 等のパラメータを除いたベース型を抽出する
+    base_content_type = content_type.split(";")[0].strip()
+    # application/json および +json サフィックスを持つ JSON 互換メディアタイプを対象とする
+    if base_content_type != "application/json" and not base_content_type.endswith("+json"):
         return []
 
     # スキーマが存在する場合のみボディをパースする（空ボディや定義なしのステータスでの
@@ -199,11 +202,16 @@ def check_response(
         return []
 
     resolved_def = resolve_refs(response_def, raw_spec)
-    schema = (
-        resolved_def.get("content", {})
-        .get("application/json", {})
-        .get("schema")
-    )
+    content_map: dict[str, Any] = resolved_def.get("content", {})
+    # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
+    schema: Any = None
+    for key in [base_content_type, "application/json"] + [
+        k for k in content_map if k.endswith("+json") and k != base_content_type
+    ]:
+        s = content_map.get(key, {}).get("schema")
+        if isinstance(s, dict):
+            schema = s
+            break
     if not isinstance(schema, dict):
         return []
 

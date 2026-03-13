@@ -85,6 +85,20 @@ def test_check_value_enum_ok() -> None:
     assert warnings == []
 
 
+def test_check_value_null_not_in_enum() -> None:
+    """null 値が enum に含まれない場合は警告する（type が null を許可していても）。"""
+    warnings: list[str] = []
+    _check_value(None, {"type": ["string", "null"], "enum": ["a", "b"]}, "/x", warnings)
+    assert any("not in enum" in w for w in warnings)
+
+
+def test_check_value_null_in_enum_ok() -> None:
+    """null 値が enum に含まれる場合は警告しない。"""
+    warnings: list[str] = []
+    _check_value(None, {"type": ["string", "null"], "enum": ["a", None]}, "/x", warnings)
+    assert warnings == []
+
+
 def test_check_value_required_missing() -> None:
     warnings: list[str] = []
     schema: dict[str, Any] = {
@@ -335,6 +349,34 @@ def test_check_response_non_json_content_type() -> None:
     """Content-Type が application/json 以外のときはスキップ。"""
     resp = _make_resp("<html>", content_type="text/html")
     assert check_response(resp, SIMPLE_SPEC, "get", "/items") == []
+
+
+def test_check_response_plus_json_content_type() -> None:
+    """application/problem+json のような +json メディアタイプもチェック対象となる。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/problem+json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resp = _make_resp({"name": "foo"}, content_type="application/problem+json")
+    warnings = check_response(resp, spec, "get", "/items")
+    assert any("required field 'id' is missing" in w for w in warnings)
 
 
 def test_check_response_no_response_def() -> None:
