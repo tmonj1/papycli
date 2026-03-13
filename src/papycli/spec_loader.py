@@ -153,12 +153,16 @@ def collect_schema_refs(
     def _collect(node: Any) -> None:
         if isinstance(node, dict):
             ref = node.get("$ref")
-            if ref and isinstance(ref, str) and ref.startswith("#/components/schemas/"):
-                name = ref.split("/")[-1]
-                if name not in _visited and name in schemas:
-                    _visited.add(name)
-                    result[name] = schemas[name]
-                    _collect(schemas[name])
+            if ref and isinstance(ref, str):
+                # #/components/schemas/{SchemaName} の形式のみ対象
+                # （サブパスを持つ ref は除外）
+                parts = ref[2:].split("/") if ref.startswith("#/") else []
+                if len(parts) == 3 and parts[0] == "components" and parts[1] == "schemas":
+                    name = parts[2].replace("~1", "/").replace("~0", "~")
+                    if name not in _visited and name in schemas:
+                        _visited.add(name)
+                        result[name] = schemas[name]
+                        _collect(schemas[name])
             else:
                 for v in node.values():
                     _collect(v)

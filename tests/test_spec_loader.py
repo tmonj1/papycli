@@ -367,6 +367,35 @@ def test_collect_schema_refs_circular_guard() -> None:
     assert "B" in result
 
 
+def test_collect_schema_refs_subpath_ref_ignored() -> None:
+    """#/components/schemas/Pet/properties/foo のようなサブパス ref は無視される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "schemas": {
+                "Pet": {"type": "object"},
+            }
+        }
+    }
+    obj = {"$ref": "#/components/schemas/Pet/properties/foo"}
+    result = collect_schema_refs(obj, spec)
+    # サブパスなので収集しない（"foo" や "Pet" が誤って収集されてはいけない）
+    assert result == {}
+
+
+def test_collect_schema_refs_escaped_schema_name() -> None:
+    """スキーマ名に JSON Pointer エスケープ (~1, ~0) が含まれる場合も正しく収集される。"""
+    spec: dict[str, Any] = {
+        "components": {
+            "schemas": {
+                "my/schema": {"type": "object"},
+            }
+        }
+    }
+    obj = {"$ref": "#/components/schemas/my~1schema"}
+    result = collect_schema_refs(obj, spec)
+    assert "my/schema" in result
+
+
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
 def test_collect_schema_refs_petstore_pet() -> None:
     """petstore の /pet パスから Pet スキーマが収集される。"""
