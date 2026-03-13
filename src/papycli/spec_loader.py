@@ -148,7 +148,9 @@ def collect_schema_refs(
     Returns:
         参照されたスキーマ名をキー、スキーマ定義を値とする dict。
     """
-    schemas: dict[str, Any] = spec.get("components", {}).get("schemas", {})
+    components = spec.get("components")
+    schemas_raw = components.get("schemas") if isinstance(components, dict) else None
+    schemas: dict[str, Any] = schemas_raw if isinstance(schemas_raw, dict) else {}
     result: dict[str, Any] = {}
     _visited: set[str] = set()        # 収集済みスキーマ名（循環ガード）
     _visited_refs: set[str] = set()   # 非スキーマ内部 ref の循環ガード

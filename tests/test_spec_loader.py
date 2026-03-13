@@ -367,6 +367,20 @@ def test_collect_schema_refs_circular_guard() -> None:
     assert "B" in result
 
 
+def test_collect_schema_refs_null_components() -> None:
+    """components が null（None）の spec でも AttributeError が起きない。"""
+    spec: dict[str, Any] = {"components": None}
+    result = collect_schema_refs({"$ref": "#/components/schemas/Foo"}, spec)
+    assert result == {}
+
+
+def test_collect_schema_refs_null_schemas() -> None:
+    """components.schemas が null（None）の spec でも AttributeError が起きない。"""
+    spec: dict[str, Any] = {"components": {"schemas": None}}
+    result = collect_schema_refs({"$ref": "#/components/schemas/Foo"}, spec)
+    assert result == {}
+
+
 def test_collect_schema_refs_non_schema_internal_ref_traversed() -> None:
     """#/components/parameters/... のような非スキーマ内部 ref は解決して走査される。"""
     spec: dict[str, Any] = {
