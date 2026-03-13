@@ -142,19 +142,16 @@ def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
 def collect_schema_refs(
     obj: Any,
     spec: dict[str, Any],
-    _visited: set[str] | None = None,
 ) -> dict[str, Any]:
     """obj 内の $ref から参照される components/schemas エントリを推移的に収集する。
 
     Returns:
         参照されたスキーマ名をキー、スキーマ定義を値とする dict。
     """
-    if _visited is None:
-        _visited = set()
-
     schemas: dict[str, Any] = spec.get("components", {}).get("schemas", {})
     result: dict[str, Any] = {}
-    _visited_refs: set[str] = set()  # 非スキーマ内部 ref の循環ガード
+    _visited: set[str] = set()        # 収集済みスキーマ名（循環ガード）
+    _visited_refs: set[str] = set()   # 非スキーマ内部 ref の循環ガード
 
     def _collect(node: Any) -> None:
         if isinstance(node, dict):
