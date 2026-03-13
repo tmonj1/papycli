@@ -302,11 +302,14 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 @cli.command(
     "spec",
     help=h(
-        "Show the internal API definition (apidef).\n\nFilter by RESOURCE path if given.\n\n"
-        "Use --full to output the full OpenAPI spec as-is.",
-        "API スペック（内部 apidef 形式）を表示する。\n\n"
-        "RESOURCE を指定するとそのパスのエントリのみ表示する。\n\n"
-        "--full を指定すると OpenAPI spec 全体をそのまま出力する。",
+        "Show API spec information.\n\n"
+        "Without RESOURCE: show the internal API definition (apidef) for all paths.\n\n"
+        "With RESOURCE: show the raw OpenAPI spec entry for that path.\n\n"
+        "Use --full to output the full stored OpenAPI spec (JSON).",
+        "API スペック情報を表示する。\n\n"
+        "RESOURCE なし: 全パスの内部 apidef 形式を表示する。\n\n"
+        "RESOURCE あり: 指定パスの OpenAPI spec エントリを表示する。\n\n"
+        "--full を指定すると内部に保存された OpenAPI spec 全体を JSON 形式で出力する。",
     ),
 )
 @click.argument("resource", required=False, default=None)
@@ -329,23 +332,28 @@ def cmd_spec(resource: str | None, full: bool) -> None:
         click.echo(json.dumps(raw_spec, indent=2, ensure_ascii=False))
         return
 
+    if resource is not None:
+        try:
+            raw_spec = load_current_raw_spec(conf_dir)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        paths = raw_spec.get("paths", {})
+        match = match_path_template(resource, list(paths.keys()))
+        if match is None:
+            click.echo(f"Error: No matching path for '{resource}'", err=True)
+            sys.exit(1)
+        template, _ = match
+        click.echo(json.dumps({template: paths[template]}, indent=2, ensure_ascii=False))
+        return
+
     try:
         apidef, _ = load_current_apidef(conf_dir)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    if resource is None:
-        click.echo(json.dumps(apidef, indent=2, ensure_ascii=False))
-        return
-
-    match = match_path_template(resource, list(apidef.keys()))
-    if match is None:
-        click.echo(f"Error: No matching path for '{resource}'", err=True)
-        sys.exit(1)
-
-    template, _ = match
-    click.echo(json.dumps({template: apidef[template]}, indent=2, ensure_ascii=False))
+    click.echo(json.dumps(apidef, indent=2, ensure_ascii=False))
 
 
 # ---------------------------------------------------------------------------

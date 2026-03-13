@@ -202,7 +202,8 @@ papycli config log --unset                 ログを無効化する
 papycli config completion-script <bash|zsh>  シェル補完スクリプトを出力する
 
 # 確認コマンド
-papycli spec [resource]             内部 API スペックを表示する（リソースパスでフィルタ可能）
+papycli spec                        全パスの内部 API 定義（apidef 形式）を表示する
+papycli spec [resource]             指定リソースパスの OpenAPI spec エントリを表示する
 papycli spec --full                 内部に保存された OpenAPI spec 全体を JSON 形式で出力する
 papycli summary [resource]          利用可能なエンドポイントを表示する（リソースでフィルタ可能）
                                       必須パラメータは * 付き、配列パラメータは [] 付きで表示

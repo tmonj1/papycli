@@ -713,6 +713,8 @@ def test_cmd_spec_resource_exact(petstore_conf_dir: Path, monkeypatch: pytest.Mo
     assert "/pet/findByStatus" in data
     assert "/pet" not in data
     assert "/store/inventory" not in data
+    # raw spec 形式であること（HTTP メソッドがキーになっている）
+    assert "get" in data["/pet/findByStatus"]
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
@@ -725,6 +727,37 @@ def test_cmd_spec_resource_via_template(
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert "/pet/{petId}" in data
+    # raw spec 形式であること（HTTP メソッドがキーになっている）
+    assert any(m in data["/pet/{petId}"] for m in ("get", "post", "put", "patch", "delete"))
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_resource_shows_all_methods(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "/pet"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet" in data
+    # /pet は post と put を持つ
+    pet_ops = data["/pet"]
+    assert "post" in pet_ops or "put" in pet_ops
+
+
+def test_cmd_spec_resource_minimal(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["spec", "/items"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/items" in data
+    # raw spec 形式であること
+    assert "get" in data["/items"]
 
 
 @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")

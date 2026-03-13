@@ -202,7 +202,8 @@ papycli config log --unset                 Disable logging
 papycli config completion-script <bash|zsh>  Print a shell completion script
 
 # Inspection commands
-papycli spec [resource]             Show the raw internal API spec (filter by resource path)
+papycli spec                        Show the internal API definition (apidef) for all paths
+papycli spec [resource]             Show the raw OpenAPI spec entry for the specified resource path
 papycli spec --full                 Output the full stored OpenAPI spec (internal JSON representation)
 papycli summary [resource]          List available endpoints (filter by resource prefix)
                                       Required params marked with *, array params with []
