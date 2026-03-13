@@ -14,7 +14,7 @@ from papycli.config import load_conf, save_conf
 from papycli.init_cmd import init_api, register_initialized_api
 from papycli.main import cli
 
-PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore-oas3.json"
+PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 BASE_URL = "http://localhost:8080/api/v3"
 
 MINIMAL_SPEC: dict[str, Any] = {
@@ -226,6 +226,18 @@ def test_cmd_remove_deletes_apidef_file(
     assert apidef_path.exists()
     runner.invoke(cli, ["config", "remove", "myapi"])
     assert not apidef_path.exists()
+
+
+def test_cmd_remove_deletes_raw_spec_file(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    spec_path = tmp_path / "apis" / "myapi.spec.json"
+    assert spec_path.exists()
+    runner.invoke(cli, ["config", "remove", "myapi"])
+    assert not spec_path.exists()
 
 
 def test_cmd_remove_clears_default_when_only_api(
@@ -729,6 +741,62 @@ def test_cmd_spec_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
     result = runner.invoke(cli, ["spec"])
+    assert result.exit_code != 0
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full(petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "openapi" in data
+    assert "paths" in data
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full_contains_raw_paths(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    # 内部 apidef 形式ではなく OpenAPI spec 形式であることを確認（get/post などのキーを持つ）
+    paths = data["paths"]
+    pet_ops = paths.get("/pet", {})
+    assert any(method in pet_ops for method in ("get", "post", "put", "patch", "delete"))
+
+
+def test_cmd_spec_full_no_conf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full"])
+    assert result.exit_code != 0
+
+
+def test_cmd_spec_full_minimal(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["spec", "--full"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["openapi"] == "3.0.2"
+    assert "/items" in data["paths"]
+
+
+def test_cmd_spec_full_with_resource_is_error(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    result = runner.invoke(cli, ["spec", "--full", "/items"])
     assert result.exit_code != 0
 
 

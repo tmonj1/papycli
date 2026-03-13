@@ -432,9 +432,25 @@ def test_complete_spec_resource_prefix() -> None:
     assert "/store/inventory" not in result
 
 
+def test_complete_spec_includes_full_flag() -> None:
+    result = ctx(["papycli", "spec", ""], 2)
+    assert "--full" in result
+
+
+def test_complete_spec_full_flag_prefix() -> None:
+    result = ctx(["papycli", "spec", "--f"], 2)
+    assert "--full" in result
+
+
+def test_complete_spec_no_apidef_returns_full_flag() -> None:
+    result = ctx_no_apidef(["papycli", "spec", ""], 2)
+    assert "--full" in result
+    assert len([r for r in result if r != "--full"]) == 0
+
+
 def test_complete_spec_no_apidef() -> None:
     result = ctx_no_apidef(["papycli", "spec", ""], 2)
-    assert result == []
+    assert "--full" in result
 
 
 def test_complete_spec_no_further_completion() -> None:
