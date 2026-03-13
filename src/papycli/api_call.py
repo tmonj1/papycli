@@ -389,30 +389,33 @@ def call_api(
     # レスポンスフィルターを事前にロードし、ボディのパース要否判定に使う。
     response_filters = load_response_filters()
 
-    # レスポンスボディを必要な場合のみパースし、チェックとレスポンスフィルターで共有する。
-    # do_response_check または response_filters がある場合にのみパースする。
+    # レスポンスボディは response_filters がある場合のみ事前にパースする。
+    # response-check は check_response() がスキーマ確認後に自身でパースするため、
+    # ここでは事前パースしない（スキーマが存在しないステータスでの誤警告を防ぐため）。
     resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
-    json_parse_failed = False
-    if do_response_check or response_filters:
+    json_parse_ok = False
+    if response_filters:
         content_type_for_body = resp.headers.get("Content-Type", "").lower()
         if "application/json" in content_type_for_body:
             try:
                 resp_body = resp.json()
+                json_parse_ok = True
             except ValueError:
-                json_parse_failed = True
                 resp_body = resp.text or None
         else:
             resp_body = resp.text or None
 
     # レスポンスチェック（response filter 適用前に実施）
+    # response_filters で JSON パース済みの場合は _body を渡して二重パースを避ける。
+    # それ以外は check_response() が内部でスキーマを確認してからパースする。
     if do_response_check and raw_spec is not None:
         from papycli.response_checker import check_response
-        if json_parse_failed:
-            print("[response] body: failed to parse JSON response", file=sys.stderr)
-        else:
+        if response_filters and json_parse_ok:
             check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
-            for w in check_warnings:
-                print(w, file=sys.stderr)
+        else:
+            check_warnings = check_response(resp, raw_spec, method, template)
+        for w in check_warnings:
+            print(w, file=sys.stderr)
 
     if response_filters:
         resp_ctx = ResponseContext(

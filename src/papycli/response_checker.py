@@ -70,8 +70,20 @@ def _check_value(
             )
             return
 
-    # null 値はこれ以上チェックしない
+    # null 値のチェック:
+    # type が省略されていて object/array キーワードがある場合は null を型違反として警告する。
+    # type == "null" またはリストに "null" が含まれる場合は上の型チェックで通過済みのため、
+    # ここに到達するのは schema_type が None のケースのみ。
     if value is None:
+        _object_kws = ("properties", "required", "additionalProperties")
+        if schema_type is None and any(k in schema for k in _object_kws):
+            warnings.append(
+                f"[response] {path or '/'}: expected object, got null"
+            )
+        elif schema_type is None and "items" in schema:
+            warnings.append(
+                f"[response] {path or '/'}: expected array, got null"
+            )
         return
 
     # enum チェック

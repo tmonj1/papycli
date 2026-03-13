@@ -181,11 +181,29 @@ def test_check_value_no_type_with_properties_not_dict() -> None:
     assert any("expected object" in w for w in warnings)
 
 
+def test_check_value_no_type_with_properties_null() -> None:
+    """type 省略 + object キーワードありのスキーマで null は型違反として警告する。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {
+        "properties": {"id": {"type": "integer"}},
+    }
+    _check_value(None, schema, "/x", warnings)
+    assert any("expected object" in w for w in warnings)
+
+
 def test_check_value_no_type_with_items_not_list() -> None:
     """type が省略されているが items がある場合、list 以外は型違反として警告する。"""
     warnings: list[str] = []
     schema: dict[str, Any] = {"items": {"type": "integer"}}
     _check_value("not_an_array", schema, "/x", warnings)
+    assert any("expected array" in w for w in warnings)
+
+
+def test_check_value_no_type_with_items_null() -> None:
+    """type 省略 + items ありのスキーマで null は型違反として警告する。"""
+    warnings: list[str] = []
+    schema: dict[str, Any] = {"items": {"type": "integer"}}
+    _check_value(None, schema, "/x", warnings)
     assert any("expected array" in w for w in warnings)
 
 
