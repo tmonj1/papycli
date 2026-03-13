@@ -386,28 +386,34 @@ def call_api(
             filtered_ctx=ctx if filters else None,
         )
 
-    # レスポンスボディを一度だけパースし、チェックとレスポンスフィルターで共有する。
-    # Content-Type が application/json の場合のみ JSON としてパースを試みる。
-    content_type_for_body = resp.headers.get("Content-Type", "").lower()
-    resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None
-    if "application/json" in content_type_for_body:
-        try:
-            resp_body = resp.json()
-        except ValueError:
+    # レスポンスフィルターを事前にロードし、ボディのパース要否判定に使う。
+    response_filters = load_response_filters()
+
+    # レスポンスボディを必要な場合のみパースし、チェックとレスポンスフィルターで共有する。
+    # do_response_check または response_filters がある場合にのみパースする。
+    resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    json_parse_failed = False
+    if do_response_check or response_filters:
+        content_type_for_body = resp.headers.get("Content-Type", "").lower()
+        if "application/json" in content_type_for_body:
+            try:
+                resp_body = resp.json()
+            except ValueError:
+                json_parse_failed = True
+                resp_body = resp.text or None
+        else:
             resp_body = resp.text or None
-    else:
-        resp_body = resp.text or None
 
     # レスポンスチェック（response filter 適用前に実施）
     if do_response_check and raw_spec is not None:
         from papycli.response_checker import check_response
-        check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
-        for w in check_warnings:
-            print(w, file=sys.stderr)
+        if json_parse_failed:
+            print("[response] body: failed to parse JSON response", file=sys.stderr)
+        else:
+            check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
+            for w in check_warnings:
+                print(w, file=sys.stderr)
 
-    # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
-    # ResponseContext を構築する（ボディは事前にパース済みの resp_body を使い回す）。
-    response_filters = load_response_filters()
     if response_filters:
         resp_ctx = ResponseContext(
             method=method,
