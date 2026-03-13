@@ -790,13 +790,53 @@ def test_cmd_spec_full_minimal(
     assert "/items" in data["paths"]
 
 
-def test_cmd_spec_full_with_resource_is_error(
+def test_cmd_spec_full_with_resource_minimal(
     tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
     runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     result = runner.invoke(cli, ["spec", "--full", "/items"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/items" in data
+    # raw spec 形式（HTTP メソッドがキー）
+    assert "get" in data["/items"]
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full_with_resource_exact(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full", "/pet/findByStatus"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet/findByStatus" in data
+    assert "/pet" not in data
+    assert "get" in data["/pet/findByStatus"]
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full_with_resource_via_template(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full", "/pet/99"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert "/pet/{petId}" in data
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+def test_cmd_spec_full_with_resource_not_found(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    runner = CliRunner()
+    result = runner.invoke(cli, ["spec", "--full", "/no/such/path"])
     assert result.exit_code != 0
 
 

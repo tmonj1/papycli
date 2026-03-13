@@ -303,30 +303,38 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
     "spec",
     help=h(
         "Show the internal API definition (apidef).\n\nFilter by RESOURCE path if given.\n\n"
-        "Use --full to output the full OpenAPI spec as-is.",
+        "Use --full to output the stored OpenAPI spec instead of the apidef.\n"
+        "Combine with RESOURCE to filter to a single path.",
         "API スペック（内部 apidef 形式）を表示する。\n\n"
         "RESOURCE を指定するとそのパスのエントリのみ表示する。\n\n"
-        "--full を指定すると OpenAPI spec 全体をそのまま出力する。",
+        "--full を指定すると内部に保存された OpenAPI spec を出力する。\n"
+        "RESOURCE と組み合わせると指定パスのみに絞り込む。",
     ),
 )
 @click.argument("resource", required=False, default=None)
 @click.option("--full", is_flag=True, default=False, help=h(
-    "Output the full stored OpenAPI spec (JSON).",
-    "内部に保存された OpenAPI spec 全体を JSON 形式で出力する。",
+    "Output the stored OpenAPI spec (JSON). Combine with RESOURCE to filter by path.",
+    "内部に保存された OpenAPI spec を JSON 形式で出力する。RESOURCE と組み合わせると絞り込み可能。",
 ))
 def cmd_spec(resource: str | None, full: bool) -> None:
     conf_dir = get_conf_dir()
 
     if full:
-        if resource is not None:
-            click.echo("Error: RESOURCE cannot be combined with --full.", err=True)
-            sys.exit(1)
         try:
             raw_spec = load_current_raw_spec(conf_dir)
         except Exception as e:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
-        click.echo(json.dumps(raw_spec, indent=2, ensure_ascii=False))
+        if resource is not None:
+            paths = raw_spec.get("paths", {})
+            match = match_path_template(resource, list(paths.keys()))
+            if match is None:
+                click.echo(f"Error: No matching path for '{resource}'", err=True)
+                sys.exit(1)
+            template, _ = match
+            click.echo(json.dumps({template: paths[template]}, indent=2, ensure_ascii=False))
+        else:
+            click.echo(json.dumps(raw_spec, indent=2, ensure_ascii=False))
         return
 
     try:
