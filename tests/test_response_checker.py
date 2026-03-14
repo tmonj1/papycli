@@ -1,12 +1,11 @@
 """response_checker モジュールのテスト."""
 
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock
 
-import pytest
+import requests
 
-from papycli.response_checker import check_response, _check_value, _type_matches
-
+from papycli.response_checker import _check_value, _type_matches, check_response
 
 # ---------------------------------------------------------------------------
 # _type_matches
@@ -284,12 +283,12 @@ def _make_resp(
     body: Any,
     status_code: int = 200,
     content_type: str = "application/json",
-) -> MagicMock:
+) -> requests.Response:
     resp = MagicMock()
     resp.status_code = status_code
     resp.headers = {"Content-Type": content_type}
     resp.json.return_value = body
-    return resp
+    return cast(requests.Response, resp)
 
 
 SIMPLE_SPEC: dict[str, Any] = {
