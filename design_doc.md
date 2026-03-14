@@ -292,6 +292,46 @@ my-filter = "my_plugin:request_filter"
 
 ---
 
+### Milestone 8 — `spec --full` とレスポンスフィルタープラグイン機構
+
+**目的**: `papycli spec --full` で生の OpenAPI spec を表示できるようにする。また response filter プラグインによりレスポンスの参照・変換を可能にする。
+
+**実装内容**:
+- `main.py` に `papycli spec --full [resource]` サブコマンドを追加
+  - 内部変換後の API 定義ではなく、元の OpenAPI spec を JSON で出力する
+  - `resource` 指定時は該当パスのみ絞り込んで表示する
+- `request_filter.py` にレスポンスフィルター機構を追加
+  - `ResponseContext` データクラス（`status_code`, `reason`, `body`, `headers`）
+  - `load_response_filters()`: `papycli.response_filters` エントリポイントグループからフィルターをロード
+  - `apply_response_filters()`: フィルターを順番に適用。例外・戻り値不正の場合は警告して前の ctx を維持する
+- `api_call.py` でレスポンス受信後にフィルターを適用するよう更新
+
+**完了条件**: `papycli spec --full` で生の OpenAPI spec が出力される。`papycli.response_filters` エントリポイントに登録したフィルターがレスポンス受信後に自動適用される。テストがパスする。
+
+---
+
+### Milestone 9 — `--response-check` レスポンス検証
+
+**目的**: `--response-check` オプションを追加し、実際のレスポンスを OpenAPI spec に照合して違反を警告できるようにする。
+
+**実装内容**:
+- `response_checker.py`
+  - `check_response()`: レスポンスのステータスコードとボディを spec に照合し、違反メッセージのリストを返す
+    - ステータスコード照合: exact match (`"200"`) → 範囲指定 (`"2XX"`, `"2xx"`) → `"default"` の順で探索。どれにも一致しない場合に警告する
+    - ボディスキーマ照合: `application/json` および `+json` サフィックスのメディアタイプに対して実施。型・enum・必須フィールド・additionalProperties・配列 items を再帰的に検証する
+    - スキーマ存在確認を先に行い、スキーマが定義されていない場合はボディパースをスキップする（204 等での誤警告防止）
+    - YAML 由来の整数キー（`200:` → `200`）を文字列に正規化してから照合する
+  - `_check_value()`: 値とスキーマを再帰的に照合するヘルパー
+    - union type（`type: ["object", "null"]`）・type 省略スキーマ（`properties`/`items` から推論）をサポート
+    - 不正なスキーマ形状（`properties` が非 dict 等）に対して型ガードを設けクラッシュを防止する
+- `main.py` に `--response-check` フラグを追加
+- `api_call.py` の `call_api()` で response filter 適用前に `check_response()` を呼び出す
+- テスト: `test_response_checker.py`、`test_main.py`
+
+**完了条件**: `papycli get /pet/1 --response-check` で spec と一致しないレスポンスが返された場合に stderr へ警告が出力される。ステータスコード不一致・ボディスキーマ違反ともに検出される。テストがパスする。
+
+---
+
 ## 開発上の方針
 
 ### ブランチ・コミット戦略
