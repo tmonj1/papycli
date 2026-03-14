@@ -18,7 +18,7 @@
 フィルター関数のシグネチャ::
 
     def request_filter(context: RequestContext) -> RequestContext: ...
-    def response_filter(context: ResponseContext) -> ResponseContext: ...
+    def response_filter(context: ResponseContext) -> ResponseContext | None: ...
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ JsonValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | N
 """JSON 値を表す型エイリアス."""
 
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
-ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext"]
+ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext | None"]
 
 
 @dataclass
