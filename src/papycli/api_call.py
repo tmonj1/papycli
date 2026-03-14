@@ -311,6 +311,8 @@ def call_api(
     raw_body: str | None = None,
     extra_headers: Sequence[str] = (),
     logfile: str | None = None,
+    raw_spec: dict[str, Any] | None = None,
+    do_response_check: bool = False,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
     from papycli.request_filter import (
@@ -384,21 +386,42 @@ def call_api(
             filtered_ctx=ctx if filters else None,
         )
 
-    # レスポンスフィルターを事前にロードし、フィルターが存在する場合のみ
-    # レスポンスボディのパースと ResponseContext 構築を行う。
+    # レスポンスフィルターを事前にロードし、ボディのパース要否判定に使う。
     response_filters = load_response_filters()
+
+    # レスポンスボディは response_filters がある場合のみ事前にパースする。
+    # response-check は check_response() がスキーマ確認後に自身でパースするため、
+    # ここでは事前パースしない（スキーマが存在しないステータスでの誤警告を防ぐため）。
+    resp_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    json_parse_ok = False
     if response_filters:
-        content_type = resp.headers.get("Content-Type", "").lower()
-        if "application/json" in content_type:
+        content_type_for_body = resp.headers.get("Content-Type", "").lower()
+        # check_response() と同じ条件（application/json および +json サフィックス）で判定する
+        base_ct = content_type_for_body.split(";")[0].strip()
+        if base_ct == "application/json" or base_ct.endswith("+json"):
             try:
-                resp_body: (
-                    dict[str, Any] | list[Any] | str | int | float | bool | None
-                ) = resp.json()
+                resp_body = resp.json()
+                json_parse_ok = True
             except ValueError:
                 resp_body = resp.text or None
         else:
             resp_body = resp.text or None
 
+    # レスポンスチェック（response filter 適用前に実施）
+    # response_filters で JSON パース済みの場合は _body を渡して二重パースを避ける。
+    # それ以外は check_response() が内部でスキーマを確認してからパースする。
+    if do_response_check and raw_spec is None:
+        raise ValueError("raw_spec must be provided when do_response_check is True")
+    if do_response_check and raw_spec is not None:
+        from papycli.response_checker import check_response
+        if response_filters and json_parse_ok:
+            check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
+        else:
+            check_warnings = check_response(resp, raw_spec, method, template)
+        for w in check_warnings:
+            print(w, file=sys.stderr)
+
+    if response_filters:
         resp_ctx = ResponseContext(
             method=method,
             url=resp.url,

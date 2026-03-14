@@ -436,6 +436,13 @@ def _api_command(method: str) -> click.Command:
             "問題があればリクエスト中止・exit 1）。",
         ),
     )
+    @click.option(
+        "--response-check", "do_response_check", is_flag=True,
+        help=h(
+            "Validate the response body against the OpenAPI schema (warn on stderr).",
+            "レスポンスボディを OpenAPI スキーマに照合して検証する（警告を stderr に出力）。",
+        ),
+    )
     def _cmd(
         resource: str,
         query_params: tuple[tuple[str, str], ...],
@@ -446,6 +453,7 @@ def _api_command(method: str) -> click.Command:
         verbose: bool,
         do_check: bool,
         do_check_strict: bool,
+        do_response_check: bool,
     ) -> None:
         if do_check and do_check_strict:
             click.echo("Error: --check and --check-strict cannot be used together.", err=True)
@@ -479,6 +487,14 @@ def _api_command(method: str) -> click.Command:
             click.echo(format_endpoint_detail(apidef, method, template))
             return
 
+        raw_spec: dict[str, Any] | None = None
+        if do_response_check:
+            try:
+                raw_spec = load_current_raw_spec(conf_dir, conf=conf)
+            except Exception as e:
+                click.echo(f"Error: {e}", err=True)
+                sys.exit(1)
+
         if do_check or do_check_strict:
             warnings = check_request(
                 apidef, method, resource, query_params, body_params, raw_body
@@ -496,6 +512,8 @@ def _api_command(method: str) -> click.Command:
                 raw_body=raw_body,
                 extra_headers=extra_headers,
                 logfile=logfile,
+                raw_spec=raw_spec,
+                do_response_check=do_response_check,
             )
         except Exception as e:
             click.echo(f"Error: {e}", err=True)

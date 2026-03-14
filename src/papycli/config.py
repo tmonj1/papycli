@@ -138,13 +138,21 @@ def load_current_apidef(
     return apidef, base_url
 
 
-def load_current_raw_spec(conf_dir: Path | None = None) -> dict[str, Any]:
+def load_current_raw_spec(
+    conf_dir: Path | None = None,
+    *,
+    conf: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """現在のデフォルト API の生 OpenAPI spec dict を返す。
 
     ``papycli config add`` 時に保存された ``{api_name}.spec.json`` を読み込む。
+
+    Args:
+        conf: 呼び出し元で既に読み込み済みの設定 dict。指定時は load_conf() の呼び出しを省略する。
     """
     resolved_dir = conf_dir or get_conf_dir()
-    conf = load_conf(resolved_dir)
+    if conf is None:
+        conf = load_conf(resolved_dir)
     api_name = get_default_api(conf)
     if not api_name:
         raise RuntimeError("No default API configured. Run 'papycli config add <spec>' first.")

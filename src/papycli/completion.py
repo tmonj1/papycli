@@ -240,7 +240,8 @@ def completions_for_context(
     # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
     op = _find_op(apidef, method, resource)
     opts: list[str] = [
-        "-q", "-p", "-d", "-H", "--summary", "-v", "--verbose", "--check", "--check-strict",
+        "-q", "-p", "-d", "-H", "--summary", "-v", "--verbose",
+        "--check", "--check-strict", "--response-check",
     ]
     if op is not None:
         if not op.get("query_parameters"):

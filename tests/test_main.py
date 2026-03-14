@@ -899,6 +899,72 @@ def test_cmd_get_with_summary_flag_path_param(
 
 
 # ---------------------------------------------------------------------------
+# papycli get --response-check
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_response_check_valid(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """スキーマに適合したレスポンスは警告なし。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(
+        rsps.GET, f"{BASE_URL}/pet/1",
+        json={"id": 1, "name": "Rex", "photoUrls": []},
+        status=200,
+        content_type="application/json",
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
+    combined = result.output + getattr(result, "stderr", "")
+    assert result.exit_code == 0
+    assert "[response]" not in combined
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_response_check_violation(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """型違反があると出力に [response] 警告が含まれる。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    # id が string（本来は integer）
+    rsps.add(
+        rsps.GET, f"{BASE_URL}/pet/1",
+        json={"id": "not_an_int", "name": "Rex", "photoUrls": []},
+        status=200,
+        content_type="application/json",
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/1", "--response-check"])
+    combined = result.output + getattr(result, "stderr", "")
+    assert result.exit_code == 0
+    assert "[response]" in combined
+
+
+@pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+@rsps.activate
+def test_cmd_response_check_without_flag_no_warning(
+    petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--response-check なしは型違反があっても警告しない。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+    rsps.add(
+        rsps.GET, f"{BASE_URL}/pet/1",
+        json={"id": "not_an_int"},
+        status=200,
+        content_type="application/json",
+    )
+    runner = CliRunner()
+    result = runner.invoke(cli, ["get", "/pet/1"])
+    combined = result.output + getattr(result, "stderr", "")
+    assert result.exit_code == 0
+    assert "[response]" not in combined
+
+
+# ---------------------------------------------------------------------------
 # papycli config completion-script
 # ---------------------------------------------------------------------------
 
