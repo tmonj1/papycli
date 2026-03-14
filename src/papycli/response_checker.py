@@ -103,8 +103,10 @@ def _check_value(
         or (schema_type is None and any(k in schema for k in _object_keywords))
     )
     if is_object_schema and isinstance(value, dict):
-        properties: dict[str, Any] = schema.get("properties", {})
-        required: list[str] = schema.get("required", [])
+        properties_raw = schema.get("properties", {})
+        properties: dict[str, Any] = properties_raw if isinstance(properties_raw, dict) else {}
+        required_raw = schema.get("required", [])
+        required: list[str] = required_raw if isinstance(required_raw, list) else []
 
         for req_field in required:
             if req_field not in value:
@@ -207,13 +209,19 @@ def check_response(
             return []
 
         resolved_def = resolve_refs(response_def, raw_spec)
-        content_map: dict[str, Any] = resolved_def.get("content", {})
+        if not isinstance(resolved_def, dict):
+            return []
+        content_map_raw: Any = resolved_def.get("content", {})
+        content_map: dict[str, Any] = content_map_raw if isinstance(content_map_raw, dict) else {}
         # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
         schema: Any = None
         for key in [base_content_type, "application/json"] + [
             k for k in content_map if k.endswith("+json") and k != base_content_type
         ]:
-            s = content_map.get(key, {}).get("schema")
+            entry = content_map.get(key)
+            if not isinstance(entry, dict):
+                continue
+            s = entry.get("schema")
             if isinstance(s, dict):
                 schema = s
                 break
