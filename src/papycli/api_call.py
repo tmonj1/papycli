@@ -396,7 +396,9 @@ def call_api(
     json_parse_ok = False
     if response_filters:
         content_type_for_body = resp.headers.get("Content-Type", "").lower()
-        if "application/json" in content_type_for_body:
+        # check_response() と同じ条件（application/json および +json サフィックス）で判定する
+        base_ct = content_type_for_body.split(";")[0].strip()
+        if base_ct == "application/json" or base_ct.endswith("+json"):
             try:
                 resp_body = resp.json()
                 json_parse_ok = True

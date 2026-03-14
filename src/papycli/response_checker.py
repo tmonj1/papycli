@@ -185,38 +185,42 @@ def check_response(
 
     # スキーマが存在する場合のみボディをパースする（空ボディや定義なしのステータスでの
     # 誤警告を防ぐため、先にレスポンス定義とスキーマを確認する）。
-    paths = raw_spec.get("paths", {})
-    # Path Item が $ref の場合も正しく解決する
-    path_item = resolve_refs(paths.get(template, {}), raw_spec)
-    operation = path_item.get(method, {})
-    responses = operation.get("responses", {})
+    # $ref 解決中の KeyError/ValueError をキャッチし、API 呼び出しを中断させない。
+    try:
+        paths = raw_spec.get("paths", {})
+        # Path Item が $ref の場合も正しく解決する
+        path_item = resolve_refs(paths.get(template, {}), raw_spec)
+        operation = path_item.get(method, {})
+        responses = operation.get("responses", {})
 
-    # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
-    status_str = str(resp.status_code)
-    range_upper = f"{resp.status_code // 100}XX"
-    range_lower = f"{resp.status_code // 100}xx"
-    response_def = (
-        responses.get(status_str)
-        or responses.get(range_upper)
-        or responses.get(range_lower)
-        or responses.get("default")
-    )
-    if response_def is None:
-        return []
+        # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
+        status_str = str(resp.status_code)
+        range_upper = f"{resp.status_code // 100}XX"
+        range_lower = f"{resp.status_code // 100}xx"
+        response_def = (
+            responses.get(status_str)
+            or responses.get(range_upper)
+            or responses.get(range_lower)
+            or responses.get("default")
+        )
+        if response_def is None:
+            return []
 
-    resolved_def = resolve_refs(response_def, raw_spec)
-    content_map: dict[str, Any] = resolved_def.get("content", {})
-    # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
-    schema: Any = None
-    for key in [base_content_type, "application/json"] + [
-        k for k in content_map if k.endswith("+json") and k != base_content_type
-    ]:
-        s = content_map.get(key, {}).get("schema")
-        if isinstance(s, dict):
-            schema = s
-            break
-    if not isinstance(schema, dict):
-        return []
+        resolved_def = resolve_refs(response_def, raw_spec)
+        content_map: dict[str, Any] = resolved_def.get("content", {})
+        # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
+        schema: Any = None
+        for key in [base_content_type, "application/json"] + [
+            k for k in content_map if k.endswith("+json") and k != base_content_type
+        ]:
+            s = content_map.get(key, {}).get("schema")
+            if isinstance(s, dict):
+                schema = s
+                break
+        if not isinstance(schema, dict):
+            return []
+    except (KeyError, ValueError) as e:
+        return [f"[response] schema: failed to resolve $ref: {e}"]
 
     if _body is _UNSET:
         try:

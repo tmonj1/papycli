@@ -458,6 +458,32 @@ def test_check_response_json_parse_error() -> None:
     assert any("failed to parse" in w for w in warnings)
 
 
+def test_check_response_invalid_ref() -> None:
+    """$ref が解決できない場合は API 呼び出しを中断せず警告を返す。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "200": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/DoesNotExist"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.headers = {"Content-Type": "application/json"}
+    warnings = check_response(resp, spec, "get", "/items")
+    assert any("failed to resolve $ref" in w for w in warnings)
+
+
 def test_check_response_range_status_code() -> None:
     """2XX のようなレンジ指定のレスポンス定義を使って検証される。"""
     spec: dict[str, Any] = {
