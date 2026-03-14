@@ -29,7 +29,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable, TypeAlias
 
-ENTRY_POINT_GROUP = "papycli.request_filters"
+REQUEST_ENTRY_POINT_GROUP = "papycli.request_filters"
 RESPONSE_ENTRY_POINT_GROUP = "papycli.response_filters"
 
 JsonValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
@@ -74,7 +74,7 @@ def load_filters() -> list[tuple[str, FilterFunc]]:
 
     ロードに失敗したプラグインは警告を出力してスキップする。
     """
-    eps = importlib.metadata.entry_points(group=ENTRY_POINT_GROUP)
+    eps = importlib.metadata.entry_points(group=REQUEST_ENTRY_POINT_GROUP)
     result: list[tuple[str, FilterFunc]] = []
     for ep in sorted(eps, key=lambda e: e.name):
         try:
@@ -88,7 +88,7 @@ def load_filters() -> list[tuple[str, FilterFunc]]:
         if not callable(func):
             print(
                 f"Warning: entry point '{ep.name}' for group"
-                f" '{ENTRY_POINT_GROUP}' is not callable and will be ignored.",
+                f" '{REQUEST_ENTRY_POINT_GROUP}' is not callable and will be ignored.",
                 file=sys.stderr,
             )
             continue

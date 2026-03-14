@@ -1,4 +1,4 @@
-"""request_filter モジュールのテスト."""
+"""filters モジュールのテスト."""
 
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -7,7 +7,7 @@ import pytest
 import responses as rsps
 
 from papycli.api_call import call_api
-from papycli.request_filter import (
+from papycli.filters import (
     RequestContext,
     ResponseContext,
     apply_filters,
@@ -205,7 +205,7 @@ def _make_ep(name: str, func: Any) -> MagicMock:
 
 
 def test_load_filters_empty() -> None:
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[]):
         result = load_filters()
     assert result == []
 
@@ -216,7 +216,7 @@ def test_load_filters_sorted_by_name() -> None:
         _make_ep("a-filter", _modify_url_filter),
         _make_ep("m-filter", _add_query_filter),
     ]
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=eps):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=eps):
         result = load_filters()
     names = [name for name, _ in result]
     assert names == ["a-filter", "m-filter", "z-filter"]
@@ -229,7 +229,7 @@ def test_load_filters_skips_failing_load(capsys: pytest.CaptureFixture[str]) -> 
     good_ep = _make_ep("good-plugin", _add_header_filter)
 
     with patch(
-        "papycli.request_filter.importlib.metadata.entry_points",
+        "papycli.filters.importlib.metadata.entry_points",
         return_value=[bad_ep, good_ep],
     ):
         result = load_filters()
@@ -250,7 +250,7 @@ def test_load_filters_skips_non_callable(capsys: pytest.CaptureFixture[str]) -> 
     good_ep = _make_ep("good-plugin", _add_header_filter)
 
     with patch(
-        "papycli.request_filter.importlib.metadata.entry_points",
+        "papycli.filters.importlib.metadata.entry_points",
         return_value=[bad_ep, good_ep],
     ):
         result = load_filters()
@@ -294,7 +294,7 @@ def test_call_api_filter_adds_header() -> None:
         return ctx
 
     ep = _make_ep("h-filter", inject_header)
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
 
     assert resp.request.headers["X-Filter"] == "injected"  # type: ignore[union-attr]
@@ -310,7 +310,7 @@ def test_call_api_filter_modifies_query_params() -> None:
         return ctx
 
     ep = _make_ep("q-filter", inject_query)
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
 
     assert "token=abc" in resp.request.url  # type: ignore[union-attr]
@@ -321,7 +321,7 @@ def test_call_api_no_filters() -> None:
     """フィルターが 0 件のときも通常通りリクエストが送信される。"""
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 1}, status=200)
 
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
 
     assert resp.status_code == 200
@@ -371,7 +371,7 @@ def test_response_context_request_body() -> None:
 
 
 def test_load_response_filters_empty() -> None:
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[]):
         result = load_response_filters()
     assert result == []
 
@@ -380,7 +380,7 @@ def test_load_response_filters_load_error_skipped(capsys: pytest.CaptureFixture[
     ep = MagicMock()
     ep.name = "bad-filter"
     ep.load.side_effect = ImportError("missing module")
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         result = load_response_filters()
     assert result == []
     assert "Warning" in capsys.readouterr().err
@@ -390,7 +390,7 @@ def test_load_response_filters_skips_non_callable(capsys: pytest.CaptureFixture[
     ep = MagicMock()
     ep.name = "non-callable"
     ep.load.return_value = "not a function"
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         result = load_response_filters()
     assert result == []
     assert "Warning" in capsys.readouterr().err
@@ -410,7 +410,7 @@ def test_load_response_filters_sorted_by_name() -> None:
     ep2.name = "a-filter"
     ep2.load.return_value = f2
 
-    with patch("papycli.request_filter.importlib.metadata.entry_points", return_value=[ep1, ep2]):
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep1, ep2]):
         result = load_response_filters()
 
     assert [name for name, _ in result] == ["a-filter", "z-filter"]
@@ -574,7 +574,7 @@ APIDEF_RF: dict[str, Any] = {
 @pytest.fixture(autouse=False)
 def no_request_filters() -> Any:
     """call_api integration tests: リクエストフィルターを空にして hermetic にする。"""
-    with patch("papycli.request_filter.load_filters", return_value=[]):
+    with patch("papycli.filters.load_filters", return_value=[]):
         yield
 
 
@@ -588,7 +588,7 @@ def test_call_api_response_filter_modifies_body(no_request_filters: Any) -> None
         ctx.body["cats"] = 99
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("add-cats", add_cats)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("add-cats", add_cats)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.json() == {"dogs": 1, "cats": 99}
@@ -604,7 +604,7 @@ def test_call_api_response_filter_receives_correct_context(no_request_filters: A
         received.append(ctx)
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("capture", capture)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("capture", capture)]):
         call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert len(received) == 1
@@ -626,7 +626,7 @@ def test_call_api_response_filter_receives_request_body(no_request_filters: Any)
         received.append(ctx)
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("capture", capture)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("capture", capture)]):
         call_api("post", "/pet", BASE_URL_RF, APIDEF_RF, body_params=[("name", "Fido")])
 
     assert len(received) == 1
@@ -642,7 +642,7 @@ def test_call_api_response_filter_body_set_to_none(no_request_filters: Any) -> N
         ctx.body = None
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("clear", clear_body)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("clear", clear_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.content == b""
@@ -653,7 +653,7 @@ def test_call_api_response_filter_no_filters_unchanged(no_request_filters: Any) 
     """レスポンスフィルターが 0 件のとき、レスポンスは変更されない。"""
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[]):
+    with patch("papycli.filters.load_response_filters", return_value=[]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.json() == {"dogs": 1}
@@ -669,7 +669,7 @@ def test_call_api_response_filter_noop_body_not_rewritten(no_request_filters: An
         ctx.body = {"dogs": 1}
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("noop", noop)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("noop", noop)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     # モックが返した元のレスポンスボディ（生バイト列）
@@ -689,7 +689,7 @@ def test_call_api_response_filter_modifies_status_code(no_request_filters: Any) 
         ctx.status_code = 201
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("s", change_status)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("s", change_status)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.status_code == 201
@@ -704,7 +704,7 @@ def test_call_api_response_filter_modifies_reason(no_request_filters: Any) -> No
         ctx.reason = "Custom Reason"
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("r", change_reason)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("r", change_reason)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.reason == "Custom Reason"
@@ -719,7 +719,7 @@ def test_call_api_response_filter_modifies_headers(no_request_filters: Any) -> N
         ctx.headers["X-Custom"] = "value"
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("h", add_header)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("h", add_header)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert resp.headers["X-Custom"] == "value"
@@ -739,7 +739,7 @@ def test_call_api_response_filter_non_serializable_body_warns(
         ctx.body = {"ts": datetime.datetime.now()}  # not JSON-serializable
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("b", bad_body)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("b", bad_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     original_content = rsps.calls[0].response.content
@@ -761,7 +761,7 @@ def test_call_api_response_filter_circular_ref_body_warns(
         ctx.body = d
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("c", circular_body)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("c", circular_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     original_content = rsps.calls[0].response.content
@@ -785,7 +785,7 @@ def test_call_api_response_filter_updates_content_type_charset(no_request_filter
         ctx.body["cats"] = 99
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert "charset=utf-8" in resp.headers.get("Content-Type", "")
@@ -808,7 +808,7 @@ def test_call_api_response_filter_replaces_existing_charset(no_request_filters: 
         ctx.body["cats"] = 99
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     ct = resp.headers.get("Content-Type", "")
@@ -827,7 +827,7 @@ def test_call_api_response_filter_updates_content_length(no_request_filters: Any
         ctx.body["cats"] = 99
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("a", add_key)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     expected_len = len(resp.content)
@@ -850,7 +850,7 @@ def test_call_api_response_filter_case_insensitive_content_type(no_request_filte
         received.append(ctx)
         return ctx
 
-    with patch("papycli.request_filter.load_response_filters", return_value=[("c", capture)]):
+    with patch("papycli.filters.load_response_filters", return_value=[("c", capture)]):
         call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert received[0].body == {"dogs": 1}

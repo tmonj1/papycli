@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
 import requests
 
@@ -315,7 +315,7 @@ def call_api(
     do_response_check: bool = False,
 ) -> requests.Response:
     """API を呼び出し、レスポンスを返す。"""
-    from papycli.request_filter import (
+    from papycli.filters import (
         RequestContext,
         ResponseContext,
         apply_filters,
