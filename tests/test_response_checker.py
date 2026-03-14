@@ -378,10 +378,21 @@ def test_check_response_plus_json_content_type() -> None:
     assert any("required field 'id' is missing" in w for w in warnings)
 
 
-def test_check_response_no_response_def() -> None:
-    """スキーマ定義がないステータスコードは空リストを返す。"""
+def test_check_response_undefined_status_code() -> None:
+    """spec に定義されていないステータスコードは status 警告を返す。"""
     resp = _make_resp({"error": "not found"}, status_code=404)
-    assert check_response(resp, SIMPLE_SPEC, "get", "/items") == []
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert len(warnings) == 1
+    assert "[response] status: 404 is not defined in the spec" in warnings[0]
+    assert "200" in warnings[0]
+
+
+def test_check_response_undefined_status_code_non_json() -> None:
+    """非 JSON レスポンスでも spec 未定義コードは status 警告を返す。"""
+    resp = _make_resp(None, status_code=500, content_type="text/plain")
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert len(warnings) == 1
+    assert "[response] status: 500 is not defined in the spec" in warnings[0]
 
 
 def test_check_response_default_fallback() -> None:
@@ -550,3 +561,39 @@ def test_check_response_with_preparsed_body() -> None:
     preparsed = {"id": "not_an_int"}
     warnings = check_response(resp, SIMPLE_SPEC, "get", "/items", _body=preparsed)
     assert any("expected integer" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# ステータスコード照合
+# ---------------------------------------------------------------------------
+
+
+def test_check_response_status_yaml_int_keys() -> None:
+    """YAML の yaml.safe_load で整数キーになったレスポンスコードも正しく照合する。"""
+    # YAML で `200:` と書くと整数キーになる
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        200: {  # int キー
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    # 200 は int キーで定義されているが正しく照合できること
+    resp_ok = _make_resp({}, status_code=200)
+    assert check_response(resp_ok, spec, "get", "/items") == []
+
+    # 404 は未定義なので警告が出ること（defined 欄に "200" が文字列で表示される）
+    resp_ng = _make_resp({}, status_code=404)
+    warnings = check_response(resp_ng, spec, "get", "/items")
+    assert any("[response] status: 404 is not defined in the spec" in w for w in warnings)
+    assert any("200" in w for w in warnings)
