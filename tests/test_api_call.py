@@ -517,7 +517,7 @@ def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
     """ログの先頭セクションにはフィルター適用前の URL・クエリ・ボディが記録される。"""
     from unittest.mock import patch
 
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -532,7 +532,7 @@ def test_call_api_log_uses_pre_filter_values(tmp_path: Path) -> None:
         )
 
     with patch(
-        "papycli.request_filter.load_filters",
+        "papycli.filters.load_filters",
         return_value=[("mutating", mutating_filter)],
     ):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
@@ -549,7 +549,7 @@ def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Pa
     """フィルターが 1 件以上適用された場合、Filtered-* セクションがログに追記される。"""
     from unittest.mock import patch
 
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -564,7 +564,7 @@ def test_call_api_log_includes_filtered_section_when_filter_applied(tmp_path: Pa
         )
 
     with patch(
-        "papycli.request_filter.load_filters",
+        "papycli.filters.load_filters",
         return_value=[("mutating", mutating_filter)],
     ):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
@@ -593,7 +593,7 @@ def test_call_api_log_no_filtered_section_without_filters(tmp_path: Path) -> Non
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
 
-    with patch("papycli.request_filter.load_filters", return_value=[]):
+    with patch("papycli.filters.load_filters", return_value=[]):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
     content = Path(logfile).read_text(encoding="utf-8")
@@ -605,7 +605,7 @@ def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) ->
     """フィルターが機密ヘッダーを追加した場合、Filtered-Headers でマスクされる。"""
     from unittest.mock import patch
 
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -620,7 +620,7 @@ def test_call_api_log_filtered_headers_masks_sensitive_values(tmp_path: Path) ->
         )
 
     with patch(
-        "papycli.request_filter.load_filters",
+        "papycli.filters.load_filters",
         return_value=[("auth", auth_adding_filter)],
     ):
         call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
@@ -638,7 +638,7 @@ def test_call_api_log_filtered_section_unserializable_fallback(tmp_path: Path) -
     """フィルター後の値が直列化不可でも、先頭セクションとレスポンスはログに書かれる。"""
     from unittest.mock import patch
 
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"ok": 1}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -649,7 +649,7 @@ def test_call_api_log_filtered_section_unserializable_fallback(tmp_path: Path) -
     # _format_query_str の 2 回目の呼び出し（filtered セクション用）だけ例外を送出させる
     with (
         patch(
-            "papycli.request_filter.load_filters",
+            "papycli.filters.load_filters",
             return_value=[("noop", noop_filter)],
         ),
         patch(
@@ -674,7 +674,7 @@ def test_call_api_log_filtered_section_unserializable_emits_warning(
     """フィルター後の値が直列化不可の場合、警告を stderr に出力する。"""
     from unittest.mock import patch
 
-    from papycli.request_filter import RequestContext
+    from papycli.filters import RequestContext
 
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
     logfile = str(tmp_path / "test.log")
@@ -684,7 +684,7 @@ def test_call_api_log_filtered_section_unserializable_emits_warning(
 
     with (
         patch(
-            "papycli.request_filter.load_filters",
+            "papycli.filters.load_filters",
             return_value=[("noop", noop_filter)],
         ),
         patch(

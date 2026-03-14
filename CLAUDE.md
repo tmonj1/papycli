@@ -43,7 +43,7 @@ papycli/
 │       ├── completion.py    # シェル補完スクリプト生成
 │       ├── config.py        # 設定ファイルの読み書き
 │       ├── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
-│       ├── request_filter.py # リクエストフィルタープラグイン機構
+│       ├── filters.py        # リクエスト・レスポンスフィルタープラグイン機構
 │       ├── response_checker.py # --response-check のレスポンス検証
 │       ├── spec_loader.py   # OpenAPI spec の読み込み・$ref 解決
 │       └── summary.py       # summary コマンド・CSV 出力
@@ -55,7 +55,7 @@ papycli/
 │   ├── test_i18n.py
 │   ├── test_init_cmd.py
 │   ├── test_main.py
-│   ├── test_request_filter.py
+│   ├── test_filters.py
 │   ├── test_response_checker.py
 │   ├── test_spec_loader.py
 │   └── test_summary.py
@@ -94,7 +94,7 @@ bash / zsh 向けの補完スクリプトを生成する。補完の候補はメ
 **`config.py`** — 設定管理
 `papycli.conf` の読み書きと、`PAPYCLI_CONF_DIR` 環境変数の解決を行う。ログファイルパスの取得・設定・削除も担当する。
 
-**`request_filter.py`** — リクエスト・レスポンスフィルタープラグイン機構
+**`filters.py`** — リクエスト・レスポンスフィルタープラグイン機構
 エントリポイントグループ `papycli.request_filters` に登録されたフィルター関数をプラグイン名の昇順で呼び出し、リクエスト送信前に URL・クエリパラメータ・ボディ・ヘッダーを変換できるようにする。同様に `papycli.response_filters` グループのフィルター関数を呼び出し、レスポンス受信後にステータスコード・理由フレーズ（reason）・ボディ・ヘッダーを参照・変更できるようにする。`RequestContext` / `ResponseContext` データクラスと `load_filters()` / `apply_filters()` / `load_response_filters()` / `apply_response_filters()` 関数を提供する。
 
 **`response_checker.py`** — レスポンス検証

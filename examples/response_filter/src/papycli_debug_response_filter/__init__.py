@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import sys
 
-from papycli.request_filter import ResponseContext
+from papycli.filters import ResponseContext
 
 
 def _to_json(value: object) -> str:
