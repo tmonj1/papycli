@@ -186,16 +186,19 @@ def check_response(
     # スキーマが存在する場合のみボディをパースする（空ボディや定義なしのステータスでの
     # 誤警告を防ぐため、先にレスポンス定義とスキーマを確認する）。
     paths = raw_spec.get("paths", {})
-    path_item = paths.get(template, {})
+    # Path Item が $ref の場合も正しく解決する
+    path_item = resolve_refs(paths.get(template, {}), raw_spec)
     operation = path_item.get(method, {})
     responses = operation.get("responses", {})
 
-    # ステータスコードを完全一致 → 範囲指定（例: 2XX）→ default の順で探索する
+    # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
     status_str = str(resp.status_code)
-    range_str = f"{resp.status_code // 100}XX"
+    range_upper = f"{resp.status_code // 100}XX"
+    range_lower = f"{resp.status_code // 100}xx"
     response_def = (
         responses.get(status_str)
-        or responses.get(range_str)
+        or responses.get(range_upper)
+        or responses.get(range_lower)
         or responses.get("default")
     )
     if response_def is None:

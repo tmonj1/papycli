@@ -487,6 +487,34 @@ def test_check_response_range_status_code() -> None:
     assert any("required field 'id' is missing" in w for w in warnings)
 
 
+def test_check_response_range_status_code_lowercase() -> None:
+    """2xx のような小文字レンジ指定のレスポンス定義も使って検証される。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "2xx": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {
+                                        "type": "object",
+                                        "required": ["id"],
+                                        "properties": {"id": {"type": "integer"}},
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resp = _make_resp({"name": "foo"}, status_code=201)
+    warnings = check_response(resp, spec, "get", "/items")
+    assert any("required field 'id' is missing" in w for w in warnings)
+
+
 def test_check_response_with_preparsed_body() -> None:
     """_body を渡すと resp.json() が呼ばれない。"""
     resp = MagicMock()
