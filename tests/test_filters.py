@@ -101,7 +101,7 @@ def test_apply_filters_modifies_query_params() -> None:
 def test_apply_filters_modifies_body() -> None:
     ctx = RequestContext(method="post", url="http://example.com/", body={"name": "Dog"})
     result = apply_filters(ctx, [("body-filter", _modify_body_filter)])
-    assert result.body == {"name": "Dog", "extra": "added"}  # type: ignore[index]
+    assert result.body == {"name": "Dog", "extra": "added"}
 
 
 def test_apply_filters_chained_order() -> None:
@@ -296,8 +296,10 @@ def test_call_api_filter_adds_header() -> None:
     ep = _make_ep("h-filter", inject_header)
     with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
+        assert resp is not None
 
-    assert resp.request.headers["X-Filter"] == "injected"  # type: ignore[union-attr]
+    assert resp.request is not None
+    assert resp.request.headers["X-Filter"] == "injected"
 
 
 @rsps.activate
@@ -312,8 +314,11 @@ def test_call_api_filter_modifies_query_params() -> None:
     ep = _make_ep("q-filter", inject_query)
     with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
+        assert resp is not None
 
-    assert "token=abc" in resp.request.url  # type: ignore[union-attr]
+    assert resp.request is not None
+    assert resp.request.url is not None
+    assert "token=abc" in resp.request.url
 
 
 @rsps.activate
@@ -323,6 +328,7 @@ def test_call_api_no_filters() -> None:
 
     with patch("papycli.filters.importlib.metadata.entry_points", return_value=[]):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
+        assert resp is not None
 
     assert resp.status_code == 200
 
@@ -425,6 +431,7 @@ def test_apply_response_filters_empty() -> None:
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body={"k": "v"})
     result = apply_response_filters(ctx, [])
+    assert result is not None
     assert result.body == {"k": "v"}
 
 
@@ -437,6 +444,7 @@ def test_apply_response_filters_modifies_body() -> None:
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body={"original": 1})
     result = apply_response_filters(ctx, [("add-field", add_field)])
+    assert result is not None
     assert result.body == {"original": 1, "added": True}
 
 
@@ -449,6 +457,7 @@ def test_apply_response_filters_chained() -> None:
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body={"value": 3})
     result = apply_response_filters(ctx, [("f1", double_value), ("f2", double_value)])
+    assert result is not None
     assert result.body == {"value": 12}
 
 
@@ -462,8 +471,10 @@ def test_apply_response_filters_snapshot_prevents_inplace_leak() -> None:
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body={"original": 1})
     result = apply_response_filters(ctx, [("bad", mutate_then_raise)])
+    assert result is not None
     assert result.body == {"original": 1}
-    assert "leaked" not in (result.body or {})
+    assert isinstance(result.body, dict)
+    assert "leaked" not in result.body
 
 
 def test_apply_response_filters_exception_skipped(capsys: pytest.CaptureFixture[str]) -> None:
@@ -473,6 +484,7 @@ def test_apply_response_filters_exception_skipped(capsys: pytest.CaptureFixture[
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body="original")
     result = apply_response_filters(ctx, [("bad", bad)])
+    assert result is not None
     assert result.body == "original"
     assert "Warning" in capsys.readouterr().err
 
@@ -486,6 +498,7 @@ def test_apply_response_filters_wrong_return_type_skipped(
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body="original")
     result = apply_response_filters(ctx, [("bad", bad)])
+    assert result is not None
     assert result.body == "original"
     assert "Warning" in capsys.readouterr().err
 
@@ -526,8 +539,10 @@ def test_apply_response_filters_request_body_snapshot_isolated() -> None:
         request_body={"name": "Fido"},
     )
     result = apply_response_filters(ctx, [("bad", mutate_then_raise)])
+    assert result is not None
     assert result.request_body == {"name": "Fido"}
-    assert "leaked" not in (result.request_body or {})
+    assert isinstance(result.request_body, dict)
+    assert "leaked" not in result.request_body
 
 
 def test_apply_response_filters_request_body_immutable() -> None:
@@ -551,6 +566,7 @@ def test_apply_response_filters_request_body_immutable() -> None:
         request_body={"name": "Fido"},
     )
     result = apply_response_filters(ctx, [("mutate", mutate), ("capture", capture)])
+    assert result is not None
     # 後続フィルターには元の request_body が渡される
     assert received == [{"name": "Fido"}]
     # 最終結果も元の request_body が維持される
@@ -590,6 +606,7 @@ def test_call_api_response_filter_modifies_body(no_request_filters: Any) -> None
 
     with patch("papycli.filters.load_response_filters", return_value=[("add-cats", add_cats)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.json() == {"dogs": 1, "cats": 99}
 
@@ -644,6 +661,7 @@ def test_call_api_response_filter_body_set_to_none(no_request_filters: Any) -> N
 
     with patch("papycli.filters.load_response_filters", return_value=[("clear", clear_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.content == b""
 
@@ -655,6 +673,7 @@ def test_call_api_response_filter_no_filters_unchanged(no_request_filters: Any) 
 
     with patch("papycli.filters.load_response_filters", return_value=[]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.json() == {"dogs": 1}
 
@@ -671,9 +690,10 @@ def test_call_api_response_filter_noop_body_not_rewritten(no_request_filters: An
 
     with patch("papycli.filters.load_response_filters", return_value=[("noop", noop)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     # モックが返した元のレスポンスボディ（生バイト列）
-    original_bytes = rsps.calls[0].response.content
+    original_bytes = rsps.calls[0].response.content  # type: ignore[union-attr]
     # _content は書き換えられておらず、元のバイト列のまま
     assert resp.content == original_bytes
     # かつ、JSON としての値も正しく読める
@@ -691,6 +711,7 @@ def test_call_api_response_filter_modifies_status_code(no_request_filters: Any) 
 
     with patch("papycli.filters.load_response_filters", return_value=[("s", change_status)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.status_code == 201
 
@@ -706,6 +727,7 @@ def test_call_api_response_filter_modifies_reason(no_request_filters: Any) -> No
 
     with patch("papycli.filters.load_response_filters", return_value=[("r", change_reason)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.reason == "Custom Reason"
 
@@ -721,6 +743,7 @@ def test_call_api_response_filter_modifies_headers(no_request_filters: Any) -> N
 
     with patch("papycli.filters.load_response_filters", return_value=[("h", add_header)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert resp.headers["X-Custom"] == "value"
 
@@ -741,8 +764,9 @@ def test_call_api_response_filter_non_serializable_body_warns(
 
     with patch("papycli.filters.load_response_filters", return_value=[("b", bad_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
-    original_content = rsps.calls[0].response.content
+    original_content = rsps.calls[0].response.content  # type: ignore[union-attr]
     assert resp.content == original_content
     assert "Warning" in capsys.readouterr().err
 
@@ -756,15 +780,16 @@ def test_call_api_response_filter_circular_ref_body_warns(
     rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={"dogs": 1}, status=200)
 
     def circular_body(ctx: ResponseContext) -> ResponseContext:
-        d: dict = {}
+        d: dict[str, Any] = {}
         d["self"] = d  # circular reference -> ValueError
         ctx.body = d
         return ctx
 
     with patch("papycli.filters.load_response_filters", return_value=[("c", circular_body)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
-    original_content = rsps.calls[0].response.content
+    original_content = rsps.calls[0].response.content  # type: ignore[union-attr]
     assert resp.content == original_content
     assert "Warning" in capsys.readouterr().err
 
@@ -787,6 +812,7 @@ def test_call_api_response_filter_updates_content_type_charset(no_request_filter
 
     with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     assert "charset=utf-8" in resp.headers.get("Content-Type", "")
     assert resp.json() == {"dogs": 1, "cats": 99}
@@ -810,6 +836,7 @@ def test_call_api_response_filter_replaces_existing_charset(no_request_filters: 
 
     with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     ct = resp.headers.get("Content-Type", "")
     assert "charset=utf-8" in ct
@@ -829,6 +856,7 @@ def test_call_api_response_filter_updates_content_length(no_request_filters: Any
 
     with patch("papycli.filters.load_response_filters", return_value=[("a", add_key)]):
         resp = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+        assert resp is not None
 
     expected_len = len(resp.content)
     assert resp.headers.get("Content-Length") == str(expected_len)

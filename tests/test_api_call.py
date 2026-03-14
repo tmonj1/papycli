@@ -279,6 +279,7 @@ def test_parse_headers_value_with_colon() -> None:
 def test_call_api_get_simple() -> None:
     rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={"dogs": 1}, status=200)
     resp = call_api("get", "/store/inventory", BASE_URL, APIDEF)
+    assert resp is not None
     assert resp.status_code == 200
     assert resp.json() == {"dogs": 1}
 
@@ -290,16 +291,21 @@ def test_call_api_get_with_query_params() -> None:
         "get", "/pet/findByStatus", BASE_URL, APIDEF,
         query_params=[("status", "available")],
     )
+    assert resp is not None
     assert resp.status_code == 200
-    assert "status=available" in resp.request.url  # type: ignore[union-attr]
+    assert resp.request is not None
+    assert resp.request.url is not None
+    assert "status=available" in resp.request.url
 
 
 @rsps.activate
 def test_call_api_get_with_path_param() -> None:
     rsps.add(rsps.GET, f"{BASE_URL}/pet/99", json={"id": 99}, status=200)
     resp = call_api("get", "/pet/99", BASE_URL, APIDEF)
+    assert resp is not None
     assert resp.status_code == 200
-    assert resp.request.url == f"{BASE_URL}/pet/99"  # type: ignore[union-attr]
+    assert resp.request is not None
+    assert resp.request.url == f"{BASE_URL}/pet/99"
 
 
 @rsps.activate
@@ -309,10 +315,12 @@ def test_call_api_post_with_body_params() -> None:
         "post", "/pet", BASE_URL, APIDEF,
         body_params=[("name", "My Dog"), ("status", "available")],
     )
+    assert resp is not None
     assert resp.status_code == 200
-    sent = resp.request  # type: ignore[union-attr]
+    assert resp.request is not None
+    sent = resp.request
     import json
-    body = json.loads(sent.body)
+    body = json.loads(sent.body)  # type: ignore[arg-type]
     assert body == {"name": "My Dog", "status": "available"}
 
 
@@ -323,6 +331,7 @@ def test_call_api_post_with_raw_body() -> None:
         "post", "/pet", BASE_URL, APIDEF,
         raw_body='{"name": "Dog", "status": "available", "photoUrls": []}',
     )
+    assert resp is not None
     assert resp.status_code == 200
 
 
@@ -330,6 +339,7 @@ def test_call_api_post_with_raw_body() -> None:
 def test_call_api_delete_with_path_param() -> None:
     rsps.add(rsps.DELETE, f"{BASE_URL}/pet/1", status=204)
     resp = call_api("delete", "/pet/1", BASE_URL, APIDEF)
+    assert resp is not None
     assert resp.status_code == 204
 
 
@@ -366,8 +376,10 @@ def test_call_api_post_integer_body_param() -> None:
         "post", "/pet", BASE_URL, APIDEF,
         body_params=[("id", "1"), ("name", "My Dog")],
     )
+    assert resp is not None
+    assert resp.request is not None
     import json as _json
-    body = _json.loads(resp.request.body)  # type: ignore[union-attr]
+    body = _json.loads(resp.request.body)  # type: ignore[arg-type]
     assert body["id"] == 1
     assert isinstance(body["id"], int)
     assert body["name"] == "My Dog"
@@ -495,6 +507,7 @@ def test_call_api_log_survives_non_serializable_body(
     with patch("papycli.api_call.json.dumps", side_effect=TypeError("not serializable")):
         resp = call_api("get", "/store/inventory", BASE_URL, APIDEF, logfile=logfile)
 
+    assert resp is not None
     assert resp.status_code == 200
     captured = capsys.readouterr()
     assert "Warning" in captured.err
