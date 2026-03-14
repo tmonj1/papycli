@@ -223,6 +223,9 @@ def apply_response_filters(
     例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
+    if not filters:
+        return ctx
+
     # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
     # deepcopy することで呼び出し元が後から同じ dict/list を変更しても返り値が変化しないようにする。
     original_request_body = copy.deepcopy(ctx.request_body)
