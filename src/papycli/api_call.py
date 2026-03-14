@@ -313,8 +313,12 @@ def call_api(
     logfile: str | None = None,
     raw_spec: dict[str, Any] | None = None,
     do_response_check: bool = False,
-) -> requests.Response:
-    """API を呼び出し、レスポンスを返す。"""
+) -> requests.Response | None:
+    """API を呼び出し、レスポンスを返す。
+
+    レスポンスフィルターが ``None`` を返してチェーンを中断した場合は ``None`` を返す。
+    呼び出し元はこの戻り値をレスポンスの出力を抑制するシグナルとして扱う。
+    """
     from papycli.filters import (
         RequestContext,
         ResponseContext,
@@ -432,6 +436,9 @@ def call_api(
             request_body=ctx.body,
         )
         resp_ctx = apply_response_filters(resp_ctx, response_filters)
+        if resp_ctx is None:
+            # フィルターが None を返してチェーンを中断した。出力を抑制するため None を返す。
+            return None
 
         # フィルターがフィールドを変更した場合、resp に反映する。
         # ボディ: 値の等価比較で変更を検出し、_content・encoding・Content-Type を更新する。

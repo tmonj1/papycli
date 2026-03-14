@@ -854,3 +854,94 @@ def test_call_api_response_filter_case_insensitive_content_type(no_request_filte
         call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
 
     assert received[0].body == {"dogs": 1}
+
+
+# ---------------------------------------------------------------------------
+# apply_response_filters: None を返した場合のチェーン中断
+# ---------------------------------------------------------------------------
+
+
+def test_apply_response_filters_none_returns_none() -> None:
+    """フィルターが None を返した場合、apply_response_filters は None を返す。"""
+    def suppress(ctx: ResponseContext) -> None:
+        return None
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body="hello")
+    result = apply_response_filters(ctx, [("suppress", suppress)])
+    assert result is None
+
+
+def test_apply_response_filters_none_stops_chain() -> None:
+    """フィルターが None を返した場合、後続フィルターは呼び出されない。"""
+    called: list[str] = []
+
+    def suppress(ctx: ResponseContext) -> None:
+        called.append("suppress")
+        return None
+
+    def should_not_run(ctx: ResponseContext) -> ResponseContext:
+        called.append("should_not_run")
+        return ctx
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body="hello")
+    result = apply_response_filters(ctx, [("suppress", suppress), ("should_not_run", should_not_run)])
+    assert result is None
+    assert called == ["suppress"]
+
+
+def test_apply_response_filters_none_after_modification() -> None:
+    """None を返す前のフィルターによる変更は最終結果に影響しない（None が返る）。"""
+    def modify(ctx: ResponseContext) -> ResponseContext:
+        ctx.body = "modified"
+        return ctx
+
+    def suppress(ctx: ResponseContext) -> None:
+        return None
+
+    ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
+                         body="original")
+    result = apply_response_filters(ctx, [("modify", modify), ("suppress", suppress)])
+    assert result is None
+
+
+# ---------------------------------------------------------------------------
+# call_api: レスポンスフィルターが None を返した場合は None を返す
+# ---------------------------------------------------------------------------
+
+
+@rsps.activate
+def test_call_api_response_filter_returns_none_suppresses_output(no_request_filters: Any) -> None:
+    """レスポンスフィルターが None を返した場合、call_api は None を返す。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+
+    def suppress(ctx: ResponseContext) -> None:
+        return None
+
+    with patch("papycli.filters.load_response_filters", return_value=[("suppress", suppress)]):
+        result = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert result is None
+
+
+@rsps.activate
+def test_call_api_response_filter_none_stops_subsequent_filters(no_request_filters: Any) -> None:
+    """フィルターが None を返した場合、後続フィルターは呼び出されない。"""
+    rsps.add(rsps.GET, f"{BASE_URL_RF}/store/inventory", json={}, status=200)
+    called: list[str] = []
+
+    def suppress(ctx: ResponseContext) -> None:
+        called.append("suppress")
+        return None
+
+    def should_not_run(ctx: ResponseContext) -> ResponseContext:
+        called.append("should_not_run")
+        return ctx
+
+    with patch("papycli.filters.load_response_filters",
+               return_value=[("suppress", suppress), ("should_not_run", should_not_run)]):
+        result = call_api("get", "/store/inventory", BASE_URL_RF, APIDEF_RF)
+
+    assert result is None
+    assert called == ["suppress"]
