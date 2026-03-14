@@ -224,7 +224,8 @@ def apply_response_filters(
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
     # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
-    original_request_body = ctx.request_body
+    # deepcopy することで呼び出し元が後から同じ dict/list を変更しても返り値が変化しないようにする。
+    original_request_body = copy.deepcopy(ctx.request_body)
     for name, func in filters:
         snapshot = ResponseContext(
             method=ctx.method,
