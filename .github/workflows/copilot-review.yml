@@ -8,6 +8,11 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
+concurrency:
+  # 同一PRの実行を直列化し TOCTOU を防ぐ。後発ジョブは前の完了を待つ。
+  group: copilot-review-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   request-copilot-review:
     runs-on: ubuntu-latest
@@ -21,6 +26,7 @@ jobs:
           PR="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
           # 既にレビュー依頼済みの場合は追加しない（冪等性の確保）
+          # concurrency で直列化済みだが、念のため確認してからリクエストする
           REVIEWERS=$(gh pr view "$PR" --repo "$REPO" \
             --json reviewRequests \
             --jq '[.reviewRequests[].login] | join(" ")')
