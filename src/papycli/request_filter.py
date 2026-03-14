@@ -223,6 +223,8 @@ def apply_response_filters(
     例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
+    # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
+    original_request_body = ctx.request_body
     for name, func in filters:
         snapshot = ResponseContext(
             method=ctx.method,
@@ -248,5 +250,6 @@ def apply_response_filters(
                 file=sys.stderr,
             )
             continue
+        result.request_body = original_request_body
         ctx = result
     return ctx

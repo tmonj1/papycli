@@ -530,6 +530,33 @@ def test_apply_response_filters_request_body_snapshot_isolated() -> None:
     assert "leaked" not in (result.request_body or {})
 
 
+def test_apply_response_filters_request_body_immutable() -> None:
+    """フィルターが request_body を変更しても、後続フィルターと最終結果には元の値が維持される。"""
+    received: list[Any] = []
+
+    def mutate(ctx: ResponseContext) -> ResponseContext:
+        ctx.request_body = {"mutated": True}
+        return ctx
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.request_body)
+        return ctx
+
+    ctx = ResponseContext(
+        method="post",
+        url="http://example.com/api/pet",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        request_body={"name": "Fido"},
+    )
+    result = apply_response_filters(ctx, [("mutate", mutate), ("capture", capture)])
+    # 後続フィルターには元の request_body が渡される
+    assert received == [{"name": "Fido"}]
+    # 最終結果も元の request_body が維持される
+    assert result.request_body == {"name": "Fido"}
+
+
 # ---------------------------------------------------------------------------
 # call_api とレスポンスフィルターの統合
 # ---------------------------------------------------------------------------
