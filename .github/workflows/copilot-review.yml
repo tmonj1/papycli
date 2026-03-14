@@ -1,0 +1,36 @@
+name: Copilot Auto Review
+
+on:
+  # pull_request_target を使用する理由:
+  # pull_request ではフォーク PR の GITHUB_TOKEN が読み取り専用になり
+  # --add-reviewer が失敗する。このワークフローは PR コードを
+  # チェックアウト・実行しないため、pull_request_target を使っても安全。
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  # 同一PRの実行を直列化し TOCTOU を防ぐ。後発ジョブは前の完了を待つ。
+  group: copilot-review-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  request-copilot-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Request Copilot review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ github.event.pull_request.number }}"
+          REPO="${{ github.repository }}"
+          # 既にレビュー依頼済みの場合は追加しない（冪等性の確保）
+          # concurrency で直列化済みだが、念のため確認してからリクエストする
+          REVIEWERS=$(gh pr view "$PR" --repo "$REPO" \
+            --json reviewRequests \
+            --jq '[.reviewRequests[].login] | join(" ")')
+          if [[ "$REVIEWERS" != *"copilot-pull-request-reviewer"* ]]; then
+            gh pr edit "$PR" --repo "$REPO" \
+              --add-reviewer "copilot-pull-request-reviewer"
+          fi
