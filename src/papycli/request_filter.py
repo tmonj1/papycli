@@ -27,10 +27,13 @@ import copy
 import importlib.metadata
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 ENTRY_POINT_GROUP = "papycli.request_filters"
 RESPONSE_ENTRY_POINT_GROUP = "papycli.response_filters"
+
+JsonValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
+"""JSON 値を表す型エイリアス."""
 
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
 ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext"]
@@ -59,7 +62,7 @@ class RequestContext:
     元の ``-q`` オプション指定順のまま維持される。
     """
 
-    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    body: JsonValue = None
     """JSON ボディ（-d 指定時は任意の JSON 値（オブジェクト・配列・スカラ）、未指定時は None）."""
 
     headers: dict[str, str] = field(default_factory=dict)
@@ -165,12 +168,19 @@ class ResponseContext:
     headers: dict[str, str] = field(default_factory=dict)
     """レスポンスヘッダー."""
 
-    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    body: JsonValue = None
     """パース済みレスポンスボディ.
 
     Content-Type が application/json のレスポンスは JSON としてパースされた値、
     それ以外はテキスト文字列（空の場合は None）が格納される。
     フィルターはこのフィールドを変更することでレスポンスボディを差し替えられる。
+    """
+
+    request_body: JsonValue = None
+    """リクエストフィルター適用後の送信済みリクエストボディ（参照専用）.
+
+    リクエストフィルターによって変換された後、実際にサーバーへ送信された JSON ボディ。
+    ボディなしのリクエスト（GET 等）の場合は None。
     """
 
 
@@ -208,11 +218,17 @@ def apply_response_filters(
     """レスポンスフィルターを順番に適用する。
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
-    ``body`` のみ ``copy.deepcopy``、それ以外はシャローコピーで作成される。
+    ``body`` と ``request_body`` は ``copy.deepcopy``、それ以外はシャローコピーで作成される。
 
     例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
+    if not filters:
+        return ctx
+
+    # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
+    # deepcopy することで呼び出し元が後から同じ dict/list を変更しても返り値が変化しないようにする。
+    original_request_body = copy.deepcopy(ctx.request_body)
     for name, func in filters:
         snapshot = ResponseContext(
             method=ctx.method,
@@ -221,6 +237,7 @@ def apply_response_filters(
             reason=ctx.reason,
             headers=dict(ctx.headers),
             body=copy.deepcopy(ctx.body),
+            request_body=copy.deepcopy(ctx.request_body),
         )
         try:
             result = func(snapshot)
@@ -237,5 +254,9 @@ def apply_response_filters(
                 file=sys.stderr,
             )
             continue
+        # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
+        result.request_body = original_request_body
         ctx = result
+    # 全フィルターが失敗した場合も含め、常に deepcopy 済みの値で上書きする。
+    ctx.request_body = original_request_body
     return ctx
