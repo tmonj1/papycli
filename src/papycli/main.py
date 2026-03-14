@@ -490,7 +490,7 @@ def _api_command(method: str) -> click.Command:
         raw_spec: dict[str, Any] | None = None
         if do_response_check:
             try:
-                raw_spec = load_current_raw_spec(conf_dir)
+                raw_spec = load_current_raw_spec(conf_dir, conf=conf)
             except Exception as e:
                 click.echo(f"Error: {e}", err=True)
                 sys.exit(1)

@@ -71,10 +71,12 @@ def _check_value(
             return
 
     # enum チェック（null 値も対象: type が null/null 含む union で enum に含まれない場合も警告）
-    if "enum" in schema and value not in schema["enum"]:
+    # schema["enum"] が list でない場合はスキップする（不正なスキーマでのクラッシュを防ぐ）
+    enum_values = schema.get("enum")
+    if isinstance(enum_values, list) and value not in enum_values:
         warnings.append(
             f"[response] {path or '/'}: "
-            f"value {value!r} is not in enum {schema['enum']}"
+            f"value {value!r} is not in enum {enum_values}"
         )
 
     # null 値のチェック:
@@ -115,7 +117,7 @@ def _check_value(
                 )
 
         for prop_name, prop_schema in properties.items():
-            if prop_name in value:
+            if prop_name in value and isinstance(prop_schema, dict):
                 _check_value(
                     value[prop_name],
                     prop_schema,
@@ -192,8 +194,14 @@ def check_response(
         paths = raw_spec.get("paths", {})
         # Path Item が $ref の場合も正しく解決する
         path_item = resolve_refs(paths.get(template, {}), raw_spec)
+        if not isinstance(path_item, dict):
+            return []
         operation = path_item.get(method, {})
+        if not isinstance(operation, dict):
+            return []
         responses = operation.get("responses", {})
+        if not isinstance(responses, dict):
+            return []
 
         # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
         status_str = str(resp.status_code)
