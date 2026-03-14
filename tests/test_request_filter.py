@@ -336,6 +336,7 @@ def test_response_context_defaults() -> None:
     ctx = ResponseContext(method="get", url="http://example.com/api", status_code=200, reason="OK")
     assert ctx.headers == {}
     assert ctx.body is None
+    assert ctx.request_body is None
 
 
 def test_response_context_fields() -> None:
@@ -350,6 +351,18 @@ def test_response_context_fields() -> None:
     assert ctx.status_code == 404
     assert ctx.reason == "Not Found"
     assert ctx.body == {"error": "not found"}
+
+
+def test_response_context_request_body() -> None:
+    ctx = ResponseContext(
+        method="post",
+        url="http://example.com/api/pet",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        request_body={"name": "Fido", "status": "available"},
+    )
+    assert ctx.request_body == {"name": "Fido", "status": "available"}
 
 
 # ---------------------------------------------------------------------------
@@ -477,6 +490,46 @@ def test_apply_response_filters_wrong_return_type_skipped(
     assert "Warning" in capsys.readouterr().err
 
 
+def test_apply_response_filters_request_body_passed_to_filter() -> None:
+    """フィルターが request_body を参照できる。"""
+    received: list[Any] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.request_body)
+        return ctx
+
+    ctx = ResponseContext(
+        method="post",
+        url="http://example.com/api/pet",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        request_body={"name": "Fido"},
+    )
+    apply_response_filters(ctx, [("capture", capture)])
+    assert received == [{"name": "Fido"}]
+
+
+def test_apply_response_filters_request_body_snapshot_isolated() -> None:
+    """スナップショットの request_body はディープコピーされ、変更が元 ctx に漏れない。"""
+    def mutate_then_raise(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.request_body, dict)
+        ctx.request_body["leaked"] = True
+        raise RuntimeError("oops")
+
+    ctx = ResponseContext(
+        method="post",
+        url="http://example.com/api/pet",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        request_body={"name": "Fido"},
+    )
+    result = apply_response_filters(ctx, [("bad", mutate_then_raise)])
+    assert result.request_body == {"name": "Fido"}
+    assert "leaked" not in (result.request_body or {})
+
+
 # ---------------------------------------------------------------------------
 # call_api とレスポンスフィルターの統合
 # ---------------------------------------------------------------------------
@@ -485,6 +538,9 @@ def test_apply_response_filters_wrong_return_type_skipped(
 BASE_URL_RF = "http://petstore.example.com"
 APIDEF_RF: dict[str, Any] = {
     "/store/inventory": [{"method": "get", "query_parameters": [], "post_parameters": []}],
+    "/pet": [{"method": "post", "query_parameters": [], "post_parameters": [
+        {"name": "name", "type": "string", "required": True},
+    ]}],
 }
 
 
@@ -530,6 +586,24 @@ def test_call_api_response_filter_receives_correct_context(no_request_filters: A
     assert ctx.status_code == 200
     assert ctx.reason == "OK"
     assert "/store/inventory" in ctx.url
+    assert ctx.request_body is None  # GET リクエストなのでボディなし
+
+
+@rsps.activate
+def test_call_api_response_filter_receives_request_body(no_request_filters: Any) -> None:
+    """POST リクエストのボディが ResponseContext.request_body に渡される。"""
+    rsps.add(rsps.POST, f"{BASE_URL_RF}/pet", json={"id": 1}, status=200)
+    received: list[ResponseContext] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx)
+        return ctx
+
+    with patch("papycli.request_filter.load_response_filters", return_value=[("capture", capture)]):
+        call_api("post", "/pet", BASE_URL_RF, APIDEF_RF, body_params=[("name", "Fido")])
+
+    assert len(received) == 1
+    assert received[0].request_body == {"name": "Fido"}
 
 
 @rsps.activate

@@ -429,6 +429,7 @@ def call_api(
             reason=resp.reason or "",
             headers=dict(resp.headers),
             body=resp_body,
+            request_body=ctx.body,
         )
         resp_ctx = apply_response_filters(resp_ctx, response_filters)
 

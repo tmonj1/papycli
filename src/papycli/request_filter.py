@@ -173,6 +173,13 @@ class ResponseContext:
     フィルターはこのフィールドを変更することでレスポンスボディを差し替えられる。
     """
 
+    request_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    """リクエストフィルター適用後の送信済みリクエストボディ（参照専用）.
+
+    リクエストフィルターによって変換された後、実際にサーバーへ送信された JSON ボディ。
+    ボディなしのリクエスト（GET 等）の場合は None。
+    """
+
 
 def load_response_filters() -> list[tuple[str, ResponseFilterFunc]]:
     """``papycli.response_filters`` グループのプラグインをプラグイン名の昇順でロードする。
@@ -221,6 +228,7 @@ def apply_response_filters(
             reason=ctx.reason,
             headers=dict(ctx.headers),
             body=copy.deepcopy(ctx.body),
+            request_body=copy.deepcopy(ctx.request_body),
         )
         try:
             result = func(snapshot)
