@@ -191,7 +191,8 @@ def check_response(
     # 誤警告を防ぐため、先にレスポンス定義とスキーマを確認する）。
     # $ref 解決中の KeyError/ValueError をキャッチし、API 呼び出しを中断させない。
     try:
-        paths = raw_spec.get("paths", {})
+        paths_raw = raw_spec.get("paths", {})
+        paths: dict[str, Any] = paths_raw if isinstance(paths_raw, dict) else {}
         # Path Item が $ref の場合も正しく解決する
         path_item = resolve_refs(paths.get(template, {}), raw_spec)
         if not isinstance(path_item, dict):

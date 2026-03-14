@@ -410,6 +410,8 @@ def call_api(
     # レスポンスチェック（response filter 適用前に実施）
     # response_filters で JSON パース済みの場合は _body を渡して二重パースを避ける。
     # それ以外は check_response() が内部でスキーマを確認してからパースする。
+    if do_response_check and raw_spec is None:
+        raise ValueError("raw_spec must be provided when do_response_check is True")
     if do_response_check and raw_spec is not None:
         from papycli.response_checker import check_response
         if response_filters and json_parse_ok:
