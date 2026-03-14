@@ -174,7 +174,7 @@ def check_response(
 ) -> list[str]:
     """レスポンスが OpenAPI スキーマ定義に合致しているかチェックする。
 
-    ステータスコード照合はコンテンツタイプに関わらず常に実施する。
+    spec にオペレーションとレスポンスマップが存在する場合、ステータスコードを照合する。
     ボディスキーマ検証は JSON コンテンツタイプのレスポンスのみを対象とする。
 
     Args:
@@ -229,7 +229,7 @@ def check_response(
             )
             return warnings
     except (KeyError, ValueError) as e:
-        return [f"[response] schema: failed to resolve $ref: {e}"]
+        return [f"[response] spec: failed to resolve $ref: {e}"]
 
     # ボディスキーマ検証（JSON コンテンツタイプのレスポンスのみ対象）
     content_type = resp.headers.get("Content-Type", "").lower()
