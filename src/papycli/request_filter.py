@@ -32,6 +32,9 @@ from typing import Any, Callable
 ENTRY_POINT_GROUP = "papycli.request_filters"
 RESPONSE_ENTRY_POINT_GROUP = "papycli.response_filters"
 
+JsonValue = dict[str, Any] | list[Any] | str | int | float | bool | None
+"""JSON 値を表す型エイリアス."""
+
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
 ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext"]
 
@@ -59,7 +62,7 @@ class RequestContext:
     元の ``-q`` オプション指定順のまま維持される。
     """
 
-    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    body: JsonValue = None
     """JSON ボディ（-d 指定時は任意の JSON 値（オブジェクト・配列・スカラ）、未指定時は None）."""
 
     headers: dict[str, str] = field(default_factory=dict)
@@ -165,7 +168,7 @@ class ResponseContext:
     headers: dict[str, str] = field(default_factory=dict)
     """レスポンスヘッダー."""
 
-    body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    body: JsonValue = None
     """パース済みレスポンスボディ.
 
     Content-Type が application/json のレスポンスは JSON としてパースされた値、
@@ -173,7 +176,7 @@ class ResponseContext:
     フィルターはこのフィールドを変更することでレスポンスボディを差し替えられる。
     """
 
-    request_body: dict[str, Any] | list[Any] | str | int | float | bool | None = None
+    request_body: JsonValue = None
     """リクエストフィルター適用後の送信済みリクエストボディ（参照専用）.
 
     リクエストフィルターによって変換された後、実際にサーバーへ送信された JSON ボディ。
@@ -215,7 +218,7 @@ def apply_response_filters(
     """レスポンスフィルターを順番に適用する。
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
-    ``body`` のみ ``copy.deepcopy``、それ以外はシャローコピーで作成される。
+    ``body`` と ``request_body`` は ``copy.deepcopy``、それ以外はシャローコピーで作成される。
 
     例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
