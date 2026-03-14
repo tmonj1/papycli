@@ -568,7 +568,6 @@ def test_check_response_with_preparsed_body() -> None:
 # ---------------------------------------------------------------------------
 
 
-
 def test_check_response_status_yaml_int_keys() -> None:
     """YAML の yaml.safe_load で整数キーになったレスポンスコードも正しく照合する。"""
     # YAML で `200:` と書くと整数キーになる
