@@ -254,6 +254,8 @@ def apply_response_filters(
                 file=sys.stderr,
             )
             continue
+        # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
+        result.request_body = original_request_body
         ctx = result
     # 全フィルターが失敗した場合も含め、常に deepcopy 済みの値で上書きする。
     ctx.request_body = original_request_body
