@@ -636,3 +636,34 @@ def test_check_response_status_non_json_response_warns() -> None:
     resp = _make_resp(None, status_code=418, content_type="text/html")
     warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
     assert any("[response] status: 418 is not defined in the spec" in w for w in warnings)
+
+
+def test_check_response_status_yaml_int_keys() -> None:
+    """YAML の yaml.safe_load で整数キーになったレスポンスコードも正しく照合する。"""
+    # YAML で `200:` と書くと整数キーになる
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        200: {  # int キー
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    # 200 は int キーで定義されているが正しく照合できること
+    resp_ok = _make_resp({}, status_code=200)
+    assert check_response(resp_ok, spec, "get", "/items") == []
+
+    # 404 は未定義なので警告が出ること（defined 欄に "200" が文字列で表示される）
+    resp_ng = _make_resp({}, status_code=404)
+    warnings = check_response(resp_ng, spec, "get", "/items")
+    assert any("[response] status: 404 is not defined in the spec" in w for w in warnings)
+    assert any("200" in w for w in warnings)

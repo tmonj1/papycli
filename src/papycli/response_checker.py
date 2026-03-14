@@ -201,19 +201,28 @@ def check_response(
         if not isinstance(responses, dict):
             return []
 
+        # YAML で読み込んだ場合にステータスコードキーが整数になることがあるため文字列に正規化する
+        responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
+
         # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
+        # 空 dict の場合の誤スルーを防ぐため or チェーンではなく in で判定する
         status_str = str(resp.status_code)
         range_upper = f"{resp.status_code // 100}XX"
         range_lower = f"{resp.status_code // 100}xx"
-        response_def = (
-            responses.get(status_str)
-            or responses.get(range_upper)
-            or responses.get(range_lower)
-            or responses.get("default")
-        )
+        if status_str in responses_str:
+            response_def: Any = responses_str[status_str]
+        elif range_upper in responses_str:
+            response_def = responses_str[range_upper]
+        elif range_lower in responses_str:
+            response_def = responses_str[range_lower]
+        elif "default" in responses_str:
+            response_def = responses_str["default"]
+        else:
+            response_def = None
+
         # spec に定義されていないステータスコードの場合は警告して終了
         if response_def is None:
-            defined = ", ".join(sorted(responses.keys()))
+            defined = ", ".join(sorted(responses_str.keys()))
             warnings.append(
                 f"[response] status: {resp.status_code} is not defined in the spec"
                 + (f" (defined: {defined})" if defined else "")
