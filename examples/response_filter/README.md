@@ -71,7 +71,7 @@ The plugin is registered via the `papycli.response_filters` entry point in `pypr
 debug = "papycli_debug_response_filter:response_filter"
 ```
 
-papycli discovers all installed plugins in this group, sorts them by name, and calls each one after receiving the response. The filter receives a `ResponseContext` and must return a (possibly modified) `ResponseContext`.
+papycli discovers all installed plugins in this group, sorts them by name, and calls each one after receiving the response. The filter receives a `ResponseContext` and must return a (possibly modified) `ResponseContext`, or `None` to suppress the response output and stop the filter chain.
 
 ## Writing your own filter
 
