@@ -44,6 +44,7 @@ papycli/
 │       ├── config.py        # 設定ファイルの読み書き
 │       ├── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 │       ├── request_filter.py # リクエストフィルタープラグイン機構
+│       ├── response_checker.py # --response-check のレスポンス検証
 │       ├── spec_loader.py   # OpenAPI spec の読み込み・$ref 解決
 │       └── summary.py       # summary コマンド・CSV 出力
 ├── tests/
@@ -55,6 +56,7 @@ papycli/
 │   ├── test_init_cmd.py
 │   ├── test_main.py
 │   ├── test_request_filter.py
+│   ├── test_response_checker.py
 │   ├── test_spec_loader.py
 │   └── test_summary.py
 ├── examples/
@@ -94,6 +96,9 @@ bash / zsh 向けの補完スクリプトを生成する。補完の候補はメ
 
 **`request_filter.py`** — リクエスト・レスポンスフィルタープラグイン機構
 エントリポイントグループ `papycli.request_filters` に登録されたフィルター関数をプラグイン名の昇順で呼び出し、リクエスト送信前に URL・クエリパラメータ・ボディ・ヘッダーを変換できるようにする。同様に `papycli.response_filters` グループのフィルター関数を呼び出し、レスポンス受信後にステータスコード・理由フレーズ（reason）・ボディ・ヘッダーを参照・変更できるようにする。`RequestContext` / `ResponseContext` データクラスと `load_filters()` / `apply_filters()` / `load_response_filters()` / `apply_response_filters()` 関数を提供する。
+
+**`response_checker.py`** — レスポンス検証
+`--response-check` オプション用のレスポンス検証ロジック。実際のHTTPステータスコードと OpenAPI spec に定義されたレスポンスコードを照合し、不一致の場合に警告する。また JSON レスポンスボディをスキーマに照合し、型・enum・必須フィールド・additionalProperties 等の違反を検出して警告メッセージのリストを返す。
 
 **`summary.py`** — サマリー表示
 登録済み API のエンドポイント一覧を整形して出力する。`--summary-csv` では CSV 形式で出力する。
@@ -169,6 +174,7 @@ papycli config list
 papycli config log [PATH] [--unset]
 papycli config completion-script <bash|zsh>
 papycli spec [resource]
+papycli spec --full [resource]
 papycli summary [resource] [--csv]
 papycli --version
 papycli --help / -h
@@ -187,6 +193,7 @@ papycli --help / -h
 - `-H <header: value>` — カスタム HTTP ヘッダー
 - `--check` — 送信前にパラメータを検証する（警告を stderr に出力、リクエストは送信）
 - `--check-strict` — 送信前にパラメータを検証する（警告を stderr に出力、問題があればリクエスト中止・exit 1）
+- `--response-check` — レスポンスのステータスコードとボディを OpenAPI spec に照合する（違反は stderr に出力、exit code には影響しない）
 
 ### パステンプレートのマッチング
 

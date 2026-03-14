@@ -9,6 +9,7 @@
 - 複数 API の登録・切り替え
 - `papycli spec` による API スペックの確認
 - `--check` / `--check-strict` によるリクエスト前のパラメータ検証
+- `--response-check` による OpenAPI spec に基づくレスポンスのステータスコード・ボディ検証
 - API 仕様に基づいて `-p` の値を適切な JSON 型（integer / number / boolean）に自動変換
 - `papycli config log` によるリクエスト/レスポンスのファイルログ
 - リクエストフィルタープラグイン（`papycli.request_filters` エントリポイント）によるリクエスト処理の拡張
@@ -120,7 +121,7 @@ $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 
 $ papycli get /pet/findByStatus <TAB>
-  -q  -p  -H  -d  --summary  --verbose  --check  --check-strict
+  -q  -p  -H  -d  --summary  --verbose  --check  --check-strict  --response-check
 
 $ papycli get /pet/findByStatus -q <TAB>
   status
@@ -232,6 +233,8 @@ papycli <method> <resource> [options]
   --summary               リクエストを送らずにエンドポイント情報を表示する
   --check                 送信前にパラメータを検証する（警告を stderr に出力、リクエストは送信）
   --check-strict          送信前にパラメータを検証する（警告を stderr に出力、問題があればリクエスト中止・exit 1）
+  --response-check        レスポンスのステータスコードとボディを OpenAPI spec に照合する
+                            （違反は stderr に出力、exit code には影響しない）
   --verbose / -v          HTTP ステータス行を表示する
   --version               バージョンを表示する
   --help / -h             使い方を表示する

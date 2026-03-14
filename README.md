@@ -9,6 +9,7 @@
 - Register and switch between multiple APIs
 - Inspect API specs with `papycli spec`
 - Validate request parameters before sending with `--check` / `--check-strict`
+- Validate response body and status code against the OpenAPI spec with `--response-check`
 - Automatically coerces `-p` values to the correct JSON type (integer, number, boolean) based on the API spec
 - Log requests and responses to a file with `papycli config log`
 - Extend request processing with request filter plugins (`papycli.request_filters` entry point)
@@ -120,7 +121,7 @@ $ papycli get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 
 $ papycli get /pet/findByStatus <TAB>
-  -q  -p  -H  -d  --summary  --verbose  --check  --check-strict
+  -q  -p  -H  -d  --summary  --verbose  --check  --check-strict  --response-check
 
 $ papycli get /pet/findByStatus -q <TAB>
   status
@@ -233,6 +234,8 @@ Options:
   --summary               Show endpoint info without sending a request
   --check                 Validate params before sending (warn on stderr, request is still sent)
   --check-strict          Validate params before sending (warn on stderr, abort with exit 1 on failure)
+  --response-check        Validate response status code and body against the OpenAPI spec
+                            (warn on stderr; violations do not affect exit code)
   --verbose / -v          Show HTTP status line
   --version               Show version
   --help / -h             Show help
