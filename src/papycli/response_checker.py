@@ -174,21 +174,18 @@ def check_response(
 ) -> list[str]:
     """レスポンスが OpenAPI スキーマ定義に合致しているかチェックする。
 
+    ステータスコード照合はコンテンツタイプに関わらず常に実施する。
+    ボディスキーマ検証は JSON コンテンツタイプのレスポンスのみを対象とする。
+
     Args:
         _body: 事前にパース済みのレスポンスボディ。省略時は resp.json() でパースする。
 
     Returns:
         警告メッセージのリスト（問題なければ空リスト）。
     """
-    content_type = resp.headers.get("Content-Type", "").lower()
-    # charset 等のパラメータを除いたベース型を抽出する
-    base_content_type = content_type.split(";")[0].strip()
-    # application/json および +json サフィックスを持つ JSON 互換メディアタイプを対象とする
-    if base_content_type != "application/json" and not base_content_type.endswith("+json"):
-        return []
+    warnings: list[str] = []
 
-    # スキーマが存在する場合のみボディをパースする（空ボディや定義なしのステータスでの
-    # 誤警告を防ぐため、先にレスポンス定義とスキーマを確認する）。
+    # ステータスコード照合（コンテンツタイプに関わらず常に実施する）
     # $ref 解決中の KeyError/ValueError をキャッチし、API 呼び出しを中断させない。
     try:
         paths_raw = raw_spec.get("paths", {})
@@ -214,12 +211,31 @@ def check_response(
             or responses.get(range_lower)
             or responses.get("default")
         )
+        # spec に定義されていないステータスコードの場合は警告して終了
         if response_def is None:
-            return []
+            defined = ", ".join(sorted(responses.keys()))
+            warnings.append(
+                f"[response] status: {resp.status_code} is not defined in the spec"
+                + (f" (defined: {defined})" if defined else "")
+            )
+            return warnings
+    except (KeyError, ValueError) as e:
+        return [f"[response] schema: failed to resolve $ref: {e}"]
 
+    # ボディスキーマ検証（JSON コンテンツタイプのレスポンスのみ対象）
+    content_type = resp.headers.get("Content-Type", "").lower()
+    # charset 等のパラメータを除いたベース型を抽出する
+    base_content_type = content_type.split(";")[0].strip()
+    # application/json および +json サフィックスを持つ JSON 互換メディアタイプ以外はスキップ
+    if base_content_type != "application/json" and not base_content_type.endswith("+json"):
+        return warnings
+
+    # スキーマが存在する場合のみボディをパースする（スキーマ未定義のステータスでの
+    # 誤警告を防ぐため、先にスキーマを確認する）。
+    try:
         resolved_def = resolve_refs(response_def, raw_spec)
         if not isinstance(resolved_def, dict):
-            return []
+            return warnings
         content_map_raw: Any = resolved_def.get("content", {})
         content_map: dict[str, Any] = content_map_raw if isinstance(content_map_raw, dict) else {}
         # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
@@ -235,18 +251,17 @@ def check_response(
                 schema = s
                 break
         if not isinstance(schema, dict):
-            return []
+            return warnings
     except (KeyError, ValueError) as e:
-        return [f"[response] schema: failed to resolve $ref: {e}"]
+        return warnings + [f"[response] schema: failed to resolve $ref: {e}"]
 
     if _body is _UNSET:
         try:
             body = resp.json()
         except ValueError:
-            return ["[response] body: failed to parse JSON response"]
+            return warnings + ["[response] body: failed to parse JSON response"]
     else:
         body = _body
 
-    warnings: list[str] = []
     _check_value(body, schema, "", warnings)
     return warnings

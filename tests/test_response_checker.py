@@ -378,10 +378,21 @@ def test_check_response_plus_json_content_type() -> None:
     assert any("required field 'id' is missing" in w for w in warnings)
 
 
-def test_check_response_no_response_def() -> None:
-    """スキーマ定義がないステータスコードは空リストを返す。"""
+def test_check_response_undefined_status_code() -> None:
+    """spec に定義されていないステータスコードは status 警告を返す。"""
     resp = _make_resp({"error": "not found"}, status_code=404)
-    assert check_response(resp, SIMPLE_SPEC, "get", "/items") == []
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert len(warnings) == 1
+    assert "[response] status: 404 is not defined in the spec" in warnings[0]
+    assert "200" in warnings[0]
+
+
+def test_check_response_undefined_status_code_non_json() -> None:
+    """非 JSON レスポンスでも spec 未定義コードは status 警告を返す。"""
+    resp = _make_resp(None, status_code=500, content_type="text/plain")
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert len(warnings) == 1
+    assert "[response] status: 500 is not defined in the spec" in warnings[0]
 
 
 def test_check_response_default_fallback() -> None:
@@ -550,3 +561,78 @@ def test_check_response_with_preparsed_body() -> None:
     preparsed = {"id": "not_an_int"}
     warnings = check_response(resp, SIMPLE_SPEC, "get", "/items", _body=preparsed)
     assert any("expected integer" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# ステータスコード照合
+# ---------------------------------------------------------------------------
+
+
+def test_check_response_status_defined_no_warning() -> None:
+    """spec に定義されているステータスコードは status 警告を出さない。"""
+    resp = _make_resp({"id": 1})
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert all("[response] status:" not in w for w in warnings)
+
+
+def test_check_response_status_undefined_warns() -> None:
+    """spec に定義されていないステータスコードは status 警告を返す。"""
+    resp = _make_resp({"error": "oops"}, status_code=503)
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert any("[response] status: 503 is not defined in the spec" in w for w in warnings)
+    assert any("200" in w for w in warnings)
+
+
+def test_check_response_status_defined_via_range() -> None:
+    """2XX 範囲指定で定義されたコードは status 警告を出さない。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "2XX": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resp = _make_resp({}, status_code=201)
+    warnings = check_response(resp, spec, "get", "/items")
+    assert all("[response] status:" not in w for w in warnings)
+
+
+def test_check_response_status_defined_via_default() -> None:
+    """default 定義があればすべてのコードで status 警告を出さない。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "responses": {
+                        "default": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"type": "object"}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    resp = _make_resp({}, status_code=500)
+    warnings = check_response(resp, spec, "get", "/items")
+    assert all("[response] status:" not in w for w in warnings)
+
+
+def test_check_response_status_non_json_response_warns() -> None:
+    """非 JSON レスポンスでも spec 未定義コードは status 警告を出す。"""
+    resp = _make_resp(None, status_code=418, content_type="text/html")
+    warnings = check_response(resp, SIMPLE_SPEC, "get", "/items")
+    assert any("[response] status: 418 is not defined in the spec" in w for w in warnings)
