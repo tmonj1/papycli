@@ -27,12 +27,12 @@ import copy
 import importlib.metadata
 import sys
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 ENTRY_POINT_GROUP = "papycli.request_filters"
 RESPONSE_ENTRY_POINT_GROUP = "papycli.response_filters"
 
-JsonValue = dict[str, Any] | list[Any] | str | int | float | bool | None
+JsonValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | None
 """JSON 値を表す型エイリアス."""
 
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
