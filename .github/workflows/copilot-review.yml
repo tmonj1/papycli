@@ -29,6 +29,14 @@ jobs:
           # コミット追加（synchronize）後は GitHub が保留中レビューを dismissed にするが
           # reviewRequests からは削除しないため、「すでに依頼済み」チェックでは
           # 再リクエストの要否を正しく判定できない。
-          # Copilot がすでにレビュー待ちの場合 422 が返ることがあるが || true で無視する。
-          gh pr edit "$PR" --repo "$REPO" \
-            --add-reviewer "copilot-pull-request-reviewer" || true
+          # Copilot がすでにレビュー待ちの場合は 422 が返る。
+          # 422 のみ無視し、それ以外のエラー（認証失敗・権限不足等）はジョブを失敗させる。
+          if ! err=$(gh pr edit "$PR" --repo "$REPO" \
+            --add-reviewer "copilot-pull-request-reviewer" 2>&1); then
+            if echo "$err" | grep -q "422"; then
+              echo "Copilot is already pending review; skipping re-request." >&2
+            else
+              echo "$err" >&2
+              exit 1
+            fi
+          fi
