@@ -40,7 +40,7 @@ papycli/
 │       ├── checker.py       # --check / --check-strict のパラメータ検証
 │       ├── summary.py       # summary コマンドの出力
 │       ├── completion.py    # bash / zsh 補完スクリプト生成
-│       ├── request_filter.py # リクエストフィルタープラグイン機構
+│       ├── filters.py        # リクエスト・レスポンスフィルタープラグイン機構
 │       └── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 ├── tests/
 │   ├── test_api_call.py
@@ -50,7 +50,7 @@ papycli/
 │   ├── test_i18n.py
 │   ├── test_init_cmd.py
 │   ├── test_main.py
-│   ├── test_request_filter.py
+│   ├── test_filters.py
 │   ├── test_spec_loader.py
 │   └── test_summary.py
 ├── examples/
@@ -241,13 +241,13 @@ papycli/
 **目的**: サードパーティプラグインがリクエスト送信前に URL・クエリ・ボディ・ヘッダーを変換できる拡張ポイントを提供する。
 
 **実装内容**:
-- `request_filter.py`
+- `filters.py`
   - `RequestContext` データクラス（`method`, `url`, `query_params`, `body`, `headers`）
   - `load_filters()`: `papycli.request_filters` エントリポイントグループからフィルターをロードし、callable 検証後にプラグイン名の昇順で返す
   - `apply_filters()`: フィルターを順番に適用。各フィルター呼び出し前にスナップショットを作成し（body は deepcopy、他はシャローコピー）、例外・戻り値不正の場合は警告して前の ctx を維持する
 - `api_call.py` の `call_api()` でフィルターを適用するよう更新
   - フィルター適用後の `method` は使用しない（API 定義マッチング時に確定した元の値を使う）
-- テスト: `test_request_filter.py`
+- テスト: `test_filters.py`
   - フィルターの読み込み・適用・例外処理・戻り値型検証など
 
 **プラグイン登録例** (`pyproject.toml`):
@@ -300,7 +300,7 @@ my-filter = "my_plugin:request_filter"
 - `main.py` に `papycli spec --full [resource]` サブコマンドを追加
   - 内部変換後の API 定義ではなく、元の OpenAPI spec を JSON で出力する
   - `resource` 指定時は該当パスのみ絞り込んで表示する
-- `request_filter.py` にレスポンスフィルター機構を追加
+- `filters.py` にレスポンスフィルター機構を追加
   - `ResponseContext` データクラス（`status_code`, `reason`, `body`, `headers`）
   - `load_response_filters()`: `papycli.response_filters` エントリポイントグループからフィルターをロード
   - `apply_response_filters()`: フィルターを順番に適用。例外・戻り値不正の場合は警告して前の ctx を維持する

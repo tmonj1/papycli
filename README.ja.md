@@ -130,7 +130,7 @@ $ papycli get /pet/findByStatus -q status <TAB>
   available  pending  sold
 
 $ papycli post /pet -p <TAB>
-  name  status  photoUrls
+  name*  photoUrls*  status
 
 $ papycli post /pet -p status <TAB>
   available  pending  sold
@@ -256,7 +256,7 @@ papycli <method> <resource> [options]
 
 ```python
 # my_plugin.py
-from papycli.request_filter import RequestContext
+from papycli.filters import RequestContext
 
 def request_filter(ctx: RequestContext) -> RequestContext:
     ctx.headers["X-Request-ID"] = "my-id"
