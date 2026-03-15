@@ -18,7 +18,7 @@
 フィルター関数のシグネチャ::
 
     def request_filter(context: RequestContext) -> RequestContext: ...
-    def response_filter(context: ResponseContext) -> ResponseContext: ...
+    def response_filter(context: ResponseContext) -> ResponseContext | None: ...
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ JsonValue: TypeAlias = dict[str, Any] | list[Any] | str | int | float | bool | N
 """JSON 値を表す型エイリアス."""
 
 FilterFunc = Callable[["RequestContext"], "RequestContext"]
-ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext"]
+ResponseFilterFunc = Callable[["ResponseContext"], "ResponseContext | None"]
 
 
 @dataclass
@@ -214,14 +214,17 @@ def load_response_filters() -> list[tuple[str, ResponseFilterFunc]]:
 def apply_response_filters(
     ctx: ResponseContext,
     filters: list[tuple[str, ResponseFilterFunc]],
-) -> ResponseContext:
+) -> ResponseContext | None:
     """レスポンスフィルターを順番に適用する。
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
     ``body`` と ``request_body`` は ``copy.deepcopy``、それ以外はシャローコピーで作成される。
 
-    例外を送出したフィルター、および ``ResponseContext`` 以外を返したフィルターは
-    警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
+    フィルターが ``None`` を返した場合はチェーンを中断し、``None`` を返す。
+    呼び出し元はこの戻り値を「レスポンスの出力を抑制する」シグナルとして扱う。
+
+    例外を送出したフィルター、および ``ResponseContext`` でも ``None`` でもない値を返した
+    フィルターは警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     """
     if not filters:
         return ctx
@@ -247,6 +250,9 @@ def apply_response_filters(
                 file=sys.stderr,
             )
             continue
+        if result is None:
+            # None はレスポンス出力を抑制するシグナル。チェーンを即座に中断する。
+            return None
         if not isinstance(result, ResponseContext):
             print(
                 f"Warning: response filter '{name}' returned {type(result).__name__!r}"

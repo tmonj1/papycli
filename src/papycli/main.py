@@ -519,7 +519,8 @@ def _api_command(method: str) -> click.Command:
             click.echo(f"Error: {e}", err=True)
             sys.exit(1)
 
-        _print_response(resp, verbose=verbose)
+        if resp is not None:
+            _print_response(resp, verbose=verbose)
 
     return _cmd
 

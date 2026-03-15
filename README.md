@@ -289,17 +289,19 @@ Install the package and filters are applied automatically on every request, sort
 
 You can inspect and transform incoming responses by writing a response filter plugin.
 
-A filter is a callable that receives a `ResponseContext` and returns a modified `ResponseContext`:
+A filter is a callable that receives a `ResponseContext` and returns a modified `ResponseContext`, or `None` to suppress the response output and stop the filter chain:
 
 ```python
 # my_plugin.py
-from papycli.request_filter import ResponseContext
+from papycli.filters import ResponseContext
 
-def response_filter(ctx: ResponseContext) -> ResponseContext:
+def response_filter(ctx: ResponseContext) -> ResponseContext | None:
     if isinstance(ctx.body, dict):
         ctx.body["_status"] = ctx.status_code
     return ctx
 ```
+
+Returning `None` suppresses the response output entirely and prevents any subsequent filters from running — useful for silencing responses that match certain criteria.
 
 Register it in your package's `pyproject.toml`:
 
@@ -320,6 +322,7 @@ Install the package and the filters are applied automatically after every respon
 | `reason` | `str` | HTTP response reason phrase (e.g. `"OK"`, `"Not Found"`). |
 | `headers` | `dict[str, str]` | Response headers. |
 | `body` | `dict \| list \| str \| int \| float \| bool \| None` | Parsed response body. Modify this field to replace the response body. |
+| `request_body` | `dict \| list \| str \| int \| float \| bool \| None` | Request body sent to the server (read-only). `None` for requests without a body. |
 
 ---
 
