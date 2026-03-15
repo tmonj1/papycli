@@ -459,6 +459,10 @@ def _api_command(method: str) -> click.Command:
             click.echo("Error: --check and --check-strict cannot be used together.", err=True)
             sys.exit(1)
 
+        # 補完で選択された際に末尾に * が付いたパラメータ名（例: "name*"）を正規化する。
+        query_params = tuple((n.removesuffix("*"), v) for n, v in query_params)
+        body_params = tuple((n.removesuffix("*"), v) for n, v in body_params)
+
         # リソースに "?" が含まれる場合、クエリ文字列を分離してクエリパラメータに追加する。
         # 例: /pet/findByStatus?status=available
         #   → resource=/pet/findByStatus,

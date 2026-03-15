@@ -38,6 +38,16 @@ APIDEF: dict[str, Any] = {
             "post_parameters": [],
         }
     ],
+    "/pet/findByTags": [
+        {
+            "method": "get",
+            "query_parameters": [
+                {"name": "tags", "type": "array", "required": True},
+                {"name": "limit", "type": "integer", "required": False},
+            ],
+            "post_parameters": [],
+        }
+    ],
     "/pet/{petId}": [
         {"method": "get", "query_parameters": [], "post_parameters": []},
         {"method": "delete", "query_parameters": [], "post_parameters": []},
@@ -264,6 +274,31 @@ def test_complete_query_param_repeated_option() -> None:
     assert "status" not in result
 
 
+def test_complete_query_param_name_required_asterisk() -> None:
+    """必須クエリパラメータは * 付きで返され先頭に並ぶ。"""
+    words = ["papycli", "get", "/pet/findByTags", "-q", ""]
+    result = ctx(words, 4)
+    assert "tags*" in result
+    assert "limit" in result
+    assert result.index("tags*") < result.index("limit")
+
+
+def test_complete_query_param_name_required_asterisk_prefix() -> None:
+    """必須クエリパラメータのプレフィックス補完でも * が付く。"""
+    words = ["papycli", "get", "/pet/findByTags", "-q", "t"]
+    result = ctx(words, 4)
+    assert "tags*" in result
+    assert "limit" not in result
+
+
+def test_complete_query_param_excludes_used_with_asterisk() -> None:
+    """補完で tags* を選択後も使用済みとして正しく除外される。"""
+    words = ["papycli", "get", "/pet/findByTags", "-q", "tags*", "foo", "-q", ""]
+    result = ctx(words, 7)
+    assert "tags*" not in result
+    assert "limit" in result
+
+
 # ---------------------------------------------------------------------------
 # クエリパラメータ enum 値の補完 (-q NAME VALUE)
 # ---------------------------------------------------------------------------
@@ -289,6 +324,15 @@ def test_complete_enum_value_no_enum() -> None:
     words = ["papycli", "post", "/pet", "-p", "photoUrls", ""]
     result = ctx(words, 5)
     assert result == []
+
+
+def test_complete_query_enum_value_with_asterisk_param_name() -> None:
+    """-q status* <TAB> でも enum 値が補完される（* を除去して照合）。"""
+    words = ["papycli", "get", "/pet/findByStatus", "-q", "status*", ""]
+    result = ctx(words, 5)
+    assert "available" in result
+    assert "pending" in result
+    assert "sold" in result
 
 
 # ---------------------------------------------------------------------------
