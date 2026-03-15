@@ -33,7 +33,10 @@ jobs:
           # 422 のみ無視し、それ以外のエラー（認証失敗・権限不足等）はジョブを失敗させる。
           if ! err=$(gh pr edit "$PR" --repo "$REPO" \
             --add-reviewer "copilot-pull-request-reviewer" 2>&1); then
-            if echo "$err" | grep -q "422"; then
+            # 422 かつ "already" を含む場合のみ「レビュー待ち中の重複リクエスト」として無視する。
+            # 422 でも "already" を含まないエラー（無効なレビュアー名・Copilot 未インストール等）は
+            # 設定ミスとして検出できるようジョブを失敗させる。
+            if echo "$err" | grep -q "422" && echo "$err" | grep -qi "already"; then
               echo "Copilot is already pending review; skipping re-request." >&2
             else
               echo "$err" >&2
