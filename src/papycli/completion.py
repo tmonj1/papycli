@@ -87,8 +87,9 @@ def _used_param_names(words: list[str], flag: str) -> set[str]:
         if words[i] == flag and i + 1 < len(words):
             name = words[i + 1]
             # NAME が別のオプションフラグでも空文字でもない場合のみ使用済みとして扱う
+            # 補完で選択された場合に末尾に * が付いていることがあるため取り除いてから登録する
             if name and not name.startswith("-"):
-                used.add(name)
+                used.add(name.rstrip("*"))
             # flag と NAME までは確実に読み飛ばすが、VALUE は仮定しない
             i += 2
         else:
@@ -108,11 +109,21 @@ def _complete_param_names(
     if op is None:
         return []
     key = "query_parameters" if kind == "query" else "post_parameters"
-    return [
-        p["name"]
-        for p in op.get(key, [])
-        if p["name"].startswith(incomplete) and (used is None or p["name"] not in used)
-    ]
+    # incomplete の末尾 * を取り除いてからパラメータ名と比較する
+    incomplete_stripped = incomplete.rstrip("*")
+    required: list[str] = []
+    optional: list[str] = []
+    for p in op.get(key, []):
+        name = p["name"]
+        if not name.startswith(incomplete_stripped):
+            continue
+        if used is not None and name in used:
+            continue
+        if p.get("required", False):
+            required.append(name + "*")
+        else:
+            optional.append(name)
+    return required + optional
 
 
 def _complete_enum_values(
@@ -127,8 +138,10 @@ def _complete_enum_values(
     if op is None:
         return []
     key = "query_parameters" if kind == "query" else "post_parameters"
+    # 補完で選択された場合、param_name の末尾に * が付いていることがあるため取り除く
+    normalized_name = param_name.rstrip("*")
     for p in op.get(key, []):
-        if p["name"] == param_name and "enum" in p:
+        if p["name"] == normalized_name and "enum" in p:
             return [str(v) for v in p["enum"] if str(v).startswith(incomplete)]
     return []
 

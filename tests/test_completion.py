@@ -299,15 +299,20 @@ def test_complete_enum_value_no_enum() -> None:
 def test_complete_body_param_name() -> None:
     words = ["papycli", "post", "/pet", "-p", ""]
     result = ctx(words, 4)
-    assert "name" in result
+    # 必須パラメータは * 付きで返される
+    assert "name*" in result
+    assert "photoUrls*" in result
+    # 任意パラメータは * なし
     assert "status" in result
-    assert "photoUrls" in result
+    # 必須パラメータが任意パラメータより前に並ぶ
+    assert result.index("name*") < result.index("status")
+    assert result.index("photoUrls*") < result.index("status")
 
 
 def test_complete_body_param_name_prefix() -> None:
     words = ["papycli", "post", "/pet", "-p", "n"]
     result = ctx(words, 4)
-    assert "name" in result
+    assert "name*" in result
     assert "status" not in result
 
 
@@ -534,17 +539,26 @@ def test_complete_body_param_excludes_used() -> None:
     # name を使用済み → 候補に出ないこと
     words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", ""]
     result = ctx(words, 7)
-    assert "name" not in result
+    assert "name*" not in result
     assert "status" in result
-    assert "photoUrls" in result
+    assert "photoUrls*" in result
+
+
+def test_complete_body_param_excludes_used_with_asterisk() -> None:
+    # 補完で選択した name*（末尾 * あり）が使用済みとして正しく除外されること
+    words = ["papycli", "post", "/pet", "-p", "name*", "foo", "-p", ""]
+    result = ctx(words, 7)
+    assert "name*" not in result
+    assert "status" in result
+    assert "photoUrls*" in result
 
 
 def test_complete_body_param_excludes_multiple_used() -> None:
     words = ["papycli", "post", "/pet", "-p", "name", "foo", "-p", "status", "available", "-p", ""]
     result = ctx(words, 10)
-    assert "name" not in result
+    assert "name*" not in result
     assert "status" not in result
-    assert "photoUrls" in result
+    assert "photoUrls*" in result
 
 
 def test_complete_query_param_excludes_used() -> None:
@@ -565,7 +579,17 @@ def test_complete_body_param_name_not_excluded_while_typing() -> None:
     # -p name<TAB> → name 自身を補完中なので候補に出ること
     words = ["papycli", "post", "/pet", "-p", "name"]
     result = ctx(words, 4)
-    assert "name" in result
+    assert "name*" in result
+
+
+def test_complete_body_enum_value_with_asterisk_param_name() -> None:
+    # 補完で status* が選択された場合（実際は status は任意なので * なしだが、
+    # 仮に * 付きで渡された場合でも enum 値を正しく補完できること）
+    words = ["papycli", "post", "/pet", "-p", "status*", ""]
+    result = ctx(words, 5)
+    assert "available" in result
+    assert "pending" in result
+    assert "sold" in result
 
 
 def test_generate_bash_has_comp_words() -> None:
