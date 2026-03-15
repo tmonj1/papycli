@@ -29,11 +29,27 @@ jobs:
           # synchronize 後、GitHub は Copilot を reviewRequests に残したまま dismissed にする。
           # この状態で --add-reviewer だけを呼ぶと 422 が返り新たなイベントが発行されない。
           # 一度 remove してから add することで Copilot のレビューを確実に再起動する。
-          #
-          # remove: Copilot がリクエストされていない場合（opened 直後等）はエラーになるが無視する。
-          #         認証・権限エラーは次の add ステップで検出できるため、ここでは || true とする。
-          gh pr edit "$PR" --repo "$REPO" \
-            --remove-reviewer "copilot-pull-request-reviewer" 2>/dev/null || true
-          # add: エラーはすべてジョブ失敗とする（設定ミス・権限不足等を検出するため）。
-          gh pr edit "$PR" --repo "$REPO" \
-            --add-reviewer "copilot-pull-request-reviewer"
+
+          # remove: Copilot がリクエストされていない場合（opened 直後等）は 422 が返るが無視する。
+          # それ以外のエラー（認証失敗・権限不足等）はジョブを失敗させる。
+          if ! err=$(gh pr edit "$PR" --repo "$REPO" \
+            --remove-reviewer "copilot-pull-request-reviewer" 2>&1); then
+            if echo "$err" | grep -q "422"; then
+              echo "Copilot was not a requested reviewer; continuing." >&2
+            else
+              echo "$err" >&2
+              exit 1
+            fi
+          fi
+
+          # add: Copilot がすでにレビュー待ちの場合（422 + "already"）は無視する。
+          # それ以外のエラー（認証失敗・権限不足・設定ミス等）はジョブを失敗させる。
+          if ! err=$(gh pr edit "$PR" --repo "$REPO" \
+            --add-reviewer "copilot-pull-request-reviewer" 2>&1); then
+            if echo "$err" | grep -q "422" && echo "$err" | grep -qi "already"; then
+              echo "Copilot is already pending review; skipping re-request." >&2
+            else
+              echo "$err" >&2
+              exit 1
+            fi
+          fi
