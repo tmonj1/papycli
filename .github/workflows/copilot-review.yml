@@ -25,12 +25,10 @@ jobs:
         run: |
           PR="${{ github.event.pull_request.number }}"
           REPO="${{ github.repository }}"
-          # 既にレビュー依頼済みの場合は追加しない（冪等性の確保）
-          # concurrency で直列化済みだが、念のため確認してからリクエストする
-          REVIEWERS=$(gh pr view "$PR" --repo "$REPO" \
-            --json reviewRequests \
-            --jq '[.reviewRequests[].login] | join(" ")')
-          if [[ "$REVIEWERS" != *"copilot-pull-request-reviewer"* ]]; then
-            gh pr edit "$PR" --repo "$REPO" \
-              --add-reviewer "copilot-pull-request-reviewer"
-          fi
+          # 常に --add-reviewer を実行する。
+          # コミット追加（synchronize）後は GitHub が保留中レビューを dismissed にするが
+          # reviewRequests からは削除しないため、「すでに依頼済み」チェックでは
+          # 再リクエストの要否を正しく判定できない。
+          # Copilot がすでにレビュー待ちの場合 422 が返ることがあるが || true で無視する。
+          gh pr edit "$PR" --repo "$REPO" \
+            --add-reviewer "copilot-pull-request-reviewer" || true
