@@ -342,12 +342,19 @@ def cmd_config_alias(
             sys.exit(1)
         # symlink を先に削除し、失敗時は config を変更せずに終了する
         symlink = conf_dir / "bin" / alias_name
-        if symlink.is_symlink() or symlink.exists():
+        if symlink.is_symlink():
             try:
                 symlink.unlink()
             except OSError as e:
                 click.echo(f"Error: failed to remove symlink: {e}", err=True)
                 sys.exit(1)
+        elif symlink.exists():
+            click.echo(
+                f"Error: '{symlink}' is not a symlink created by papycli. "
+                "Remove it manually before deleting the alias.",
+                err=True,
+            )
+            sys.exit(1)
         remove_alias(conf, alias_name)
         save_conf(conf, conf_dir)
         click.echo(f"Alias '{alias_name}' removed.")
@@ -363,14 +370,17 @@ def cmd_config_alias(
                 click.echo(f"{name} -> {spec}")
         return
 
-    # SPEC_NAME 省略時は現在のデフォルトスペックを使用する
+    # SPEC_NAME 省略時は config の default を使用する。
+    # エイリアス呼び出し時のオーバーライドを避けるため get_default_api は使わず
+    # config dict を直接参照する。
     if spec_name is None:
-        spec_name = get_default_api(conf)
-        if spec_name is None:
+        raw_default = conf.get("default")
+        if not isinstance(raw_default, str) or not raw_default:
             click.echo(
                 "Error: no SPEC_NAME given and no default API configured.", err=True
             )
             sys.exit(1)
+        spec_name = raw_default
 
     # スペックが登録済みかチェックする
     if not isinstance(conf.get(spec_name), dict):
@@ -393,8 +403,15 @@ def cmd_config_alias(
     try:
         bin_dir.mkdir(parents=True, exist_ok=True)
         symlink = bin_dir / alias_name
-        if symlink.is_symlink() or symlink.exists():
+        if symlink.is_symlink():
             symlink.unlink()
+        elif symlink.exists():
+            click.echo(
+                f"Error: '{symlink}' already exists and is not a symlink. "
+                "Remove it manually to create the alias.",
+                err=True,
+            )
+            sys.exit(1)
         symlink.symlink_to(papycli_exe)
     except OSError as e:
         click.echo(f"Error: failed to create symlink: {e}", err=True)

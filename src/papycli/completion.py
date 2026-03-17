@@ -22,9 +22,9 @@ TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 # ---------------------------------------------------------------------------
 
 _BASH_TEMPLATE = """\
-_SAFENAME_completion() {
+_@@SAFENAME@@_completion() {
     local IFS=$'\\n'
-    COMPREPLY=($(CMDNAME _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
+    COMPREPLY=($(@@CMDNAME@@ _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
     if [[ ${#COMPREPLY[@]} -eq 0 \\
           && "${COMP_WORDS[1]}" == "config" \\
           && "${COMP_WORDS[2]}" == "add" \\
@@ -33,27 +33,31 @@ _SAFENAME_completion() {
         compopt -o filenames 2>/dev/null
     fi
 }
-complete -o nospace -F _SAFENAME_completion CMDNAME
+complete -o nospace -F _@@SAFENAME@@_completion @@CMDNAME@@
 """
 
 _ZSH_TEMPLATE = """\
-_SAFENAME() {
+_@@SAFENAME@@() {
     local -a completions
-    completions=(${(f)"$(CMDNAME _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
+    completions=(${(f)"$(@@CMDNAME@@ _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
     if [[ ${#completions[@]} -gt 0 ]]; then
         _describe '' completions
     elif [[ "${words[2]}" == "config" && "${words[3]}" == "add" && $CURRENT -eq 4 ]]; then
         _files
     fi
 }
-compdef _SAFENAME CMDNAME
+compdef _@@SAFENAME@@ @@CMDNAME@@
 """
 
 
 def _render_script(template: str, cmd: str) -> str:
-    """テンプレート内の CMDNAME / SAFENAME をコマンド名で置換する。"""
+    """テンプレート内の @@CMDNAME@@ / @@SAFENAME@@ をコマンド名で置換する。
+
+    @@...@@ は有効なエイリアス名 ([A-Za-z0-9_-]+) に含まれない @ を含むため、
+    cmd の値に関わらずプレースホルダーが意図せず再置換されることはない。
+    """
     safe = cmd.replace("-", "_")
-    return template.replace("CMDNAME", cmd).replace("SAFENAME", safe)
+    return template.replace("@@CMDNAME@@", cmd).replace("@@SAFENAME@@", safe)
 
 
 # 後方互換用エイリアス
