@@ -1,6 +1,8 @@
 """CLI entry point."""
 
 import json
+import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -57,8 +59,8 @@ def cli(ctx: click.Context) -> None:
             _aliases = get_aliases(_conf)
             if cmd_name in _aliases:
                 set_api_override(_aliases[cmd_name])
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as e:
+            click.echo(f"Warning: alias detection failed: {e}", err=True)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -310,6 +312,16 @@ def cmd_config_alias(
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
+    # alias_name が指定されている場合は安全な名前かチェックする
+    _ALIAS_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+    if alias_name is not None and not _ALIAS_NAME_RE.match(alias_name):
+        click.echo(
+            f"Error: alias name '{alias_name}' is invalid. "
+            "Only letters, digits, hyphens, and underscores are allowed.",
+            err=True,
+        )
+        sys.exit(1)
+
     # -d: エイリアスを削除する
     if delete:
         if alias_name is None:
@@ -354,18 +366,37 @@ def cmd_config_alias(
         click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
         sys.exit(1)
 
-    # config にエイリアスを保存する
-    set_alias(conf, alias_name, spec_name)
-    save_conf(conf, conf_dir)
+    # papycli 実行ファイルのパスを解決する（shutil.which を優先）
+    papycli_path = shutil.which("papycli")
+    if papycli_path is not None:
+        papycli_exe = Path(papycli_path).resolve()
+    else:
+        papycli_exe = Path(sys.argv[0]).resolve()
+    if not papycli_exe.exists():
+        click.echo("Error: cannot locate papycli executable.", err=True)
+        sys.exit(1)
 
-    # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を作成する
+    # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を先に作成する。
+    # 失敗した場合は config を変更せずにエラー終了する。
     bin_dir = conf_dir / "bin"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    symlink = bin_dir / alias_name
-    papycli_exe = Path(sys.argv[0]).resolve()
-    if symlink.is_symlink() or symlink.exists():
-        symlink.unlink()
-    symlink.symlink_to(papycli_exe)
+    try:
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        symlink = bin_dir / alias_name
+        if symlink.is_symlink() or symlink.exists():
+            symlink.unlink()
+        symlink.symlink_to(papycli_exe)
+    except OSError as e:
+        click.echo(f"Error: failed to create symlink: {e}", err=True)
+        sys.exit(1)
+
+    # symlink 作成後に config を保存する（失敗時は symlink を rollback する）
+    try:
+        set_alias(conf, alias_name, spec_name)
+        save_conf(conf, conf_dir)
+    except OSError as e:
+        symlink.unlink(missing_ok=True)
+        click.echo(f"Error: failed to save config: {e}", err=True)
+        sys.exit(1)
 
     click.echo(f"Alias '{alias_name}' -> '{spec_name}' created.")
     click.echo(f"Symlink: {symlink} -> {papycli_exe}")

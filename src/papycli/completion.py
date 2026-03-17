@@ -7,8 +7,11 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
+
+_SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
@@ -64,7 +67,15 @@ def generate_script(shell: str, cmd_name: str = "papycli") -> str:
     Args:
         shell: "bash" または "zsh"
         cmd_name: 補完対象のコマンド名。エイリアスで呼び出した場合はエイリアス名を渡す。
+
+    Raises:
+        ValueError: cmd_name に安全でない文字が含まれる場合。
     """
+    if not _SAFE_CMD_RE.match(cmd_name):
+        raise ValueError(
+            f"Invalid command name '{cmd_name}': "
+            "only letters, digits, hyphens, and underscores are allowed."
+        )
     if shell == "bash":
         return _render_script(_BASH_TEMPLATE, cmd_name)
     return _render_script(_ZSH_TEMPLATE, cmd_name)
