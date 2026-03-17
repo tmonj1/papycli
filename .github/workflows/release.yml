@@ -1,5 +1,9 @@
 name: Release
 
+# NOTE: release-please が作成した GitHub Release では GITHUB_TOKEN の制限により
+#       このワークフローはトリガーされない。通常の PyPI 公開は release-please.yml 内の
+#       publish ジョブが担う。
+#       このワークフローは GitHub UI から手動で Release を公開した場合のフォールバック。
 on:
   release:
     types: [published]
