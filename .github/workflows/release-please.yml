@@ -5,6 +5,9 @@ on:
     branches:
       - main
 
+# このワークフローを動作させるには、リポジトリの以下の設定を有効にする必要がある:
+#   Settings → Actions → General → Workflow permissions
+#   ☑ Allow GitHub Actions to create and approve pull requests
 permissions:
   contents: write
   pull-requests: write
