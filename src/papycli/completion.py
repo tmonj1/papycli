@@ -71,6 +71,8 @@ def generate_script(shell: str, cmd_name: str = "papycli") -> str:
     Raises:
         ValueError: cmd_name に安全でない文字が含まれる場合。
     """
+    # Windows の ".exe" / ".py" 等の拡張子を除去する
+    cmd_name = Path(cmd_name).stem
     if not _SAFE_CMD_RE.match(cmd_name):
         raise ValueError(
             f"Invalid command name '{cmd_name}': "

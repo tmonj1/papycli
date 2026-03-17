@@ -51,8 +51,10 @@ from papycli.summary import format_endpoint_detail, format_summary_csv, print_su
 @click.version_option(__version__, "-V", "--version")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
-    # エイリアスとして呼び出された場合、対応するスペックをオーバーライドする
-    cmd_name = Path(sys.argv[0]).name
+    # 毎回リセットしてからエイリアス検出する（繰り返し呼び出し時のグローバル汚染を防ぐ）
+    set_api_override(None)
+    # .stem で Windows の ".exe" 等を除去する
+    cmd_name = Path(sys.argv[0]).stem
     if cmd_name != "papycli":
         try:
             _conf = load_conf(get_conf_dir())
@@ -279,8 +281,12 @@ def cmd_config_log(path: str | None, unset: bool) -> None:
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh"]))
 def cmd_config_completion_script(shell: str) -> None:
-    cmd_name = Path(sys.argv[0]).name
-    click.echo(generate_script(shell, cmd_name), nl=False)
+    cmd_name = Path(sys.argv[0]).stem  # .stem で Windows の ".exe" 等を除去する
+    try:
+        click.echo(generate_script(shell, cmd_name), nl=False)
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
 
 
 @cmd_config.command(
@@ -334,11 +340,16 @@ def cmd_config_alias(
         if alias_name not in aliases:
             click.echo(f"Error: alias '{alias_name}' not found.", err=True)
             sys.exit(1)
-        remove_alias(conf, alias_name)
-        save_conf(conf, conf_dir)
+        # symlink を先に削除し、失敗時は config を変更せずに終了する
         symlink = conf_dir / "bin" / alias_name
         if symlink.is_symlink() or symlink.exists():
-            symlink.unlink()
+            try:
+                symlink.unlink()
+            except OSError as e:
+                click.echo(f"Error: failed to remove symlink: {e}", err=True)
+                sys.exit(1)
+        remove_alias(conf, alias_name)
+        save_conf(conf, conf_dir)
         click.echo(f"Alias '{alias_name}' removed.")
         return
 
