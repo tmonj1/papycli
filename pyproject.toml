@@ -1,6 +1,6 @@
 [project]
 name = "papycli"
-version = "0.10.0"
+version = "0.10.1"
 description = "A CLI tool to call REST APIs defined in OpenAPI 3.0 specs"
 readme = "README.md"
 license = {text = "MIT"}
