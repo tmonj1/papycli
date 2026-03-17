@@ -9,6 +9,10 @@ permissions:
   contents: write
   pull-requests: write
 
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-please:
     # このジョブは main への push のたびに実行され、マージされた PR の種類に応じて動作が変わる:
@@ -18,12 +22,8 @@ jobs:
     # つまり「PR 作成」と「タグ付与＋リリース作成」の両方をこの1ステップが担う。
     name: Create release PR
     runs-on: ubuntu-latest
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@v4
-        id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json

@@ -7,6 +7,7 @@ on:
 jobs:
   build:
     name: Build distribution
+    if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +21,11 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      - name: Upload dist assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/*
 
   pypi-publish:
     name: Publish to PyPI
