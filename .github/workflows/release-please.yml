@@ -29,7 +29,9 @@ jobs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@v4
+      # v4.4.0 時点でまだ node20 を使用しており Node.js 24 非対応の warning が出る。
+      # アップストリームが Node.js 24 対応版をリリースした際にバージョンを更新すること。
+      - uses: googleapis/release-please-action@v4.4.0
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
