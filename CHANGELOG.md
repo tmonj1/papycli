@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.10.1](https://github.com/tmonj1/papycli/compare/v0.10.0...v0.10.1) (2026-03-17)
+
+
+### Bug Fixes
+
+* release-please.yml に publish ジョブを追加して PyPI 公開を修正 ([a77cc0f](https://github.com/tmonj1/papycli/commit/a77cc0fbf7ee498cc7fcd4b6f9096c5a9be19746))
+* release-please.yml に publish ジョブを追加して PyPI 公開を修正 ([#105](https://github.com/tmonj1/papycli/issues/105)) ([9ffc692](https://github.com/tmonj1/papycli/commit/9ffc692f1c9f5e9e0cdef974129f70a2284c4af1))
+* タグ形式を papycli-vX.Y.Z から vX.Y.Z に変更 ([802dc53](https://github.com/tmonj1/papycli/commit/802dc53b92ff753721b7109bb40fbc79182df18e))
+
 ## [0.10.0](https://github.com/tmonj1/papycli/compare/papycli-v0.9.0...papycli-v0.10.0) (2026-03-17)
 
 
