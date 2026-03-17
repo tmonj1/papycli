@@ -969,7 +969,8 @@ def test_cmd_response_check_without_flag_no_warning(
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_completion_script_bash() -> None:
+def test_cmd_completion_script_bash(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["papycli", "config", "completion-script", "bash"])
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "completion-script", "bash"])
     assert result.exit_code == 0
@@ -977,7 +978,8 @@ def test_cmd_completion_script_bash() -> None:
     assert "papycli _complete" in result.output
 
 
-def test_cmd_completion_script_zsh() -> None:
+def test_cmd_completion_script_zsh(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["papycli", "config", "completion-script", "zsh"])
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "completion-script", "zsh"])
     assert result.exit_code == 0
@@ -1152,3 +1154,90 @@ def test_config_log_unset_and_path_exclusive(
     result = runner.invoke(cli, ["config", "log", "--unset", "/some/path"])
     assert result.exit_code != 0
     assert "Error" in result.output or "Error" in (result.stderr if hasattr(result, "stderr") else "")
+
+
+# ---------------------------------------------------------------------------
+# config alias
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def alias_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """petstore-oas3.json を登録した conf_dir を返す（alias テスト用）。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "add", str(PETSTORE_PATH)])
+    return tmp_path
+
+
+def test_config_alias_list_empty(alias_conf_dir: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias"])
+    assert result.exit_code == 0
+    assert "no aliases" in result.output
+
+
+def test_config_alias_create(alias_conf_dir: Path) -> None:
+    import json as _json
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+    assert result.exit_code == 0
+    assert "petcli" in result.output
+
+    conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
+    assert conf.get("aliases", {}).get("petcli") == "petstore-oas3"
+    assert (alias_conf_dir / "bin" / "petcli").is_symlink()
+
+
+def test_config_alias_create_defaults_to_default_spec(alias_conf_dir: Path) -> None:
+    import json as _json
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "petcli"])
+    assert result.exit_code == 0
+
+    conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
+    default_spec = conf.get("default")
+    assert conf.get("aliases", {}).get("petcli") == default_spec
+
+
+def test_config_alias_list_shows_aliases(alias_conf_dir: Path) -> None:
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+    result = runner.invoke(cli, ["config", "alias"])
+    assert result.exit_code == 0
+    assert "petcli" in result.output
+    assert "petstore-oas3" in result.output
+
+
+def test_config_alias_delete(alias_conf_dir: Path) -> None:
+    import json as _json
+    runner = CliRunner()
+    runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+    result = runner.invoke(cli, ["config", "alias", "-d", "petcli"])
+    assert result.exit_code == 0
+    assert "removed" in result.output
+
+    conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
+    assert "petcli" not in conf.get("aliases", {})
+    assert not (alias_conf_dir / "bin" / "petcli").exists()
+
+
+def test_config_alias_delete_nonexistent(alias_conf_dir: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "-d", "nonexistent"])
+    assert result.exit_code != 0
+    assert "not found" in result.output
+
+
+def test_config_alias_unknown_spec(alias_conf_dir: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "petcli", "no-such-spec"])
+    assert result.exit_code != 0
+    assert "not registered" in result.output
+
+
+def test_config_alias_delete_requires_name(alias_conf_dir: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "-d"])
+    assert result.exit_code != 0
+    assert "alias name is required" in result.output

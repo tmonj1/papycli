@@ -65,7 +65,8 @@ def remove_api(conf: dict[str, Any], name: str) -> None:
     is_default = conf.get("default") == name
     del conf[name]
     if is_default:
-        remaining = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+        _reserved = ("default", "aliases")
+        remaining = [k for k in conf if k not in _reserved and isinstance(conf[k], dict)]
         if remaining:
             conf["default"] = remaining[0]
         else:
@@ -77,12 +78,50 @@ def set_default_api(conf: dict[str, Any], name: str) -> None:
     conf["default"] = name
 
 
+_api_override: str | None = None
+
+
+def set_api_override(name: str | None) -> None:
+    """エイリアス呼び出し時に使用するスペック名を上書き設定する。"""
+    global _api_override
+    _api_override = name
+
+
 def get_default_api(conf: dict[str, Any]) -> str | None:
-    """現在のデフォルト API 名を返す。未設定・空文字列・非文字列の場合は None。"""
+    """現在のデフォルト API 名を返す。未設定・空文字列・非文字列の場合は None。
+
+    ``set_api_override`` が設定されている場合はそちらを優先する。
+    """
+    if _api_override is not None:
+        return _api_override
     value = conf.get("default")
     if isinstance(value, str) and value:
         return value
     return None
+
+
+def get_aliases(conf: dict[str, Any]) -> dict[str, str]:
+    """エイリアス名 → スペック名のマッピングを返す。未設定の場合は空の dict。"""
+    value = conf.get("aliases")
+    if isinstance(value, dict):
+        return {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, str)}
+    return {}
+
+
+def set_alias(conf: dict[str, Any], alias_name: str, spec_name: str) -> None:
+    """エイリアスを設定する。"""
+    if "aliases" not in conf or not isinstance(conf["aliases"], dict):
+        conf["aliases"] = {}
+    conf["aliases"][alias_name] = spec_name
+
+
+def remove_alias(conf: dict[str, Any], alias_name: str) -> None:
+    """エイリアスを削除する。存在しない場合は何もしない。"""
+    aliases = conf.get("aliases")
+    if isinstance(aliases, dict):
+        aliases.pop(alias_name, None)
+        if not aliases:
+            conf.pop("aliases")
 
 
 def get_logfile(conf: dict[str, Any]) -> str | None:

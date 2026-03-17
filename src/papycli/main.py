@@ -14,15 +14,20 @@ from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
 from papycli.completion import generate_script, get_completions
 from papycli.config import (
+    get_aliases,
     get_apis_dir,
     get_conf_dir,
     get_conf_path,
+    get_default_api,
     get_logfile,
     load_conf,
     load_current_apidef,
     load_current_raw_spec,
+    remove_alias,
     remove_api,
     save_conf,
+    set_alias,
+    set_api_override,
     set_default_api,
     set_logfile,
     unset_logfile,
@@ -44,6 +49,16 @@ from papycli.summary import format_endpoint_detail, format_summary_csv, print_su
 @click.version_option(__version__, "-V", "--version")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
+    # エイリアスとして呼び出された場合、対応するスペックをオーバーライドする
+    cmd_name = Path(sys.argv[0]).name
+    if cmd_name != "papycli":
+        try:
+            _conf = load_conf(get_conf_dir())
+            _aliases = get_aliases(_conf)
+            if cmd_name in _aliases:
+                set_api_override(_aliases[cmd_name])
+        except Exception:
+            pass
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -262,7 +277,103 @@ def cmd_config_log(path: str | None, unset: bool) -> None:
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh"]))
 def cmd_config_completion_script(shell: str) -> None:
-    click.echo(generate_script(shell), nl=False)
+    cmd_name = Path(sys.argv[0]).name
+    click.echo(generate_script(shell, cmd_name), nl=False)
+
+
+@cmd_config.command(
+    "alias",
+    help=h(
+        "Create, list, or delete command aliases.\n\n"
+        "ALIAS_NAME: the new command name (e.g. 'petcli').\n"
+        "SPEC_NAME: registered API spec name (defaults to current default).\n\n"
+        "Omit both arguments to list configured aliases.\n"
+        "Use -d ALIAS_NAME to delete an alias.",
+        "コマンドエイリアスの作成・一覧・削除を行う。\n\n"
+        "ALIAS_NAME: 新しいコマンド名（例: 'petcli'）。\n"
+        "SPEC_NAME: 登録済みスペック名（省略時は現在のデフォルト）。\n\n"
+        "両引数を省略するとエイリアス一覧を表示する。\n"
+        "-d ALIAS_NAME でエイリアスを削除する。",
+    ),
+)
+@click.argument("alias_name", required=False, default=None)
+@click.argument("spec_name", required=False, default=None)
+@click.option(
+    "-d", "delete", is_flag=True,
+    help=h("Delete the specified alias.", "指定したエイリアスを削除する。"),
+)
+def cmd_config_alias(
+    alias_name: str | None,
+    spec_name: str | None,
+    delete: bool,
+) -> None:
+    conf_dir = get_conf_dir()
+    conf = load_conf(conf_dir)
+
+    # -d: エイリアスを削除する
+    if delete:
+        if alias_name is None:
+            click.echo("Error: alias name is required with -d.", err=True)
+            sys.exit(1)
+        if spec_name is not None:
+            click.echo("Error: SPEC_NAME cannot be specified with -d.", err=True)
+            sys.exit(1)
+        aliases = get_aliases(conf)
+        if alias_name not in aliases:
+            click.echo(f"Error: alias '{alias_name}' not found.", err=True)
+            sys.exit(1)
+        remove_alias(conf, alias_name)
+        save_conf(conf, conf_dir)
+        symlink = conf_dir / "bin" / alias_name
+        if symlink.is_symlink() or symlink.exists():
+            symlink.unlink()
+        click.echo(f"Alias '{alias_name}' removed.")
+        return
+
+    # 引数なし: エイリアス一覧を表示する
+    if alias_name is None:
+        aliases = get_aliases(conf)
+        if not aliases:
+            click.echo("(no aliases configured)")
+        else:
+            for name, spec in aliases.items():
+                click.echo(f"{name} -> {spec}")
+        return
+
+    # SPEC_NAME 省略時は現在のデフォルトスペックを使用する
+    if spec_name is None:
+        spec_name = get_default_api(conf)
+        if spec_name is None:
+            click.echo(
+                "Error: no SPEC_NAME given and no default API configured.", err=True
+            )
+            sys.exit(1)
+
+    # スペックが登録済みかチェックする
+    if not isinstance(conf.get(spec_name), dict):
+        click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
+        sys.exit(1)
+
+    # config にエイリアスを保存する
+    set_alias(conf, alias_name, spec_name)
+    save_conf(conf, conf_dir)
+
+    # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を作成する
+    bin_dir = conf_dir / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    symlink = bin_dir / alias_name
+    papycli_exe = Path(sys.argv[0]).resolve()
+    if symlink.is_symlink() or symlink.exists():
+        symlink.unlink()
+    symlink.symlink_to(papycli_exe)
+
+    click.echo(f"Alias '{alias_name}' -> '{spec_name}' created.")
+    click.echo(f"Symlink: {symlink} -> {papycli_exe}")
+    click.echo("\nAdd the following to your shell profile if not already set:")
+    click.echo(f'  export PATH="{bin_dir}:$PATH"')
+    click.echo(f"\nEnable shell completion for '{alias_name}':")
+    click.echo(f'  eval "$({alias_name} config completion-script bash)"  # bash')
+    click.echo(f'  eval "$({alias_name} config completion-script zsh)"   # zsh')
 
 
 # ---------------------------------------------------------------------------

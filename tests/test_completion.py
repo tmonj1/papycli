@@ -159,7 +159,9 @@ def test_complete_config_subcommands_prefix() -> None:
 
 
 def test_complete_config_subcommands_covers_all() -> None:
-    assert set(CONFIG_SUBCOMMANDS) == {"add", "completion-script", "list", "log", "remove", "use"}
+    assert set(CONFIG_SUBCOMMANDS) == {
+        "add", "alias", "completion-script", "list", "log", "remove", "use",
+    }
 
 
 def test_complete_config_no_further_completion() -> None:
@@ -672,3 +674,43 @@ def test_generate_zsh_config_add_fallback_condition() -> None:
     assert '"${words[2]}" == "config"' in script
     assert '"${words[3]}" == "add"' in script
     assert "$CURRENT -eq 4" in script
+
+
+# ---------------------------------------------------------------------------
+# generate_script with custom cmd_name
+# ---------------------------------------------------------------------------
+
+
+def test_generate_bash_with_alias_cmd_name() -> None:
+    script = generate_script("bash", "petcli")
+    assert "_petcli_completion" in script
+    assert "complete -o nospace -F _petcli_completion petcli" in script
+    assert "petcli _complete" in script
+
+
+def test_generate_zsh_with_alias_cmd_name() -> None:
+    script = generate_script("zsh", "petcli")
+    assert "_petcli()" in script
+    assert "compdef _petcli petcli" in script
+    assert "petcli _complete" in script
+
+
+def test_generate_bash_hyphenated_cmd_name() -> None:
+    """ハイフンを含むコマンド名はシェル関数名でアンダースコアに変換される。"""
+    script = generate_script("bash", "my-cli")
+    assert "_my_cli_completion" in script
+    assert "complete -o nospace -F _my_cli_completion my-cli" in script
+
+
+def test_generate_zsh_hyphenated_cmd_name() -> None:
+    script = generate_script("zsh", "my-cli")
+    assert "_my_cli()" in script
+    assert "compdef _my_cli my-cli" in script
+
+
+def test_generate_script_default_is_papycli_bash() -> None:
+    assert generate_script("bash") == generate_script("bash", "papycli")
+
+
+def test_generate_script_default_is_papycli_zsh() -> None:
+    assert generate_script("zsh") == generate_script("zsh", "papycli")
