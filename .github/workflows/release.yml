@@ -1,30 +1,20 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  release:
+    types: [published]
 
 jobs:
   build:
     name: Build distribution
+    if: github.event.release.prerelease == false
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Verify tag version matches pyproject.toml
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          PKG_VERSION=$(python3 -c "
-          import tomllib
-          with open('pyproject.toml', 'rb') as f:
-              print(tomllib.load(f)['project']['version'])
-          ")
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "::error::Version mismatch: tag=$TAG_VERSION, pyproject.toml=$PKG_VERSION"
-            exit 1
-          fi
-          echo "Version OK: $PKG_VERSION"
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@v5
 
@@ -36,108 +26,14 @@ jobs:
           name: dist
           path: dist/
 
-  github-release:
-    name: Create GitHub Release (draft)
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      models: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history needed for git log
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-      - name: Get previous release tag
-        id: prev-tag
+      - name: Upload dist assets to GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          # Exclude drafts, pre-releases, and the current tag to get the true previous release
-          PREV_TAG=$(gh release list --repo "$REPO" --limit 20 \
-            --json tagName,isDraft,isPrerelease \
-            --jq 'map(select((.isDraft | not) and (.isPrerelease | not) and (.tagName != env.TAG))) | .[0].tagName // ""')
-          echo "prev_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Collect commits since previous release
-        id: commits
-        env:
-          TAG: ${{ github.ref_name }}
-          PREV_TAG: ${{ steps.prev-tag.outputs.prev_tag }}
-        run: |
-          set -euo pipefail
-          if [ -n "${PREV_TAG}" ]; then
-            RANGE="${PREV_TAG}..${TAG}"
-          else
-            RANGE="${TAG}"
-          fi
-          # Validate that the range resolves before proceeding
-          if ! git rev-parse "${RANGE}" > /dev/null 2>&1; then
-            echo "Error: git range '${RANGE}' does not resolve." >&2
-            exit 1
-          fi
-          # Collect up to 100 subject lines; exclude merge commits
-          # Use --max-count instead of | head to avoid SIGPIPE under set -euo pipefail
-          COMMITS=$(git log "${RANGE}" --no-merges --max-count=100 --pretty=format:"%s")
-          # Use a unique delimiter to avoid collision with commit message content
-          DELIM=$(uuidgen)
-          {
-            echo "commits<<${DELIM}"
-            echo "${COMMITS}"
-            echo "${DELIM}"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Generate release notes with GitHub Models
-        id: ai
-        uses: actions/ai-inference@v1
-        with:
-          model: openai/gpt-4o-mini
-          system-prompt: |
-            You are a technical writer generating GitHub release notes from git commit messages.
-
-            Rules:
-            - Classify each commit subject into one of three sections:
-                ## Features   — commits starting with "feat:"
-                ## Bug Fixes  — commits starting with "fix:"
-                ## Maintenance — all other commits (refactor:, ci:, test:, perf:, etc.)
-            - IGNORE commits starting with "docs:" or "chore:" — do not include them at all.
-            - Rewrite each item as a concise, user-friendly bullet point (do not copy the raw commit subject verbatim).
-            - Omit any section that has no entries.
-            - Always output sections in this exact order when present: ## Features, then ## Bug Fixes, then ## Maintenance.
-            - Output valid Markdown only. No preamble, no explanation outside the Markdown.
-          prompt: |
-            Generate release notes for ${{ github.ref_name }} from the following commit messages:
-
-            ${{ steps.commits.outputs.commits }}
-
-      - name: Write release notes to file
-        env:
-          NOTES: ${{ steps.ai.outputs.response }}
-        run: printf '%s' "$NOTES" > release_notes.md
-
-      - name: Create draft release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          gh release create "$TAG" \
-            --repo "$REPO" \
-            --title "$TAG" \
-            --notes-file release_notes.md \
-            --draft \
-            dist/*
+        run: gh release upload "${{ github.event.release.tag_name }}" dist/* --clobber
 
   pypi-publish:
     name: Publish to PyPI
-    needs: github-release
+    needs: build
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

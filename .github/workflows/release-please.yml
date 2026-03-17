@@ -1,0 +1,30 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    # このジョブは main への push のたびに実行され、マージされた PR の種類に応じて動作が変わる:
+    #   - 通常の PR がマージされた場合: リリース PR を作成または更新する
+    #   - release-please が作成したリリース PR がマージされた場合: GitHub Release を作成し、
+    #     バージョンタグ (例: v1.0.0) を付与する
+    # つまり「PR 作成」と「タグ付与＋リリース作成」の両方をこの1ステップが担う。
+    name: Create release PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
