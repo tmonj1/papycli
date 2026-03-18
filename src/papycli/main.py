@@ -342,7 +342,8 @@ def cmd_config_alias(
         if spec_name is not None:
             click.echo("Error: SPEC_NAME cannot be specified with -d.", err=True)
             sys.exit(1)
-        if alias_name not in conf.get("aliases", {}):
+        raw_aliases = conf.get("aliases")
+        if not isinstance(raw_aliases, dict) or alias_name not in raw_aliases:
             click.echo(f"Error: alias '{alias_name}' not found.", err=True)
             sys.exit(1)
         # symlink を先に削除し、失敗時は config を変更せずに終了する
@@ -392,8 +393,10 @@ def cmd_config_alias(
         click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
         sys.exit(1)
 
-    # papycli 実行ファイルのパスを解決する
-    papycli_path = shutil.which("papycli")
+    # papycli 実行ファイルのパスを解決する。
+    # エイリアス経由で呼び出された場合（例: petcli config alias ...）は "papycli" が
+    # PATH に直接なくても、現在のコマンド名（argv[0].stem）で再試行してシンボリックリンクを辿る。
+    papycli_path = shutil.which("papycli") or shutil.which(Path(sys.argv[0]).stem)
     if papycli_path is None:
         click.echo(
             "Error: cannot locate the papycli executable in PATH. "
@@ -424,7 +427,10 @@ def cmd_config_alias(
         if sys.platform == "win32":
             msg += (
                 "\nOn Windows, symlink creation requires either Developer Mode "
-                "(Settings → For developers → Developer Mode) or running as Administrator."
+                "(Settings → For developers → Developer Mode) or running as Administrator. "
+                "Note: even with symlinks enabled, extensionless commands are not resolved "
+                "by default on Windows (PATHEXT does not include entries without extensions). "
+                "Consider using WSL or Git Bash for alias functionality."
             )
         click.echo(msg, err=True)
         sys.exit(1)
