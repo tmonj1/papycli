@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-_SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 
 METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]

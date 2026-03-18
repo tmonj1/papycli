@@ -325,11 +325,11 @@ def cmd_config_alias(
     conf = load_conf(conf_dir)
 
     # alias_name が指定されている場合は安全な名前かチェックする
-    _ALIAS_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+    _ALIAS_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
     if alias_name is not None and not _ALIAS_NAME_RE.match(alias_name):
         click.echo(
             f"Error: alias name '{alias_name}' is invalid. "
-            "Only letters, digits, hyphens, and underscores are allowed.",
+            "Must start with a letter or digit, and contain only letters, digits, hyphens, and underscores.",
             err=True,
         )
         sys.exit(1)
@@ -437,10 +437,11 @@ def cmd_config_alias(
         sys.exit(1)
 
     # symlink 作成後に config を保存する（失敗時は symlink を rollback する）
+    # OSError 以外（json.dump の TypeError/ValueError 等）も捕捉して一貫性を保つ
     try:
         set_alias(conf, alias_name, spec_name)
         save_conf(conf, conf_dir)
-    except OSError as e:
+    except Exception as e:
         symlink.unlink(missing_ok=True)
         click.echo(f"Error: failed to save config: {e}", err=True)
         sys.exit(1)
