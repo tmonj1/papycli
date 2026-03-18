@@ -80,7 +80,7 @@ def generate_script(shell: str, cmd_name: str = "papycli") -> str:
     if not _SAFE_CMD_RE.match(cmd_name):
         raise ValueError(
             f"Invalid command name '{cmd_name}': "
-            "only letters, digits, hyphens, and underscores are allowed."
+            "must start with a letter or digit, and contain only letters, digits, hyphens, and underscores."
         )
     if shell == "bash":
         return _render_script(_BASH_TEMPLATE, cmd_name)

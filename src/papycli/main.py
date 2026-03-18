@@ -14,7 +14,7 @@ import requests
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
-from papycli.completion import generate_script, get_completions
+from papycli.completion import _SAFE_CMD_RE, generate_script, get_completions
 from papycli.config import (
     get_aliases,
     get_apis_dir,
@@ -60,7 +60,7 @@ def cli(ctx: click.Context) -> None:
             _aliases = get_aliases(_conf)
             if cmd_name in _aliases:
                 set_api_override(_aliases[cmd_name])
-        except (OSError, json.JSONDecodeError) as e:
+        except Exception as e:
             click.echo(f"Warning: alias detection failed: {e}", err=True)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
@@ -325,8 +325,7 @@ def cmd_config_alias(
     conf = load_conf(conf_dir)
 
     # alias_name が指定されている場合は安全な名前かチェックする
-    _ALIAS_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
-    if alias_name is not None and not _ALIAS_NAME_RE.match(alias_name):
+    if alias_name is not None and not _SAFE_CMD_RE.match(alias_name):
         click.echo(
             f"Error: alias name '{alias_name}' is invalid. "
             "Must start with a letter or digit, and contain only letters, digits, hyphens, and underscores.",
