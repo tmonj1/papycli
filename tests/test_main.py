@@ -969,19 +969,17 @@ def test_cmd_response_check_without_flag_no_warning(
 # ---------------------------------------------------------------------------
 
 
-def test_cmd_completion_script_bash(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sys.argv", ["papycli", "config", "completion-script", "bash"])
+def test_cmd_completion_script_bash() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "completion-script", "bash"])
+    result = runner.invoke(cli, ["config", "completion-script", "bash"], prog_name="papycli")
     assert result.exit_code == 0
     assert "_papycli_completion" in result.output
     assert "papycli _complete" in result.output
 
 
-def test_cmd_completion_script_zsh(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sys.argv", ["papycli", "config", "completion-script", "zsh"])
+def test_cmd_completion_script_zsh() -> None:
     runner = CliRunner()
-    result = runner.invoke(cli, ["config", "completion-script", "zsh"])
+    result = runner.invoke(cli, ["config", "completion-script", "zsh"], prog_name="papycli")
     assert result.exit_code == 0
     assert "compdef" in result.output
     assert "papycli _complete" in result.output
@@ -1325,10 +1323,9 @@ def test_alias_detection_sets_api_override(
     # main.py は `from papycli.config import set_api_override` でインポートしているため、
     # main モジュール上の名前をパッチする
     monkeypatch.setattr(_main, "set_api_override", _capture)
-    monkeypatch.setattr("sys.argv", ["petcli", "summary"])
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["summary"])
+    result = runner.invoke(cli, ["summary"], prog_name="petcli")
     assert result.exit_code == 0
 
     # set_api_override が "petstore-oas3" で呼ばれていること

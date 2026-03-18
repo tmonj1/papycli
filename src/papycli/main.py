@@ -1,7 +1,6 @@
 """CLI entry point."""
 
 import json
-import re
 import shutil
 import sys
 from pathlib import Path
@@ -52,8 +51,9 @@ from papycli.summary import format_endpoint_detail, format_summary_csv, print_su
 def cli(ctx: click.Context) -> None:
     # 毎回リセットしてからエイリアス検出する（繰り返し呼び出し時のグローバル汚染を防ぐ）
     set_api_override(None)
+    # ctx.info_name は CliRunner/実シェルいずれでも正確な呼び出しコマンド名を返す
     # .stem で Windows の ".exe" 等を除去する
-    cmd_name = Path(sys.argv[0]).stem
+    cmd_name = Path(ctx.info_name or "").stem
     if cmd_name != "papycli":
         try:
             _conf = load_conf(get_conf_dir())
@@ -287,7 +287,9 @@ def cmd_config_log(path: str | None, unset: bool) -> None:
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh"]))
 def cmd_config_completion_script(shell: str) -> None:
-    cmd_name = Path(sys.argv[0]).stem  # .stem で Windows の ".exe" 等を除去する
+    # find_root().info_name でエイリアス経由でも正確なコマンド名を取得する
+    root_name = click.get_current_context().find_root().info_name or ""
+    cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
     try:
         click.echo(generate_script(shell, cmd_name), nl=False)
     except ValueError as e:
@@ -395,8 +397,9 @@ def cmd_config_alias(
 
     # papycli 実行ファイルのパスを解決する。
     # エイリアス経由で呼び出された場合（例: petcli config alias ...）は "papycli" が
-    # PATH に直接なくても、現在のコマンド名（argv[0].stem）で再試行してシンボリックリンクを辿る。
-    papycli_path = shutil.which("papycli") or shutil.which(Path(sys.argv[0]).stem)
+    # PATH に直接なくても、現在のコマンド名で再試行してシンボリックリンクを辿る。
+    root_info_name = click.get_current_context().find_root().info_name or ""
+    papycli_path = shutil.which("papycli") or shutil.which(Path(root_info_name).stem)
     if papycli_path is None:
         click.echo(
             "Error: cannot locate the papycli executable in PATH. "
@@ -405,6 +408,13 @@ def cmd_config_alias(
         )
         sys.exit(1)
     papycli_exe = Path(papycli_path).resolve()
+    if papycli_exe.stem != "papycli":
+        click.echo(
+            f"Error: resolved executable '{papycli_exe}' does not appear to be papycli. "
+            "Ensure 'papycli' is available on your PATH.",
+            err=True,
+        )
+        sys.exit(1)
 
     # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を先に作成する。
     # 失敗した場合は config を変更せずにエラー終了する。
