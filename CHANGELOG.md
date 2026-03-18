@@ -8,21 +8,6 @@
 * config alias サブコマンドの追加 ([01931fd](https://github.com/tmonj1/papycli/commit/01931fd16fc1b5d932ed7f756b637fba3bf27be9))
 * config alias サブコマンドの追加 ([#110](https://github.com/tmonj1/papycli/issues/110)) ([2ae48a3](https://github.com/tmonj1/papycli/commit/2ae48a3317c3a0686375d5172e4dfd118f306779))
 
-
-### Bug Fixes
-
-* Copilot レビュー指摘の対応 ([1080373](https://github.com/tmonj1/papycli/commit/10803737502113343efaf92c31e098e01b2bae8c))
-* Copilot レビュー第10回指摘の対応 ([3589245](https://github.com/tmonj1/papycli/commit/3589245c1b5cd4c7227b8bcb579f553cc42386f2))
-* Copilot レビュー第11回指摘の対応 ([2d7d47d](https://github.com/tmonj1/papycli/commit/2d7d47d2d605d5b5f4199f72aaeb0ecc20c8c24f))
-* Copilot レビュー第2回指摘の対応 ([ac81c0e](https://github.com/tmonj1/papycli/commit/ac81c0e33aa2f03b5a2b3cde843c512f2ee50814))
-* Copilot レビュー第3回指摘の対応 ([46db4f0](https://github.com/tmonj1/papycli/commit/46db4f082f4b7dc4e1874672879a0234bc608be5))
-* Copilot レビュー第4回指摘の対応 ([4a5407b](https://github.com/tmonj1/papycli/commit/4a5407bfd84d2ebeea4a1c55ad7eaf039c18995c))
-* Copilot レビュー第5回指摘の対応 ([ad8308d](https://github.com/tmonj1/papycli/commit/ad8308d3df2921c7cd891f5a10a0b1cb4c8ee467))
-* Copilot レビュー第6回指摘の対応 ([f4cc4b8](https://github.com/tmonj1/papycli/commit/f4cc4b8d1a2d70f4f69750e271e2099293cfaa2c))
-* Copilot レビュー第7回指摘の対応 ([777cacf](https://github.com/tmonj1/papycli/commit/777cacfa0795bace900da26097744fa94ccbf6aa))
-* Copilot レビュー第8回指摘の対応 ([5c3110d](https://github.com/tmonj1/papycli/commit/5c3110dfce925efbeed466a24e7ae81b3de3101a))
-* Copilot レビュー第9回指摘の対応 ([d1cf21b](https://github.com/tmonj1/papycli/commit/d1cf21b34c1dd61cfb76e4bf56c7339eadeec1cc))
-
 ## [0.10.1](https://github.com/tmonj1/papycli/compare/v0.10.0...v0.10.1) (2026-03-17)
 
 
