@@ -342,8 +342,7 @@ def cmd_config_alias(
         if spec_name is not None:
             click.echo("Error: SPEC_NAME cannot be specified with -d.", err=True)
             sys.exit(1)
-        aliases = get_aliases(conf)
-        if alias_name not in aliases:
+        if alias_name not in conf.get("aliases", {}):
             click.echo(f"Error: alias '{alias_name}' not found.", err=True)
             sys.exit(1)
         # symlink を先に削除し、失敗時は config を変更せずに終了する
@@ -393,15 +392,16 @@ def cmd_config_alias(
         click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
         sys.exit(1)
 
-    # papycli 実行ファイルのパスを解決する（shutil.which を優先）
+    # papycli 実行ファイルのパスを解決する
     papycli_path = shutil.which("papycli")
-    if papycli_path is not None:
-        papycli_exe = Path(papycli_path).resolve()
-    else:
-        papycli_exe = Path(sys.argv[0]).resolve()
-    if not papycli_exe.exists():
-        click.echo("Error: cannot locate papycli executable.", err=True)
+    if papycli_path is None:
+        click.echo(
+            "Error: cannot locate the papycli executable in PATH. "
+            "Ensure papycli is installed and available on your PATH.",
+            err=True,
+        )
         sys.exit(1)
+    papycli_exe = Path(papycli_path).resolve()
 
     # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を先に作成する。
     # 失敗した場合は config を変更せずにエラー終了する。

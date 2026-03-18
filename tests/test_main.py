@@ -1206,7 +1206,11 @@ def test_config_alias_create(alias_conf_dir: Path, symlinks_supported: bool) -> 
     assert (alias_conf_dir / "bin" / "petcli").is_symlink()
 
 
-def test_config_alias_create_defaults_to_default_spec(alias_conf_dir: Path) -> None:
+def test_config_alias_create_defaults_to_default_spec(
+    alias_conf_dir: Path, symlinks_supported: bool
+) -> None:
+    if not symlinks_supported:
+        pytest.skip("symlinks not supported on this platform")
     import json as _json
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "alias", "petcli"])
@@ -1218,8 +1222,14 @@ def test_config_alias_create_defaults_to_default_spec(alias_conf_dir: Path) -> N
 
 
 def test_config_alias_list_shows_aliases(alias_conf_dir: Path) -> None:
+    import json as _json
+    # config alias コマンド（symlink 作成を伴う）を使わず conf を直接書き換えてリスト表示を検証する
+    conf_path = alias_conf_dir / "papycli.conf"
+    conf = _json.loads(conf_path.read_text(encoding="utf-8"))
+    conf.setdefault("aliases", {})["petcli"] = "petstore-oas3"
+    conf_path.write_text(_json.dumps(conf, ensure_ascii=False), encoding="utf-8")
+
     runner = CliRunner()
-    runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
     result = runner.invoke(cli, ["config", "alias"])
     assert result.exit_code == 0
     assert "petcli" in result.output
@@ -1266,11 +1276,14 @@ def test_alias_detection_sets_api_override(
     alias_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """argv[0] がエイリアス名と一致するとき、対応する spec が set_api_override で設定される。"""
+    import json as _json
     import papycli.main as _main
 
-    runner = CliRunner()
-    # エイリアスを登録する（symlink 作成は行わず config のみ確認する）
-    runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+    # config alias コマンド（symlink 作成を伴う）を使わず conf を直接書き換える
+    conf_path = alias_conf_dir / "papycli.conf"
+    conf = _json.loads(conf_path.read_text(encoding="utf-8"))
+    conf.setdefault("aliases", {})["petcli"] = "petstore-oas3"
+    conf_path.write_text(_json.dumps(conf, ensure_ascii=False), encoding="utf-8")
 
     overrides: list[str | None] = []
     original = _main.set_api_override
@@ -1284,6 +1297,7 @@ def test_alias_detection_sets_api_override(
     monkeypatch.setattr(_main, "set_api_override", _capture)
     monkeypatch.setattr("sys.argv", ["petcli", "summary"])
 
+    runner = CliRunner()
     result = runner.invoke(cli, ["summary"])
     assert result.exit_code == 0
 
