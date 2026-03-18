@@ -1166,8 +1166,21 @@ def alias_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """petstore-oas3.json を登録した conf_dir を返す（alias テスト用）。"""
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "add", str(PETSTORE_PATH)])
+    result = runner.invoke(cli, ["config", "add", str(PETSTORE_PATH)])
+    assert result.exit_code == 0, f"config add failed: {result.output}"
     return tmp_path
+
+
+@pytest.fixture(scope="session")
+def symlinks_supported(tmp_path_factory: pytest.TempPathFactory) -> bool:
+    """セッションスコープで symlink が使えるか確認する。"""
+    p = tmp_path_factory.mktemp("symlink_check")
+    try:
+        (p / "link").symlink_to(p / "target")
+        (p / "link").unlink()
+        return True
+    except (OSError, NotImplementedError):
+        return False
 
 
 def test_config_alias_list_empty(alias_conf_dir: Path) -> None:
@@ -1177,7 +1190,9 @@ def test_config_alias_list_empty(alias_conf_dir: Path) -> None:
     assert "no aliases" in result.output
 
 
-def test_config_alias_create(alias_conf_dir: Path) -> None:
+def test_config_alias_create(alias_conf_dir: Path, symlinks_supported: bool) -> None:
+    if not symlinks_supported:
+        pytest.skip("symlinks not supported on this platform")
     import json as _json
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
@@ -1209,7 +1224,9 @@ def test_config_alias_list_shows_aliases(alias_conf_dir: Path) -> None:
     assert "petstore-oas3" in result.output
 
 
-def test_config_alias_delete(alias_conf_dir: Path) -> None:
+def test_config_alias_delete(alias_conf_dir: Path, symlinks_supported: bool) -> None:
+    if not symlinks_supported:
+        pytest.skip("symlinks not supported on this platform")
     import json as _json
     runner = CliRunner()
     runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])

@@ -20,7 +20,6 @@ from papycli.config import (
     get_apis_dir,
     get_conf_dir,
     get_conf_path,
-    get_default_api,
     get_logfile,
     load_conf,
     load_current_apidef,
@@ -95,8 +94,11 @@ def cmd_config_add(spec_file: str) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
-    if spec_path.stem == "default":
-        click.echo("Error: 'default' is a reserved name and cannot be used as an API name.", err=True)
+    if spec_path.stem in ("default", "aliases"):
+        click.echo(
+            f"Error: '{spec_path.stem}' is a reserved name and cannot be used as an API name.",
+            err=True,
+        )
         sys.exit(1)
 
     try:
@@ -126,11 +128,13 @@ def cmd_config_use(api_name: str) -> None:
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
-    if api_name == "default":
-        click.echo("Error: 'default' is a reserved configuration key, not an API name.", err=True)
+    if api_name in ("default", "aliases"):
+        click.echo(
+            f"Error: '{api_name}' is a reserved configuration key, not an API name.", err=True
+        )
         sys.exit(1)
 
-    registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+    registered = [k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)]
     if api_name not in conf or not isinstance(conf[api_name], dict):
         if registered:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
@@ -153,12 +157,14 @@ def cmd_config_remove(api_name: str) -> None:
     conf_dir = get_conf_dir()
     conf = load_conf(conf_dir)
 
-    if api_name == "default":
-        click.echo("Error: 'default' is a reserved configuration key, not an API name.", err=True)
+    if api_name in ("default", "aliases"):
+        click.echo(
+            f"Error: '{api_name}' is a reserved configuration key, not an API name.", err=True
+        )
         sys.exit(1)
 
     if api_name not in conf or not isinstance(conf[api_name], dict):
-        registered = [k for k in conf if k != "default" and isinstance(conf[k], dict)]
+        registered = [k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)]
         if registered:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
@@ -414,7 +420,13 @@ def cmd_config_alias(
             sys.exit(1)
         symlink.symlink_to(papycli_exe)
     except OSError as e:
-        click.echo(f"Error: failed to create symlink: {e}", err=True)
+        msg = f"Error: failed to create symlink: {e}"
+        if sys.platform == "win32":
+            msg += (
+                "\nOn Windows, symlink creation requires either Developer Mode "
+                "(Settings → For developers → Developer Mode) or running as Administrator."
+            )
+        click.echo(msg, err=True)
         sys.exit(1)
 
     # symlink 作成後に config を保存する（失敗時は symlink を rollback する）
