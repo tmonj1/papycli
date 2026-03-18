@@ -388,8 +388,9 @@ def cmd_config_alias(
             sys.exit(1)
         spec_name = raw_default
 
-    # スペックが登録済みかチェックする
-    if not isinstance(conf.get(spec_name), dict):
+    # スペックが登録済みかチェックする（予約済みキーは除外）
+    _reserved = ("default", "aliases")
+    if spec_name in _reserved or not isinstance(conf.get(spec_name), dict):
         click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
         sys.exit(1)
 

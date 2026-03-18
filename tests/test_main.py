@@ -1192,33 +1192,54 @@ def test_config_alias_list_empty(alias_conf_dir: Path) -> None:
     assert "no aliases" in result.output
 
 
-def test_config_alias_create(alias_conf_dir: Path, symlinks_supported: bool) -> None:
-    if not symlinks_supported:
-        pytest.skip("symlinks not supported on this platform")
-    import json as _json
-    runner = CliRunner()
-    result = runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
-    assert result.exit_code == 0
-    assert "petcli" in result.output
-
-    conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
-    assert conf.get("aliases", {}).get("petcli") == "petstore-oas3"
-    assert (alias_conf_dir / "bin" / "petcli").is_symlink()
-
-
-def test_config_alias_create_defaults_to_default_spec(
-    alias_conf_dir: Path, symlinks_supported: bool
+def test_config_alias_create(
+    alias_conf_dir: Path, symlinks_supported: bool,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
     if not symlinks_supported:
         pytest.skip("symlinks not supported on this platform")
     import json as _json
+    import papycli.main as _main
+
+    fake_exe = tmp_path / "papycli"
+    fake_exe.touch()
+    monkeypatch.setattr(_main.shutil, "which", lambda name: str(fake_exe))
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+    assert result.exit_code == 0, result.output
+    assert "petcli" in result.output
+
+    conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
+    assert conf.get("aliases", {}).get("petcli") == "petstore-oas3"
+    symlink = alias_conf_dir / "bin" / "petcli"
+    assert symlink.is_symlink()
+    assert symlink.resolve() == fake_exe.resolve()
+
+
+def test_config_alias_create_defaults_to_default_spec(
+    alias_conf_dir: Path, symlinks_supported: bool,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
+    if not symlinks_supported:
+        pytest.skip("symlinks not supported on this platform")
+    import json as _json
+    import papycli.main as _main
+
+    fake_exe = tmp_path / "papycli"
+    fake_exe.touch()
+    monkeypatch.setattr(_main.shutil, "which", lambda name: str(fake_exe))
+
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "alias", "petcli"])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
 
     conf = _json.loads((alias_conf_dir / "papycli.conf").read_text(encoding="utf-8"))
     default_spec = conf.get("default")
     assert conf.get("aliases", {}).get("petcli") == default_spec
+    symlink = alias_conf_dir / "bin" / "petcli"
+    assert symlink.is_symlink()
+    assert symlink.resolve() == fake_exe.resolve()
 
 
 def test_config_alias_list_shows_aliases(alias_conf_dir: Path) -> None:
@@ -1236,10 +1257,19 @@ def test_config_alias_list_shows_aliases(alias_conf_dir: Path) -> None:
     assert "petstore-oas3" in result.output
 
 
-def test_config_alias_delete(alias_conf_dir: Path, symlinks_supported: bool) -> None:
+def test_config_alias_delete(
+    alias_conf_dir: Path, symlinks_supported: bool,
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+) -> None:
     if not symlinks_supported:
         pytest.skip("symlinks not supported on this platform")
     import json as _json
+    import papycli.main as _main
+
+    fake_exe = tmp_path / "papycli"
+    fake_exe.touch()
+    monkeypatch.setattr(_main.shutil, "which", lambda name: str(fake_exe))
+
     runner = CliRunner()
     runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
     result = runner.invoke(cli, ["config", "alias", "-d", "petcli"])
