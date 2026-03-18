@@ -1164,6 +1164,8 @@ def test_config_log_unset_and_path_exclusive(
 @pytest.fixture()
 def alias_conf_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """petstore-oas3.json を登録した conf_dir を返す（alias テスト用）。"""
+    if not PETSTORE_PATH.exists():
+        pytest.skip("petstore-oas3.json not found")
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
     result = runner.invoke(cli, ["config", "add", str(PETSTORE_PATH)])
@@ -1258,3 +1260,32 @@ def test_config_alias_delete_requires_name(alias_conf_dir: Path) -> None:
     result = runner.invoke(cli, ["config", "alias", "-d"])
     assert result.exit_code != 0
     assert "alias name is required" in result.output
+
+
+def test_alias_detection_sets_api_override(
+    alias_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """argv[0] がエイリアス名と一致するとき、対応する spec が set_api_override で設定される。"""
+    import papycli.main as _main
+
+    runner = CliRunner()
+    # エイリアスを登録する（symlink 作成は行わず config のみ確認する）
+    runner.invoke(cli, ["config", "alias", "petcli", "petstore-oas3"])
+
+    overrides: list[str | None] = []
+    original = _main.set_api_override
+
+    def _capture(name: str | None) -> None:
+        original(name)
+        overrides.append(name)
+
+    # main.py は `from papycli.config import set_api_override` でインポートしているため、
+    # main モジュール上の名前をパッチする
+    monkeypatch.setattr(_main, "set_api_override", _capture)
+    monkeypatch.setattr("sys.argv", ["petcli", "summary"])
+
+    result = runner.invoke(cli, ["summary"])
+    assert result.exit_code == 0
+
+    # set_api_override が "petstore-oas3" で呼ばれていること
+    assert "petstore-oas3" in overrides
