@@ -7,21 +7,24 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
+_SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+
 METHODS = ["get", "post", "put", "patch", "delete"]
-CONFIG_SUBCOMMANDS = ["add", "completion-script", "list", "log", "remove", "use"]
+CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
 TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
 # ---------------------------------------------------------------------------
 
-BASH_SCRIPT = """\
-_papycli_completion() {
+_BASH_TEMPLATE = """\
+_@@SAFENAME@@_completion() {
     local IFS=$'\\n'
-    COMPREPLY=($(papycli _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
+    COMPREPLY=($(@@CMDNAME@@ _complete "${COMP_CWORD}" "${COMP_WORDS[@]}" 2>/dev/null))
     if [[ ${#COMPREPLY[@]} -eq 0 \\
           && "${COMP_WORDS[1]}" == "config" \\
           && "${COMP_WORDS[2]}" == "add" \\
@@ -30,28 +33,58 @@ _papycli_completion() {
         compopt -o filenames 2>/dev/null
     fi
 }
-complete -o nospace -F _papycli_completion papycli
+complete -o nospace -F _@@SAFENAME@@_completion @@CMDNAME@@
 """
 
-ZSH_SCRIPT = """\
-_papycli() {
+_ZSH_TEMPLATE = """\
+_@@SAFENAME@@() {
     local -a completions
-    completions=(${(f)"$(papycli _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
+    completions=(${(f)"$(@@CMDNAME@@ _complete "$((CURRENT - 1))" "${words[@]}" 2>/dev/null)"})
     if [[ ${#completions[@]} -gt 0 ]]; then
         _describe '' completions
     elif [[ "${words[2]}" == "config" && "${words[3]}" == "add" && $CURRENT -eq 4 ]]; then
         _files
     fi
 }
-compdef _papycli papycli
+compdef _@@SAFENAME@@ @@CMDNAME@@
 """
 
 
-def generate_script(shell: str) -> str:
-    """指定シェル向けの補完スクリプトを返す。"""
+def _render_script(template: str, cmd: str) -> str:
+    """テンプレート内の @@CMDNAME@@ / @@SAFENAME@@ をコマンド名で置換する。
+
+    @@...@@ は有効なエイリアス名 ([A-Za-z0-9_-]+) に含まれない @ を含むため、
+    cmd の値に関わらずプレースホルダーが意図せず再置換されることはない。
+    """
+    safe = cmd.replace("-", "_")
+    return template.replace("@@CMDNAME@@", cmd).replace("@@SAFENAME@@", safe)
+
+
+# 後方互換用エイリアス
+BASH_SCRIPT = _render_script(_BASH_TEMPLATE, "papycli")
+ZSH_SCRIPT = _render_script(_ZSH_TEMPLATE, "papycli")
+
+
+def generate_script(shell: str, cmd_name: str = "papycli") -> str:
+    """指定シェル向けの補完スクリプトを返す。
+
+    Args:
+        shell: "bash" または "zsh"
+        cmd_name: 補完対象のコマンド名。エイリアスで呼び出した場合はエイリアス名を渡す。
+
+    Raises:
+        ValueError: cmd_name に安全でない文字が含まれる場合。
+    """
+    # Windows の ".exe" / ".py" 等の拡張子を除去する
+    cmd_name = Path(cmd_name).stem
+    if not _SAFE_CMD_RE.match(cmd_name):
+        raise ValueError(
+            f"Invalid command name '{cmd_name}': "
+            "must start with a letter or digit, and contain only letters, digits, hyphens, and underscores."
+        )
     if shell == "bash":
-        return BASH_SCRIPT
-    return ZSH_SCRIPT
+        return _render_script(_BASH_TEMPLATE, cmd_name)
+    return _render_script(_ZSH_TEMPLATE, cmd_name)
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +312,7 @@ def get_completions(words: list[str], current: int, conf_dir: Path | None = None
     try:
         conf = load_conf(resolved_dir)
         api_names: list[str] | None = [
-            k for k in conf if k != "default" and isinstance(conf[k], dict)
+            k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
         ]
     except Exception:
         api_names = None

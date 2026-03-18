@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from papycli.config import (
+    get_aliases,
     get_apis_dir,
     get_conf_dir,
     get_conf_path,
@@ -15,8 +16,11 @@ from papycli.config import (
     load_conf,
     load_current_raw_spec,
     register_api,
+    remove_alias,
     remove_api,
     save_conf,
+    set_alias,
+    set_api_override,
     set_default_api,
     set_logfile,
     unset_logfile,
@@ -242,3 +246,83 @@ def test_load_current_raw_spec_missing_file(tmp_path: Path) -> None:
     save_conf(conf, tmp_path)
     with pytest.raises(RuntimeError, match="Raw spec file not found"):
         load_current_raw_spec(tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# aliases
+# ---------------------------------------------------------------------------
+
+
+def test_get_aliases_empty_when_not_set() -> None:
+    assert get_aliases({}) == {}
+
+
+def test_get_aliases_returns_mapping() -> None:
+    conf: dict = {"aliases": {"petcli": "petstore"}}
+    assert get_aliases(conf) == {"petcli": "petstore"}
+
+
+def test_get_aliases_ignores_non_string_values() -> None:
+    conf: dict = {"aliases": {"petcli": "petstore", "bad": 123}}
+    assert get_aliases(conf) == {"petcli": "petstore"}
+
+
+def test_set_alias_creates_aliases_key() -> None:
+    conf: dict = {}
+    set_alias(conf, "petcli", "petstore")
+    assert conf["aliases"] == {"petcli": "petstore"}
+
+
+def test_set_alias_adds_to_existing() -> None:
+    conf: dict = {"aliases": {"mycli": "api1"}}
+    set_alias(conf, "petcli", "petstore")
+    assert conf["aliases"] == {"mycli": "api1", "petcli": "petstore"}
+
+
+def test_remove_alias_removes_entry() -> None:
+    conf: dict = {"aliases": {"petcli": "petstore", "mycli": "api1"}}
+    remove_alias(conf, "petcli")
+    assert "petcli" not in conf["aliases"]
+    assert "mycli" in conf["aliases"]
+
+
+def test_remove_alias_removes_aliases_key_when_empty() -> None:
+    conf: dict = {"aliases": {"petcli": "petstore"}}
+    remove_alias(conf, "petcli")
+    assert "aliases" not in conf
+
+
+def test_remove_alias_noop_when_not_found() -> None:
+    conf: dict = {"aliases": {"petcli": "petstore"}}
+    remove_alias(conf, "nonexistent")
+    assert conf == {"aliases": {"petcli": "petstore"}}
+
+
+def test_get_default_api_uses_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    import papycli.config as cfg
+    monkeypatch.setattr(cfg, "_api_override", "overridden")
+    assert get_default_api({"default": "original"}) == "overridden"
+
+
+def test_set_api_override_then_reset() -> None:
+    import papycli.config as cfg
+    original = cfg._api_override
+    try:
+        set_api_override("myspec")
+        assert get_default_api({}) == "myspec"
+        set_api_override(None)
+        assert get_default_api({"default": "fallback"}) == "fallback"
+    finally:
+        cfg._api_override = original
+
+
+def test_remove_api_does_not_reassign_default_to_aliases() -> None:
+    """aliases キーが remove_api の reassign 対象に含まれないことを確認する。"""
+    conf: dict = {
+        "default": "api1",
+        "api1": {"url": "http://a"},
+        "aliases": {"petcli": "api2"},
+    }
+    remove_api(conf, "api1")
+    assert "api1" not in conf
+    assert "default" not in conf  # 残りの API なし（aliases は除外される）
