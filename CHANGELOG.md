@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/tmonj1/papycli/compare/v0.10.1...v0.11.0) (2026-03-18)
+
+
+### Features
+
+* config alias サブコマンドの追加 ([01931fd](https://github.com/tmonj1/papycli/commit/01931fd16fc1b5d932ed7f756b637fba3bf27be9))
+* config alias サブコマンドの追加 ([#110](https://github.com/tmonj1/papycli/issues/110)) ([2ae48a3](https://github.com/tmonj1/papycli/commit/2ae48a3317c3a0686375d5172e4dfd118f306779))
+
 ## [0.10.1](https://github.com/tmonj1/papycli/compare/v0.10.0...v0.10.1) (2026-03-17)
 
 
