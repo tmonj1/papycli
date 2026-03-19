@@ -30,15 +30,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 422 は Copilot がすでに requested_reviewers に入っている場合に返される。
-          # その場合はスキップ扱いとし、それ以外のエラーは失敗させる。
-          if ! gh api --method POST \
-              repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-              -f 'reviewers[]=copilot-pull-request-reviewer' 2>/tmp/gh_err; then
-            if grep -q "422" /tmp/gh_err; then
-              echo "Copilot is already a requested reviewer; skipping."
-            else
-              cat /tmp/gh_err >&2
-              exit 1
-            fi
+          # すでにレビューリクエスト済みの場合は POST をスキップして冪等にする。
+          # GET で現在の requested_reviewers を確認し、Copilot が含まれていれば何もしない。
+          already_requested=$(gh api \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            --jq '[.users[].login] | contains(["copilot-pull-request-reviewer"])')
+          if [ "$already_requested" = "true" ]; then
+            echo "Copilot is already a requested reviewer; skipping."
+            exit 0
           fi
+          gh api --method POST \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -f 'reviewers[]=copilot-pull-request-reviewer'
