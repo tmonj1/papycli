@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.12.0](https://github.com/tmonj1/papycli/compare/v0.11.0...v0.12.0) (2026-03-19)
+
+
+### Features
+
+* RequestContext に spec 属性を追加してAPIオペレーション仕様を格納する ([d259f14](https://github.com/tmonj1/papycli/commit/d259f1408e8e2baaacfb5f727cb9391ffddb5f19))
+* RequestContext に spec 属性を追加してAPIオペレーション仕様を格納する ([#113](https://github.com/tmonj1/papycli/issues/113)) ([230231e](https://github.com/tmonj1/papycli/commit/230231eae044a78cd40b9b5b2ec4837972681783))
+
+
+### Bug Fixes
+
+* spec フィールドの deepcopy によるリーク防止と is→== テスト修正 ([6289572](https://github.com/tmonj1/papycli/commit/628957251eb6d4e7f696b13bef2a689f90550fee))
+* spec を apply_response_filters の request_body パターンで復元・保護 ([2629db6](https://github.com/tmonj1/papycli/commit/2629db6a0714c7ae8bdd624cfa3d35fdfe3a6a4b))
+
 ## [0.11.0](https://github.com/tmonj1/papycli/compare/v0.10.1...v0.11.0) (2026-03-18)
 
 
