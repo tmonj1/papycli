@@ -128,10 +128,10 @@ def apply_filters(
     immutable なためシャローコピーで十分）。
 
     ``spec`` は read-only フィールドのため、フィルターが変更しても後続フィルターや
-    呼び出し元には反映されない。``apply_response_filters`` の ``request_body`` と同様に、
-    フィルター適用前に ``original_spec`` を deepcopy で保存し、各フィルター成功後および
-    全フィルター完了後に ``ctx.spec`` を元の値に復元することで、フィルターによる
-    変更・インプレース変異・例外送出のいずれの場合も spec が汚染されないことを保証する。
+    呼び出し元には反映されない。フィルター適用前に ``original_spec`` として参照を保存し、
+    スナップショットには ``copy.deepcopy(original_spec)`` を渡すことでフィルターによる
+    インプレース変異を防ぐ。各フィルター成功後に ``result.spec = original_spec`` で
+    元の参照を復元することで、spec が汚染されないことを保証する。
 
     例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
@@ -141,9 +141,8 @@ def apply_filters(
     if not filters:
         return ctx
 
-    # spec は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
-    # deepcopy することで後からの変更が original_spec に波及しないようにする。
-    original_spec = copy.deepcopy(ctx.spec)
+    # spec は参照専用フィールドのため、参照のみ保持する（deepcopy 不要）。
+    original_spec = ctx.spec
     for name, func in filters:
         # method と url は immutable な str なのでコピー不要。
         # query_params の要素（tuple）も immutable なのでリストのシャローコピーで十分。
@@ -157,7 +156,7 @@ def apply_filters(
             query_params=list(ctx.query_params),
             body=copy.deepcopy(ctx.body),
             headers=dict(ctx.headers),
-            spec=copy.deepcopy(ctx.spec),
+            spec=copy.deepcopy(original_spec),
         )
         try:
             result = func(snapshot)
@@ -177,8 +176,6 @@ def apply_filters(
         # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
         result.spec = original_spec
         ctx = result
-    # 全フィルターが失敗した場合も含め、常に元の spec で上書きする。
-    ctx.spec = original_spec
     return ctx
 
 
