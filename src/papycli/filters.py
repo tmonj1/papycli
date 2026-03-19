@@ -122,22 +122,35 @@ def apply_filters(
     """フィルターを順番に適用する。
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
-    スナップショットは ``body`` と ``spec`` を ``copy.deepcopy``、それ以外（``method``、
+    スナップショットは ``body`` を ``copy.deepcopy``、それ以外（``method``、
     ``url``、``query_params``、``headers``）は新しいコンテナへのシャローコピーで
     作成される（``query_params`` の要素 ``tuple`` と ``headers`` の値 ``str`` は
-    immutable なためシャローコピーで十分）。``spec`` は read-only フィールドだが、
-    フィルターがインプレース変更してから例外を送出した場合のリークを防ぐため deepcopy する。
+    immutable なためシャローコピーで十分）。
+
+    ``spec`` は read-only フィールドのため、フィルターが変更しても後続フィルターや
+    呼び出し元には反映されない。``apply_response_filters`` の ``request_body`` と同様に、
+    フィルター適用前に ``original_spec`` を deepcopy で保存し、各フィルター成功後および
+    全フィルター完了後に ``ctx.spec`` を元の値に復元することで、フィルターによる
+    変更・インプレース変異・例外送出のいずれの場合も spec が汚染されないことを保証する。
 
     例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
     これにより、フィルターが失敗する前にコンテキストをインプレース変更していても
     変更がキャンセルされ、後続フィルターへの影響を防ぐ。
     """
+    if not filters:
+        return ctx
+
+    # spec は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
+    # deepcopy することで後からの変更が original_spec に波及しないようにする。
+    original_spec = copy.deepcopy(ctx.spec)
     for name, func in filters:
         # method と url は immutable な str なのでコピー不要。
         # query_params の要素（tuple）も immutable なのでリストのシャローコピーで十分。
         # headers の値は str なのでシャローコピーで十分。
-        # body と spec は dict / list の可能性があるため deepcopy する。
+        # body は dict / list の可能性があるため deepcopy する。
+        # spec は original_spec の deepcopy を渡すことでフィルターが original_spec を
+        # 変異させるリスクを排除する。
         snapshot = RequestContext(
             method=ctx.method,
             url=ctx.url,
@@ -161,7 +174,11 @@ def apply_filters(
                 file=sys.stderr,
             )
             continue
+        # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
+        result.spec = original_spec
         ctx = result
+    # 全フィルターが失敗した場合も含め、常に元の spec で上書きする。
+    ctx.spec = original_spec
     return ctx
 
 

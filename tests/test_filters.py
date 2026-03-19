@@ -46,7 +46,11 @@ def test_request_context_fields() -> None:
 
 
 def test_request_context_spec_field() -> None:
-    op = {"method": "get", "query_parameters": [{"name": "status", "type": "string", "required": False}], "post_parameters": []}
+    op = {
+        "method": "get",
+        "query_parameters": [{"name": "status", "type": "string", "required": False}],
+        "post_parameters": [],
+    }
     ctx = RequestContext(method="get", url="http://example.com/api/pets", spec=op)
     assert ctx.spec == op
     assert ctx.spec["method"] == "get"
@@ -204,7 +208,11 @@ def test_apply_filters_inplace_mutation_before_bad_return_is_reverted(
 
 def test_apply_filters_spec_mutation_does_not_leak_on_exception() -> None:
     """フィルターが spec をインプレース変更してから例外を送出しても元の spec は保持される。"""
-    original_spec = {"method": "get", "query_parameters": [{"name": "q", "type": "string", "required": False}], "post_parameters": []}
+    original_spec = {
+        "method": "get",
+        "query_parameters": [{"name": "q", "type": "string", "required": False}],
+        "post_parameters": [],
+    }
 
     def mutate_spec_then_raise(ctx: RequestContext) -> RequestContext:
         assert ctx.spec is not None
@@ -224,7 +232,11 @@ def test_apply_filters_spec_mutation_does_not_leak_on_exception() -> None:
 
 def test_apply_filters_spec_mutation_does_not_leak_on_bad_return() -> None:
     """フィルターが spec をインプレース変更してから不正な戻り値を返しても元の spec は保持される。"""
-    original_spec = {"method": "post", "query_parameters": [], "post_parameters": [{"name": "name", "type": "string", "required": True}]}
+    original_spec = {
+        "method": "post",
+        "query_parameters": [],
+        "post_parameters": [{"name": "name", "type": "string", "required": True}],
+    }
 
     def mutate_spec_then_bad_return(ctx: RequestContext) -> RequestContext:
         assert ctx.spec is not None
@@ -1005,7 +1017,9 @@ def test_apply_response_filters_none_stops_chain() -> None:
 
     ctx = ResponseContext(method="get", url="http://example.com", status_code=200, reason="OK",
                          body="hello")
-    result = apply_response_filters(ctx, [("suppress", suppress), ("should_not_run", should_not_run)])
+    result = apply_response_filters(
+        ctx, [("suppress", suppress), ("should_not_run", should_not_run)]
+    )
     assert result is None
     assert called == ["suppress"]
 
