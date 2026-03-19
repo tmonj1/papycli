@@ -30,6 +30,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # copilot-pull-request-reviewer がコラボレーターでない場合はリクエスト不可。
+          is_collaborator=$(gh api \
+            repos/${{ github.repository }}/collaborators/copilot-pull-request-reviewer \
+            --silent --http-status)
+          if [ "$is_collaborator" != "204" ]; then
+            echo "copilot-pull-request-reviewer is not a collaborator; skipping review request."
+            exit 0
+          fi
           # すでにレビューリクエスト済みの場合は POST をスキップして冪等にする。
           # GET で現在の requested_reviewers を確認し、Copilot が含まれていれば何もしない。
           already_requested=$(gh api \
