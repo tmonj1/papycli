@@ -53,6 +53,7 @@ def test_request_context_spec_field() -> None:
     }
     ctx = RequestContext(method="get", url="http://example.com/api/pets", spec=op)
     assert ctx.spec == op
+    assert ctx.spec is not None
     assert ctx.spec["method"] == "get"
     assert ctx.spec["query_parameters"][0]["name"] == "status"
 

@@ -141,7 +141,9 @@ def apply_filters(
     if not filters:
         return ctx
 
-    # spec は参照専用フィールドのため、参照のみ保持する（deepcopy 不要）。
+    # original_spec は参照のみ保持する（deepcopy 不要）。
+    # 各フィルターへのスナップショットには copy.deepcopy(original_spec) を渡すため、
+    # フィルターがインプレース変異させても original_spec は汚染されない。
     original_spec = ctx.spec
     for name, func in filters:
         # method と url は immutable な str なのでコピー不要。
