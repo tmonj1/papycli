@@ -369,6 +369,7 @@ def call_api(
         query_params=list(query_params),
         body=json_body,
         headers=headers,
+        spec=op,
     )
     filters = load_filters()
     ctx = apply_filters(ctx, filters)
