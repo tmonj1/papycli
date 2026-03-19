@@ -13,10 +13,18 @@ on:
 permissions:
   pull-requests: write
 
+# 同一 PR への連続プッシュで多重実行されないよう PR 番号単位で直列化する。
+# cancel-in-progress: true にすることで古い実行をキャンセルし最新のみを実行する。
+concurrency:
+  group: copilot-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   request-copilot-review:
     name: Request Copilot review
     runs-on: ubuntu-latest
+    # fork からの PR は GITHUB_TOKEN の書き込み権限がなく 403 になるためスキップする。
+    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Request review from Copilot
         env:
