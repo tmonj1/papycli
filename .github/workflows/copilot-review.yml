@@ -31,10 +31,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # copilot-pull-request-reviewer がコラボレーターでない場合はリクエスト不可。
-          is_collaborator=$(gh api \
-            repos/${{ github.repository }}/collaborators/copilot-pull-request-reviewer \
-            --silent --http-status)
-          if [ "$is_collaborator" != "204" ]; then
+          # gh api は 2xx で exit 0、4xx で exit non-zero を返すため終了コードで判定する。
+          if ! gh api \
+              repos/${{ github.repository }}/collaborators/copilot-pull-request-reviewer \
+              --silent 2>/dev/null; then
             echo "copilot-pull-request-reviewer is not a collaborator; skipping review request."
             exit 0
           fi
