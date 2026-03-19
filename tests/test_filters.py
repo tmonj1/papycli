@@ -26,6 +26,7 @@ def test_request_context_defaults() -> None:
     assert ctx.query_params == []
     assert ctx.body is None
     assert ctx.headers == {}
+    assert ctx.spec is None
 
 
 def test_request_context_fields() -> None:
@@ -41,6 +42,15 @@ def test_request_context_fields() -> None:
     assert ctx.query_params == [("status", "available")]
     assert ctx.body == {"name": "Dog"}
     assert ctx.headers == {"Authorization": "Bearer token"}
+    assert ctx.spec is None
+
+
+def test_request_context_spec_field() -> None:
+    op = {"method": "get", "query_parameters": [{"name": "status", "type": "string", "required": False}], "post_parameters": []}
+    ctx = RequestContext(method="get", url="http://example.com/api/pets", spec=op)
+    assert ctx.spec is op
+    assert ctx.spec["method"] == "get"
+    assert ctx.spec["query_parameters"][0]["name"] == "status"
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +341,50 @@ def test_call_api_no_filters() -> None:
         assert resp is not None
 
     assert resp.status_code == 200
+
+
+@rsps.activate
+def test_call_api_filter_receives_spec() -> None:
+    """フィルターが受け取る RequestContext に spec が設定されている。"""
+    rsps.add(rsps.GET, f"{BASE_URL}/store/inventory", json={}, status=200)
+
+    captured_spec: list[Any] = []
+
+    def capture_spec(ctx: RequestContext) -> RequestContext:
+        captured_spec.append(ctx.spec)
+        return ctx
+
+    ep = _make_ep("spec-filter", capture_spec)
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
+        call_api("get", "/store/inventory", BASE_URL, APIDEF)
+
+    assert len(captured_spec) == 1
+    assert captured_spec[0] is not None
+    assert captured_spec[0]["method"] == "get"
+    assert "query_parameters" in captured_spec[0]
+    assert "post_parameters" in captured_spec[0]
+
+
+@rsps.activate
+def test_call_api_filter_spec_matches_operation() -> None:
+    """フィルターが受け取る spec が呼び出したメソッドのオペレーション定義と一致する。"""
+    rsps.add(rsps.POST, f"{BASE_URL}/pet", json={}, status=200)
+
+    captured_spec: list[Any] = []
+
+    def capture_spec(ctx: RequestContext) -> RequestContext:
+        captured_spec.append(ctx.spec)
+        return ctx
+
+    ep = _make_ep("spec-filter", capture_spec)
+    with patch("papycli.filters.importlib.metadata.entry_points", return_value=[ep]):
+        call_api("post", "/pet", BASE_URL, APIDEF, body_params=[("name", "Dog")])
+
+    assert len(captured_spec) == 1
+    spec = captured_spec[0]
+    assert spec is not None
+    assert spec["method"] == "post"
+    assert any(p["name"] == "name" for p in spec["post_parameters"])
 
 
 # ---------------------------------------------------------------------------

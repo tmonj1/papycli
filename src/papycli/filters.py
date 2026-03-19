@@ -68,6 +68,25 @@ class RequestContext:
     headers: dict[str, str] = field(default_factory=dict)
     """カスタム HTTP ヘッダー."""
 
+    spec: dict[str, Any] | None = field(default=None)
+    """呼び出し中のオペレーション仕様（apidef 内の該当エントリ）.
+
+    API 定義にマッチしたオペレーション dict を格納する。例::
+
+        {
+            "method": "get",
+            "query_parameters": [{"name": "status", "type": "string", ...}],
+            "post_parameters": [],
+        }
+
+    API 定義が解決できない場合（直接 ``RequestContext`` を構築するテスト等）は ``None``。
+
+    .. note::
+        フィルターはこのフィールドを変更してはならない。
+        ``spec`` は API 定義から導出されたメタデータであり、フィルターが変更しても
+        パラメータ検証や補完には反映されない。
+    """
+
 
 def load_filters() -> list[tuple[str, FilterFunc]]:
     """``papycli.request_filters`` グループのプラグインをプラグイン名の昇順でロードする。
@@ -104,9 +123,10 @@ def apply_filters(
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
     スナップショットは ``body`` のみ ``copy.deepcopy``、それ以外（``method``、
-    ``url``、``query_params``、``headers``）は新しいコンテナへのシャローコピーで
+    ``url``、``query_params``、``headers``、``spec``）は新しいコンテナへのシャローコピーで
     作成される（``query_params`` の要素 ``tuple`` と ``headers`` の値 ``str`` は
-    immutable なためシャローコピーで十分）。
+    immutable なためシャローコピーで十分）。``spec`` は read-only フィールドのため
+    参照をそのまま渡す。
 
     例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
@@ -118,12 +138,14 @@ def apply_filters(
         # query_params の要素（tuple）も immutable なのでリストのシャローコピーで十分。
         # headers の値は str なのでシャローコピーで十分。
         # body だけは dict / list の可能性があるため deepcopy する。
+        # spec は read-only なので参照をそのまま渡す。
         snapshot = RequestContext(
             method=ctx.method,
             url=ctx.url,
             query_params=list(ctx.query_params),
             body=copy.deepcopy(ctx.body),
             headers=dict(ctx.headers),
+            spec=ctx.spec,
         )
         try:
             result = func(snapshot)
