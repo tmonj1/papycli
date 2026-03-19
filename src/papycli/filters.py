@@ -122,11 +122,11 @@ def apply_filters(
     """フィルターを順番に適用する。
 
     各フィルターは呼び出し前の ``ctx`` のスナップショットを受け取る。
-    スナップショットは ``body`` のみ ``copy.deepcopy``、それ以外（``method``、
-    ``url``、``query_params``、``headers``、``spec``）は新しいコンテナへのシャローコピーで
+    スナップショットは ``body`` と ``spec`` を ``copy.deepcopy``、それ以外（``method``、
+    ``url``、``query_params``、``headers``）は新しいコンテナへのシャローコピーで
     作成される（``query_params`` の要素 ``tuple`` と ``headers`` の値 ``str`` は
-    immutable なためシャローコピーで十分）。``spec`` は read-only フィールドのため
-    参照をそのまま渡す。
+    immutable なためシャローコピーで十分）。``spec`` は read-only フィールドだが、
+    フィルターがインプレース変更してから例外を送出した場合のリークを防ぐため deepcopy する。
 
     例外を送出したフィルター、および ``RequestContext`` 以外を返したフィルターは
     警告を出力して前の ``ctx`` を維持し、残りのフィルターの処理は継続する。
@@ -137,15 +137,14 @@ def apply_filters(
         # method と url は immutable な str なのでコピー不要。
         # query_params の要素（tuple）も immutable なのでリストのシャローコピーで十分。
         # headers の値は str なのでシャローコピーで十分。
-        # body だけは dict / list の可能性があるため deepcopy する。
-        # spec は read-only なので参照をそのまま渡す。
+        # body と spec は dict / list の可能性があるため deepcopy する。
         snapshot = RequestContext(
             method=ctx.method,
             url=ctx.url,
             query_params=list(ctx.query_params),
             body=copy.deepcopy(ctx.body),
             headers=dict(ctx.headers),
-            spec=ctx.spec,
+            spec=copy.deepcopy(ctx.spec),
         )
         try:
             result = func(snapshot)

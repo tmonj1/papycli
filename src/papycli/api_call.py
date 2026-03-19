@@ -1,5 +1,6 @@
 """HTTP リクエスト実行・パステンプレートマッチング・パラメータ構築."""
 
+import copy
 import json
 import os
 import re
@@ -369,7 +370,7 @@ def call_api(
         query_params=list(query_params),
         body=json_body,
         headers=headers,
-        spec=op,
+        spec=copy.deepcopy(op),
     )
     filters = load_filters()
     ctx = apply_filters(ctx, filters)

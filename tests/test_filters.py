@@ -48,7 +48,7 @@ def test_request_context_fields() -> None:
 def test_request_context_spec_field() -> None:
     op = {"method": "get", "query_parameters": [{"name": "status", "type": "string", "required": False}], "post_parameters": []}
     ctx = RequestContext(method="get", url="http://example.com/api/pets", spec=op)
-    assert ctx.spec is op
+    assert ctx.spec == op
     assert ctx.spec["method"] == "get"
     assert ctx.spec["query_parameters"][0]["name"] == "status"
 
@@ -200,6 +200,43 @@ def test_apply_filters_inplace_mutation_before_bad_return_is_reverted(
     ctx = RequestContext(method="get", url="http://example.com/")
     result = apply_filters(ctx, [("bad-filter", mutate_then_bad_return)])
     assert "X-Leaked" not in result.headers
+
+
+def test_apply_filters_spec_mutation_does_not_leak_on_exception() -> None:
+    """フィルターが spec をインプレース変更してから例外を送出しても元の spec は保持される。"""
+    original_spec = {"method": "get", "query_parameters": [{"name": "q", "type": "string", "required": False}], "post_parameters": []}
+
+    def mutate_spec_then_raise(ctx: RequestContext) -> RequestContext:
+        assert ctx.spec is not None
+        ctx.spec["method"] = "MUTATED"
+        ctx.spec["query_parameters"].clear()
+        raise RuntimeError("intentional error")
+
+    ctx = RequestContext(method="get", url="http://example.com/", spec=original_spec)
+    result = apply_filters(ctx, [("bad-filter", mutate_spec_then_raise)])
+
+    # フィルターが失敗したので ctx は変化しない
+    assert result.spec == original_spec
+    assert result.spec is not None
+    assert result.spec["method"] == "get"
+    assert len(result.spec["query_parameters"]) == 1
+
+
+def test_apply_filters_spec_mutation_does_not_leak_on_bad_return() -> None:
+    """フィルターが spec をインプレース変更してから不正な戻り値を返しても元の spec は保持される。"""
+    original_spec = {"method": "post", "query_parameters": [], "post_parameters": [{"name": "name", "type": "string", "required": True}]}
+
+    def mutate_spec_then_bad_return(ctx: RequestContext) -> RequestContext:
+        assert ctx.spec is not None
+        ctx.spec["method"] = "MUTATED"
+        return None  # type: ignore[return-value]
+
+    ctx = RequestContext(method="post", url="http://example.com/pet", spec=original_spec)
+    result = apply_filters(ctx, [("bad-filter", mutate_spec_then_bad_return)])
+
+    assert result.spec == original_spec
+    assert result.spec is not None
+    assert result.spec["method"] == "post"
 
 
 # ---------------------------------------------------------------------------
