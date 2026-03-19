@@ -1,0 +1,27 @@
+name: Copilot Review
+
+on:
+  pull_request:
+    types:
+      # opened は除外する。PR 作成時はリポジトリ設定により Copilot レビューが
+      # 自動実行されるため、ここでリクエストすると二重実行になる。
+      - synchronize
+
+# このワークフローを動作させるには、リポジトリの以下の設定を有効にする必要がある:
+#   Settings → Actions → General → Workflow permissions
+#   ☑ Allow GitHub Actions to create and approve pull requests
+permissions:
+  pull-requests: write
+
+jobs:
+  request-copilot-review:
+    name: Request Copilot review
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request review from Copilot
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api --method POST \
+            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+            -f 'reviewers[]=copilot-pull-request-reviewer'
