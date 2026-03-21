@@ -34,8 +34,22 @@ def run_papycli(papycli_bin: Path, tmp_path: Path) -> RunPapycli:
     def _run(
         *args: str, extra_env: dict[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
+        base_env: dict[str, str] = dict(os.environ)
+
+        # テスト用サブプロセスではプロキシ設定を無効化し、ローカルホストへのアクセスをバイパスする
+        _proxy_keys = (
+            "HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"
+        )
+        for key in _proxy_keys:
+            base_env.pop(key, None)
+
+        no_proxy = base_env.get("NO_PROXY") or base_env.get("no_proxy") or ""
+        existing_hosts = {h.strip() for h in no_proxy.split(",") if h.strip()}
+        merged_hosts = existing_hosts | {"localhost", "127.0.0.1"}
+        base_env["NO_PROXY"] = ",".join(sorted(merged_hosts))
+
         env: dict[str, str] = {
-            **dict(os.environ),
+            **base_env,
             "PAPYCLI_CONF_DIR": str(tmp_path),
             "VIRTUAL_ENV": str(PROJECT_ROOT / ".venv"),
         }
