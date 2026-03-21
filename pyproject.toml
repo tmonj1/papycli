@@ -45,6 +45,7 @@ packages = ["src/papycli"]
 [dependency-groups]
 dev = [
     "pytest>=8.0",
+    "pytest-httpserver>=1.1",
     "responses>=0.25",
     "ruff>=0.9",
     "mypy>=1.11",
@@ -64,3 +65,7 @@ python_version = "3.12"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: end-to-end tests that spawn a real subprocess and HTTP server",
+]
+addopts = "-m not integration"
