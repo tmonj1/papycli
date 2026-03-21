@@ -345,6 +345,8 @@ pip install -e ".[dev]"
 
 ### Running Tests
 
+These commands assume [uv](https://docs.astral.sh/uv/) is installed. If you set up the environment with `pip` instead, omit the `uv run` prefix and run `pytest` directly.
+
 **Unit tests:**
 
 ```bash
@@ -357,12 +359,12 @@ The integration tests require the `papycli` binary to be present in `.venv/bin/`
 
 ```bash
 uv sync
-uv run pytest -m integration
+uv run pytest -m integration --override-ini addopts= tests/integration/
 ```
 
 **Run all tests at once:**
 
 ```bash
 uv sync
-uv run pytest -m ''
+uv run pytest --override-ini addopts=
 ```

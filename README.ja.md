@@ -344,6 +344,8 @@ pip install -e ".[dev]"
 
 ### テストの実行
 
+以下のコマンドは [uv](https://docs.astral.sh/uv/) がインストールされていることを前提としています。`pip` で環境をセットアップした場合は、`uv run` を省いて `pytest` を直接実行してください。
+
 **ユニットテスト：**
 
 ```bash
@@ -356,12 +358,12 @@ uv run pytest
 
 ```bash
 uv sync
-uv run pytest -m integration
+uv run pytest -m integration --override-ini addopts= tests/integration/
 ```
 
 **全テストをまとめて実行：**
 
 ```bash
 uv sync
-uv run pytest -m ''
+uv run pytest --override-ini addopts=
 ```
