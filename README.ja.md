@@ -347,7 +347,7 @@ pip install -e ".[dev]"
 **ユニットテスト：**
 
 ```bash
-uv run pytest tests/unittest/
+uv run pytest
 ```
 
 **統合テスト：**
@@ -356,11 +356,12 @@ uv run pytest tests/unittest/
 
 ```bash
 uv sync
-uv run pytest tests/integration/
+uv run pytest -m integration
 ```
 
 **全テストをまとめて実行：**
 
 ```bash
-uv run pytest
+uv sync
+uv run pytest -m ''
 ```

@@ -348,7 +348,7 @@ pip install -e ".[dev]"
 **Unit tests:**
 
 ```bash
-uv run pytest tests/unittest/
+uv run pytest
 ```
 
 **Integration tests:**
@@ -357,11 +357,12 @@ The integration tests require the `papycli` binary to be present in `.venv/bin/`
 
 ```bash
 uv sync
-uv run pytest tests/integration/
+uv run pytest -m integration
 ```
 
 **Run all tests at once:**
 
 ```bash
-uv run pytest
+uv sync
+uv run pytest -m ''
 ```
