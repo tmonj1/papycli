@@ -46,6 +46,7 @@ def run_papycli(papycli_bin: Path, tmp_path: Path) -> RunPapycli:
             capture_output=True,
             text=True,
             env=env,
+            timeout=60,
         )
 
     return _run

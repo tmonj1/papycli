@@ -1,6 +1,7 @@
 """統合テスト: 実際の subprocess + 実 HTTP サーバーで papycli の動作を検証する."""
 
 import json
+import re
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -303,7 +304,7 @@ def test_version_flag(run_papycli: RunPapycli) -> None:
     """--version が正常に動作する。"""
     result = run_papycli("--version")
     assert result.returncode == 0
-    assert "0." in result.stdout  # バージョン番号の形式チェック
+    assert re.search(r"\d+\.\d+\.\d+", result.stdout)  # SemVer 形式チェック
 
 
 def test_help_flag(run_papycli: RunPapycli) -> None:
