@@ -10,6 +10,8 @@
 
 - Python 3.12 以上
 - 依存ライブラリは `pyproject.toml` で管理する
+- 開発環境はLinuxまたはmacOSのみ対応 (Windowsには非対応)
+- 仮想環境の運用には `uv` を使用
 
 ### セットアップ
 
@@ -50,17 +52,21 @@ papycli/
 │       ├── spec_loader.py   # OpenAPI spec の読み込み・$ref 解決
 │       └── summary.py       # summary コマンド・CSV 出力
 ├── tests/
-│   ├── test_api_call.py
-│   ├── test_checker.py
-│   ├── test_completion.py
-│   ├── test_config.py
-│   ├── test_i18n.py
-│   ├── test_init_cmd.py
-│   ├── test_main.py
-│   ├── test_filters.py
-│   ├── test_response_checker.py
-│   ├── test_spec_loader.py
-│   └── test_summary.py
+│   ├── unittest/
+│   │   ├── test_api_call.py
+│   │   ├── test_checker.py
+│   │   ├── test_completion.py
+│   │   ├── test_config.py
+│   │   ├── test_i18n.py
+│   │   ├── test_init_cmd.py
+│   │   ├── test_main.py
+│   │   ├── test_filters.py
+│   │   ├── test_response_checker.py
+│   │   ├── test_spec_loader.py
+│   │   └── test_summary.py
+│   └── integration/
+│       ├── conftest.py
+│       └── test_integration.py
 ├── examples/
 │   ├── request_filter/      # リクエストフィルタープラグイン実装例
 │   ├── response_filter/     # レスポンスフィルタープラグイン実装例
@@ -214,7 +220,8 @@ papycli --help / -h
 
 ## テスト方針
 
-- `tests/` 以下にユニットテストを配置する
+- `tests/unittest/` 以下にユニットテストを配置する
+- `tests/integration/` 以下に統合テストを配置する
 - HTTP リクエストは `responses` ライブラリ等でモックして実テストしない
 - OpenAPI spec の変換ロジックは代表的なケースを網羅するテストを書く
 
