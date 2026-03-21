@@ -342,3 +342,26 @@ git clone https://github.com/tmonj1/papycli.git
 cd papycli
 pip install -e ".[dev]"
 ```
+
+### Running Tests
+
+**Unit tests:**
+
+```bash
+uv run pytest tests/unittest/
+```
+
+**Integration tests:**
+
+The integration tests require the `papycli` binary to be present in `.venv/bin/`. Run `uv sync` first:
+
+```bash
+uv sync
+uv run pytest tests/integration/
+```
+
+**Run all tests at once:**
+
+```bash
+uv run pytest
+```

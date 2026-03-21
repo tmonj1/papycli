@@ -337,7 +337,30 @@ my-filter = "my_plugin:response_filter"
 ## 開発
 
 ```bash
-git clone https://github.com/<your-org>/papycli.git
+git clone https://github.com/tmonj1/papycli.git
 cd papycli
 pip install -e ".[dev]"
+```
+
+### テストの実行
+
+**ユニットテスト：**
+
+```bash
+uv run pytest tests/unittest/
+```
+
+**統合テスト：**
+
+統合テストを実行する前に、`papycli` バイナリが `.venv/bin/` に存在している必要があります。まず `uv sync` を実行してください：
+
+```bash
+uv sync
+uv run pytest tests/integration/
+```
+
+**全テストをまとめて実行：**
+
+```bash
+uv run pytest
 ```
