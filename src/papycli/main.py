@@ -140,7 +140,9 @@ def cmd_config_use(api_name: str) -> None:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
         else:
-            click.echo("Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True)
+            click.echo(
+                "Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True
+            )
         sys.exit(1)
 
     set_default_api(conf, api_name)
@@ -164,12 +166,16 @@ def cmd_config_remove(api_name: str) -> None:
         sys.exit(1)
 
     if api_name not in conf or not isinstance(conf[api_name], dict):
-        registered = [k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)]
+        registered = [
+            k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
+        ]
         if registered:
             click.echo(f"Error: API '{api_name}' is not registered.", err=True)
             click.echo(f"Registered APIs: {', '.join(registered)}", err=True)
         else:
-            click.echo("Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True)
+            click.echo(
+                "Error: No APIs registered. Run 'papycli config add <spec>' first.", err=True
+            )
         sys.exit(1)
 
     api_entry = conf[api_name]
@@ -197,7 +203,10 @@ def cmd_config_remove(api_name: str) -> None:
 
 @cmd_config.command(
     "list",
-    help=h("List registered APIs and current configuration.", "登録済み API と現在の設定を一覧表示する。"),
+    help=h(
+        "List registered APIs and current configuration.",
+        "登録済み API と現在の設定を一覧表示する。",
+    ),
 )
 def cmd_config_list() -> None:
     conf_dir = get_conf_dir()
@@ -330,7 +339,8 @@ def cmd_config_alias(
     if alias_name is not None and not _SAFE_CMD_RE.match(alias_name):
         click.echo(
             f"Error: alias name '{alias_name}' is invalid. "
-            "Must start with a letter or digit, and contain only letters, digits, hyphens, and underscores.",
+            "Must start with a letter or digit, and contain only"
+            " letters, digits, hyphens, and underscores.",
             err=True,
         )
         sys.exit(1)
@@ -473,7 +483,8 @@ def cmd_config_alias(
     "summary",
     help=h(
         "List available endpoints.\n\nFilter by RESOURCE path prefix if given.",
-        "登録済み API のエンドポイント一覧を表示する。\n\nRESOURCE を指定するとそのパスプレフィックスで絞り込む。",
+        "登録済み API のエンドポイント一覧を表示する。\n\n"
+        "RESOURCE を指定するとそのパスプレフィックスで絞り込む。",
     ),
 )
 @click.argument("resource", required=False, default=None)
@@ -503,19 +514,22 @@ def cmd_summary(resource: str | None, as_csv: bool) -> None:
 @cli.command(
     "spec",
     help=h(
-        "Show the internal API definition (apidef).\n\nFilter by RESOURCE path if given.\n\n"
-        "Use --full to output the stored OpenAPI spec instead of the apidef.\n"
-        "Combine with RESOURCE to filter to a single path.",
-        "API スペック（内部 apidef 形式）を表示する。\n\n"
+        "Show request spec (path, method, query/body parameters) for each endpoint.\n\n"
+        "Filter by RESOURCE path if given.\n\n"
+        "Use --full to output the OpenAPI spec (including response definitions).\n"
+        "With RESOURCE, outputs only the matching path entry and referenced schemas.",
+        "各エンドポイントのリクエスト仕様（パス・メソッド・クエリ/ボディパラメータ）を表示する。\n\n"
         "RESOURCE を指定するとそのパスのエントリのみ表示する。\n\n"
-        "--full を指定すると内部に保存された OpenAPI spec を出力する。\n"
-        "RESOURCE と組み合わせると指定パスのみに絞り込む。",
+        "--full を指定するとレスポンス定義を含む OpenAPI spec を出力する。\n"
+        "RESOURCE と組み合わせると該当パスのエントリと参照スキーマのみを出力する。",
     ),
 )
 @click.argument("resource", required=False, default=None)
 @click.option("--full", is_flag=True, default=False, help=h(
-    "Output the stored OpenAPI spec (JSON). Combine with RESOURCE to filter by path.",
-    "内部に保存された OpenAPI spec を JSON 形式で出力する。RESOURCE と組み合わせると絞り込み可能。",
+    "Output the OpenAPI spec (JSON). With RESOURCE, outputs only"
+    " the matching path entry and referenced schemas.",
+    "OpenAPI spec を JSON 形式で出力する。RESOURCE を指定すると"
+    "該当パスのエントリと参照スキーマのみを出力する。",
 ))
 def cmd_spec(resource: str | None, full: bool) -> None:
     conf_dir = get_conf_dir()
