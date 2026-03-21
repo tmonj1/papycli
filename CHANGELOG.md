@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.12.1](https://github.com/tmonj1/papycli/compare/v0.12.0...v0.12.1) (2026-03-21)
+
+
+### Bug Fixes
+
+* **ci:** --http-status を終了コード判定に置き換え ([784e77e](https://github.com/tmonj1/papycli/commit/784e77ebbbff2f5652b0eb156cc54ccd023b82a3))
+* **ci:** PRへの追加コミット時にCopilot再レビューが実行されない問題を修正 ([f9ecfaf](https://github.com/tmonj1/papycli/commit/f9ecfaf76f6cd2d7c838ea2e17a0006d8ed2c4cb))
+* **ci:** PRへの追加コミット時にCopilot再レビューが実行されない問題を修正 ([2bc69ab](https://github.com/tmonj1/papycli/commit/2bc69ab2554e1963a8b419accd2c998605116ec6)), closes [#121](https://github.com/tmonj1/papycli/issues/121)
+* **ci:** コラボレーター確認ステップを追加 ([140a974](https://github.com/tmonj1/papycli/commit/140a974dbffbecf87812c6f44608c13e77d21a2b))
+* papycli spec のヘルプテキストをユーザー向けに改善 ([1eb7efc](https://github.com/tmonj1/papycli/commit/1eb7efca444a961d7cbe7df7654ce0df42f629a2))
+* papycli spec のヘルプテキストをユーザー向けに改善 ([#124](https://github.com/tmonj1/papycli/issues/124)) ([ff64f44](https://github.com/tmonj1/papycli/commit/ff64f440f4f2079fdf6266b6ef3d22a2e8925fcf))
+
+
+### Documentation
+
+* README にユニットテストと統合テストの実行方法を追加する ([917d3dc](https://github.com/tmonj1/papycli/commit/917d3dc76f5a3681375c9e47ebfcbdb525fc7f61))
+* README にユニットテストと統合テストの実行方法を追加する ([b4e6100](https://github.com/tmonj1/papycli/commit/b4e61005779c5885dfa11e442834c1ad77982b65)), closes [#127](https://github.com/tmonj1/papycli/issues/127)
+
 ## [0.12.0](https://github.com/tmonj1/papycli/compare/v0.11.0...v0.12.0) (2026-03-19)
 
 
