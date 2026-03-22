@@ -57,7 +57,7 @@ MINIMAL_SPEC: dict[str, Any] = {
     },
 }
 
-PETSTORE_PATH = Path(__file__).parent.parent / "examples" / "petstore" / "petstore-oas3.json"
+PETSTORE_PATH = Path(__file__).parent.parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 
 
 # ---------------------------------------------------------------------------
