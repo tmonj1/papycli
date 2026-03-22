@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.2](https://github.com/tmonj1/papycli/compare/v0.12.1...v0.12.2) (2026-03-22)
+
+
+### Bug Fixes
+
+* **test:** unittest の PETSTORE_PATH のディレクトリ階層を修正 ([40c9a7c](https://github.com/tmonj1/papycli/commit/40c9a7ceb6bf6d9b84b44d6b4493142e1faee7c9))
+* **test:** unittest の PETSTORE_PATH のディレクトリ階層を修正 ([e38d220](https://github.com/tmonj1/papycli/commit/e38d220fbc48989407ff23ddc508fa2cf7d1e20f)), closes [#129](https://github.com/tmonj1/papycli/issues/129)
+
 ## [0.12.1](https://github.com/tmonj1/papycli/compare/v0.12.0...v0.12.1) (2026-03-21)
 
 
