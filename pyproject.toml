@@ -51,6 +51,7 @@ dev = [
     "mypy>=1.11",
     "types-requests>=2.32",
     "types-pyyaml>=6.0",
+    "pre-commit>=4.5.1",
 ]
 
 [tool.ruff]
