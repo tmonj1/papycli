@@ -428,11 +428,12 @@ def call_api(
 
     if response_filters:
         from papycli.response_checker import resolve_response_def
-        resp_schema = (
-            resolve_response_def(raw_spec, method, template, resp.status_code)
-            if raw_spec is not None
-            else None
-        )
+        resp_schema: dict[str, Any] | None = None
+        if raw_spec is not None:
+            try:
+                resp_schema = resolve_response_def(raw_spec, method, template, resp.status_code)
+            except (KeyError, ValueError):
+                pass
         resp_ctx = ResponseContext(
             method=method,
             url=resp.url,

@@ -288,7 +288,7 @@ def apply_response_filters(
             headers=dict(ctx.headers),
             body=copy.deepcopy(ctx.body),
             request_body=copy.deepcopy(ctx.request_body),
-            schema=original_schema,
+            schema=copy.deepcopy(original_schema),
         )
         try:
             result = func(snapshot)

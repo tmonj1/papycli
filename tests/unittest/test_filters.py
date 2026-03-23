@@ -742,6 +742,35 @@ def test_apply_response_filters_schema_immutable() -> None:
     assert result.schema == schema
 
 
+def test_apply_response_filters_schema_inplace_mutation_isolated() -> None:
+    """フィルターが schema をインプレース変更しても後続フィルターに漏れない。"""
+    received: list[Any] = []
+
+    def mutate_inplace(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.schema, dict)
+        ctx.schema["injected"] = True
+        return ctx
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema: dict[str, Any] = {"description": "OK"}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    result = apply_response_filters(ctx, [("mutate", mutate_inplace), ("capture", capture)])
+    assert result is not None
+    # 後続フィルターには元の schema が渡される（injected キーがない）
+    assert received == [{"description": "OK"}]
+    # 最終結果も元の schema が維持される
+    assert result.schema == {"description": "OK"}
+
+
 # ---------------------------------------------------------------------------
 # call_api とレスポンスフィルターの統合
 # ---------------------------------------------------------------------------

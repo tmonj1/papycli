@@ -171,39 +171,39 @@ def resolve_response_def(
 
     完全一致 → 範囲指定（2XX/2xx）→ default の順で探索し、
     該当する定義がない場合は None を返す。
+
+    $ref の解決に失敗した場合は ``KeyError`` または ``ValueError`` を送出する。
+    呼び出し元で適切にハンドルすること。
     """
-    try:
-        paths_raw = raw_spec.get("paths", {})
-        paths: dict[str, Any] = paths_raw if isinstance(paths_raw, dict) else {}
-        path_item = resolve_refs(paths.get(template, {}), raw_spec)
-        if not isinstance(path_item, dict):
-            return None
-        operation = path_item.get(method, {})
-        if not isinstance(operation, dict):
-            return None
-        responses = operation.get("responses", {})
-        if not isinstance(responses, dict):
-            return None
-
-        responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
-        status_str = str(status_code)
-        range_upper = f"{status_code // 100}XX"
-        range_lower = f"{status_code // 100}xx"
-        if status_str in responses_str:
-            response_def: Any = responses_str[status_str]
-        elif range_upper in responses_str:
-            response_def = responses_str[range_upper]
-        elif range_lower in responses_str:
-            response_def = responses_str[range_lower]
-        elif "default" in responses_str:
-            response_def = responses_str["default"]
-        else:
-            return None
-
-        resolved = resolve_refs(response_def, raw_spec)
-        return resolved if isinstance(resolved, dict) else None
-    except (KeyError, ValueError):
+    paths_raw = raw_spec.get("paths", {})
+    paths: dict[str, Any] = paths_raw if isinstance(paths_raw, dict) else {}
+    path_item = resolve_refs(paths.get(template, {}), raw_spec)
+    if not isinstance(path_item, dict):
         return None
+    operation = path_item.get(method, {})
+    if not isinstance(operation, dict):
+        return None
+    responses = operation.get("responses", {})
+    if not isinstance(responses, dict):
+        return None
+
+    responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
+    status_str = str(status_code)
+    range_upper = f"{status_code // 100}XX"
+    range_lower = f"{status_code // 100}xx"
+    if status_str in responses_str:
+        response_def: Any = responses_str[status_str]
+    elif range_upper in responses_str:
+        response_def = responses_str[range_upper]
+    elif range_lower in responses_str:
+        response_def = responses_str[range_lower]
+    elif "default" in responses_str:
+        response_def = responses_str["default"]
+    else:
+        return None
+
+    resolved = resolve_refs(response_def, raw_spec)
+    return resolved if isinstance(resolved, dict) else None
 
 
 _UNSET = object()
@@ -252,7 +252,11 @@ def check_response(
         return [f"[response] spec: failed to resolve $ref: {e}"]
 
     # ステータスコードの照合・$ref 解決は共通ヘルパーに委譲する
-    response_def = resolve_response_def(raw_spec, method, template, resp.status_code)
+    # ヘルパー内の $ref 解決エラーをキャッチして spec エラー警告を返す。
+    try:
+        response_def = resolve_response_def(raw_spec, method, template, resp.status_code)
+    except (KeyError, ValueError) as e:
+        return [f"[response] spec: failed to resolve $ref: {e}"]
 
     # spec に定義されていないステータスコードの場合は警告して終了
     if response_def is None:
