@@ -693,6 +693,55 @@ def test_apply_response_filters_request_body_immutable() -> None:
     assert result.request_body == {"name": "Fido"}
 
 
+def test_apply_response_filters_schema_passed_to_filter() -> None:
+    """フィルターが schema を参照できる。"""
+    received: list[Any] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema = {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        schema=schema,
+    )
+    apply_response_filters(ctx, [("capture", capture)])
+    assert received == [schema]
+
+
+def test_apply_response_filters_schema_immutable() -> None:
+    """フィルターが schema を変更しても、後続フィルターと最終結果には元の値が維持される。"""
+    received: list[Any] = []
+
+    def mutate(ctx: ResponseContext) -> ResponseContext:
+        ctx.schema = {"mutated": True}
+        return ctx
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema = {"description": "OK"}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    result = apply_response_filters(ctx, [("mutate", mutate), ("capture", capture)])
+    assert result is not None
+    # 後続フィルターには元の schema が渡される
+    assert received == [schema]
+    # 最終結果も元の schema が維持される
+    assert result.schema == schema
+
+
 # ---------------------------------------------------------------------------
 # call_api とレスポンスフィルターの統合
 # ---------------------------------------------------------------------------

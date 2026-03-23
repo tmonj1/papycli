@@ -296,58 +296,6 @@ def _write_log(
 
 
 # ---------------------------------------------------------------------------
-# レスポンス定義解決
-# ---------------------------------------------------------------------------
-
-
-def _resolve_response_def(
-    raw_spec: dict[str, Any],
-    method: str,
-    template: str,
-    status_code: int,
-) -> dict[str, Any] | None:
-    """ステータスコードに対応する OpenAPI Response Object を $ref 解決済みで返す。
-
-    完全一致 → 範囲指定（2XX/2xx）→ default の順で探索し、
-    該当する定義がない場合は None を返す。
-    """
-    from papycli.spec_loader import resolve_refs
-
-    try:
-        paths_raw = raw_spec.get("paths", {})
-        paths: dict[str, Any] = paths_raw if isinstance(paths_raw, dict) else {}
-        path_item = resolve_refs(paths.get(template, {}), raw_spec)
-        if not isinstance(path_item, dict):
-            return None
-        operation = path_item.get(method, {})
-        if not isinstance(operation, dict):
-            return None
-        responses = operation.get("responses", {})
-        if not isinstance(responses, dict):
-            return None
-
-        responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
-        status_str = str(status_code)
-        range_upper = f"{status_code // 100}XX"
-        range_lower = f"{status_code // 100}xx"
-        if status_str in responses_str:
-            response_def: Any = responses_str[status_str]
-        elif range_upper in responses_str:
-            response_def = responses_str[range_upper]
-        elif range_lower in responses_str:
-            response_def = responses_str[range_lower]
-        elif "default" in responses_str:
-            response_def = responses_str["default"]
-        else:
-            return None
-
-        resolved = resolve_refs(response_def, raw_spec)
-        return resolved if isinstance(resolved, dict) else None
-    except (KeyError, ValueError):
-        return None
-
-
-# ---------------------------------------------------------------------------
 # HTTP 実行
 # ---------------------------------------------------------------------------
 
@@ -479,8 +427,9 @@ def call_api(
             print(w, file=sys.stderr)
 
     if response_filters:
+        from papycli.response_checker import resolve_response_def
         resp_schema = (
-            _resolve_response_def(raw_spec, method, template, resp.status_code)
+            resolve_response_def(raw_spec, method, template, resp.status_code)
             if raw_spec is not None
             else None
         )

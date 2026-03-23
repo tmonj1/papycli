@@ -274,9 +274,11 @@ def apply_response_filters(
     if not filters:
         return ctx
 
-    # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
-    # deepcopy することで呼び出し元が後から同じ dict/list を変更しても返り値が変化しないようにする。
+    # request_body・schema は参照専用フィールドのため、フィルターによる変更を無視して
+    # 元の値を保持する。deepcopy することで後から同じオブジェクトを変更しても
+    # 返り値が変化しないようにする。
     original_request_body = copy.deepcopy(ctx.request_body)
+    original_schema = copy.deepcopy(ctx.schema)
     for name, func in filters:
         snapshot = ResponseContext(
             method=ctx.method,
@@ -286,6 +288,7 @@ def apply_response_filters(
             headers=dict(ctx.headers),
             body=copy.deepcopy(ctx.body),
             request_body=copy.deepcopy(ctx.request_body),
+            schema=original_schema,
         )
         try:
             result = func(snapshot)
@@ -307,7 +310,9 @@ def apply_response_filters(
             continue
         # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
         result.request_body = original_request_body
+        result.schema = original_schema
         ctx = result
     # 全フィルターが失敗した場合も含め、常に deepcopy 済みの値で上書きする。
     ctx.request_body = original_request_body
+    ctx.schema = original_schema
     return ctx
