@@ -737,3 +737,99 @@ def test_call_api_log_truncates_large_request_body(tmp_path: Path) -> None:
 
     content = Path(logfile).read_text(encoding="utf-8")
     assert "...[truncated]" in content
+
+
+# ---------------------------------------------------------------------------
+# _resolve_response_def
+# ---------------------------------------------------------------------------
+
+
+RAW_SPEC_FOR_RESOLVE: dict[str, Any] = {
+    "paths": {
+        "/pet/{petId}": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {
+                            "application/json": {
+                                "schema": {"type": "object"}
+                            }
+                        },
+                    },
+                    "404": {"description": "Pet not found"},
+                    "2XX": {"description": "other success"},
+                    "default": {"description": "unexpected error"},
+                }
+            }
+        }
+    }
+}
+
+
+def test_resolve_response_def_exact_match() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    result = _resolve_response_def(RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 200)
+    assert result is not None
+    assert result["description"] == "successful operation"
+
+
+def test_resolve_response_def_range_match() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    result = _resolve_response_def(RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 201)
+    assert result is not None
+    assert result["description"] == "other success"
+
+
+def test_resolve_response_def_default_match() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    result = _resolve_response_def(RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 500)
+    assert result is not None
+    assert result["description"] == "unexpected error"
+
+
+def test_resolve_response_def_no_match() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    spec: dict[str, Any] = {
+        "paths": {"/pet/{petId}": {"get": {"responses": {"404": {"description": "not found"}}}}}
+    }
+    result = _resolve_response_def(spec, "get", "/pet/{petId}", 200)
+    assert result is None
+
+
+def test_resolve_response_def_missing_path() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    result = _resolve_response_def(RAW_SPEC_FOR_RESOLVE, "get", "/nonexistent", 200)
+    assert result is None
+
+
+def test_resolve_response_def_with_ref() -> None:
+    from papycli.api_call import _resolve_response_def
+
+    spec: dict[str, Any] = {
+        "paths": {
+            "/pet": {
+                "get": {
+                    "responses": {
+                        "200": {"$ref": "#/components/responses/PetResponse"}
+                    }
+                }
+            }
+        },
+        "components": {
+            "responses": {
+                "PetResponse": {
+                    "description": "resolved response",
+                    "content": {"application/json": {"schema": {"type": "array"}}},
+                }
+            }
+        },
+    }
+    result = _resolve_response_def(spec, "get", "/pet", 200)
+    assert result is not None
+    assert result["description"] == "resolved response"

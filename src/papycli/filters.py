@@ -220,6 +220,14 @@ class ResponseContext:
     ボディなしのリクエスト（GET 等）の場合は None。
     """
 
+    schema: dict[str, Any] | None = None
+    """レスポンスのステータスコードに対応する OpenAPI Response Object（$ref 解決済み、参照専用）.
+
+    ステータスコードに対応するレスポンス定義が OpenAPI spec に存在する場合、
+    そのオブジェクト（``responses["200"]`` 等）が $ref 解決済みの状態で格納される。
+    対応する定義がない場合、または raw_spec が利用できない場合は None。
+    """
+
 
 def load_response_filters() -> list[tuple[str, ResponseFilterFunc]]:
     """``papycli.response_filters`` グループのプラグインをプラグイン名の昇順でロードする。

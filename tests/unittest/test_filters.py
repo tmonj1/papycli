@@ -447,6 +447,22 @@ def test_response_context_defaults() -> None:
     assert ctx.headers == {}
     assert ctx.body is None
     assert ctx.request_body is None
+    assert ctx.schema is None
+
+
+def test_response_context_schema() -> None:
+    schema = {
+        "description": "successful operation",
+        "content": {"application/json": {"schema": {"type": "object"}}},
+    }
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    assert ctx.schema == schema
 
 
 def test_response_context_fields() -> None:
