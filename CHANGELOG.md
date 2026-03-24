@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/tmonj1/papycli/compare/v0.12.2...v0.13.0) (2026-03-24)
+
+
+### Features
+
+* ResponseContext に schema プロパティを追加する ([#134](https://github.com/tmonj1/papycli/issues/134)) ([684b5c4](https://github.com/tmonj1/papycli/commit/684b5c415b0d937ce4d063381e4328ab78e0b896))
+
 ## [0.12.2](https://github.com/tmonj1/papycli/compare/v0.12.1...v0.12.2) (2026-03-22)
 
 
