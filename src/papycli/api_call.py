@@ -432,8 +432,13 @@ def call_api(
         if raw_spec is not None:
             try:
                 resp_schema = resolve_response_def(raw_spec, method, template, resp.status_code)
-            except (KeyError, ValueError):
-                pass
+            except (KeyError, ValueError) as exc:
+                print(
+                    f"[papycli] warning: failed to resolve response schema"
+                    f" (method={method}, template={template},"
+                    f" status={resp.status_code}): {exc}",
+                    file=sys.stderr,
+                )
         resp_ctx = ResponseContext(
             method=method,
             url=resp.url,
