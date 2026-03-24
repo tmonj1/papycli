@@ -161,6 +161,51 @@ def _check_value(
         )
 
 
+def resolve_response_def(
+    raw_spec: dict[str, Any],
+    method: str,
+    template: str,
+    status_code: int,
+) -> dict[str, Any] | None:
+    """ステータスコードに対応する OpenAPI Response Object を $ref 解決済みで返す。
+
+    完全一致 → 範囲指定（2XX/2xx）→ default の順で探索し、
+    該当する定義がない場合は None を返す。
+
+    $ref の解決に失敗した場合は ``KeyError`` または ``ValueError`` を送出する。
+    呼び出し元で適切にハンドルすること。
+    """
+    paths_raw = raw_spec.get("paths", {})
+    paths: dict[str, Any] = paths_raw if isinstance(paths_raw, dict) else {}
+    path_item = resolve_refs(paths.get(template, {}), raw_spec)
+    if not isinstance(path_item, dict):
+        return None
+    operation = path_item.get(method, {})
+    if not isinstance(operation, dict):
+        return None
+    responses = operation.get("responses", {})
+    if not isinstance(responses, dict):
+        return None
+
+    responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
+    status_str = str(status_code)
+    range_upper = f"{status_code // 100}XX"
+    range_lower = f"{status_code // 100}xx"
+    if status_str in responses_str:
+        response_def: Any = responses_str[status_str]
+    elif range_upper in responses_str:
+        response_def = responses_str[range_upper]
+    elif range_lower in responses_str:
+        response_def = responses_str[range_lower]
+    elif "default" in responses_str:
+        response_def = responses_str["default"]
+    else:
+        return None
+
+    resolved = resolve_refs(response_def, raw_spec)
+    return resolved if isinstance(resolved, dict) else None
+
+
 _UNSET = object()
 
 
@@ -186,6 +231,7 @@ def check_response(
     warnings: list[str] = []
 
     # ステータスコード照合（コンテンツタイプに関わらず常に実施する）
+    # 未定義コードの警告メッセージに定義済みコード一覧を含めるため、responses_str を構築する。
     # $ref 解決中の KeyError/ValueError をキャッチし、API 呼び出しを中断させない。
     try:
         paths_raw = raw_spec.get("paths", {})
@@ -200,36 +246,26 @@ def check_response(
         responses = operation.get("responses", {})
         if not isinstance(responses, dict):
             return []
-
         # YAML で読み込んだ場合にステータスコードキーが整数になることがあるため文字列に正規化する
         responses_str: dict[str, Any] = {str(k): v for k, v in responses.items()}
-
-        # ステータスコードを完全一致 → 範囲指定（2XX/2xx 両方）→ default の順で探索する
-        # 空 dict の場合の誤スルーを防ぐため or チェーンではなく in で判定する
-        status_str = str(resp.status_code)
-        range_upper = f"{resp.status_code // 100}XX"
-        range_lower = f"{resp.status_code // 100}xx"
-        if status_str in responses_str:
-            response_def: Any = responses_str[status_str]
-        elif range_upper in responses_str:
-            response_def = responses_str[range_upper]
-        elif range_lower in responses_str:
-            response_def = responses_str[range_lower]
-        elif "default" in responses_str:
-            response_def = responses_str["default"]
-        else:
-            response_def = None
-
-        # spec に定義されていないステータスコードの場合は警告して終了
-        if response_def is None:
-            defined = ", ".join(sorted(responses_str.keys()))
-            warnings.append(
-                f"[response] status: {resp.status_code} is not defined in the spec"
-                + (f" (defined: {defined})" if defined else "")
-            )
-            return warnings
     except (KeyError, ValueError) as e:
         return [f"[response] spec: failed to resolve $ref: {e}"]
+
+    # ステータスコードの照合・$ref 解決は共通ヘルパーに委譲する
+    # ヘルパー内の $ref 解決エラーをキャッチして spec エラー警告を返す。
+    try:
+        response_def = resolve_response_def(raw_spec, method, template, resp.status_code)
+    except (KeyError, ValueError) as e:
+        return [f"[response] spec: failed to resolve $ref: {e}"]
+
+    # spec に定義されていないステータスコードの場合は警告して終了
+    if response_def is None:
+        defined = ", ".join(sorted(responses_str.keys()))
+        warnings.append(
+            f"[response] status: {resp.status_code} is not defined in the spec"
+            + (f" (defined: {defined})" if defined else "")
+        )
+        return warnings
 
     # ボディスキーマ検証（JSON コンテンツタイプのレスポンスのみ対象）
     content_type = resp.headers.get("Content-Type", "").lower()
@@ -241,11 +277,11 @@ def check_response(
 
     # スキーマが存在する場合のみボディをパースする（スキーマ未定義のステータスでの
     # 誤警告を防ぐため、先にスキーマを確認する）。
+    # response_def は resolve_response_def により $ref 解決済みのため再解決は不要。
     try:
-        resolved_def = resolve_refs(response_def, raw_spec)
-        if not isinstance(resolved_def, dict):
+        if not isinstance(response_def, dict):
             return warnings
-        content_map_raw: Any = resolved_def.get("content", {})
+        content_map_raw: Any = response_def.get("content", {})
         content_map: dict[str, Any] = content_map_raw if isinstance(content_map_raw, dict) else {}
         # スキーマ探索: 完全一致 → application/json → +json サフィックスを持つ型の順
         schema: Any = None

@@ -427,6 +427,18 @@ def call_api(
             print(w, file=sys.stderr)
 
     if response_filters:
+        from papycli.response_checker import resolve_response_def
+        resp_schema: dict[str, Any] | None = None
+        if raw_spec is not None:
+            try:
+                resp_schema = resolve_response_def(raw_spec, method, template, resp.status_code)
+            except (KeyError, ValueError) as exc:
+                print(
+                    f"[papycli] warning: failed to resolve response schema"
+                    f" (method={method}, template={template},"
+                    f" status={resp.status_code}): {exc}",
+                    file=sys.stderr,
+                )
         resp_ctx = ResponseContext(
             method=method,
             url=resp.url,
@@ -435,6 +447,7 @@ def call_api(
             headers=dict(resp.headers),
             body=resp_body,
             request_body=ctx.body,
+            schema=resp_schema,
         )
         resp_ctx = apply_response_filters(resp_ctx, response_filters)
         if resp_ctx is None:

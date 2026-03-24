@@ -5,7 +5,12 @@ from unittest.mock import MagicMock
 
 import requests
 
-from papycli.response_checker import _check_value, _type_matches, check_response
+from papycli.response_checker import (
+    _check_value,
+    _type_matches,
+    check_response,
+    resolve_response_def,
+)
 
 # ---------------------------------------------------------------------------
 # _type_matches
@@ -597,3 +602,83 @@ def test_check_response_status_yaml_int_keys() -> None:
     warnings = check_response(resp_ng, spec, "get", "/items")
     assert any("[response] status: 404 is not defined in the spec" in w for w in warnings)
     assert any("200" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# resolve_response_def
+# ---------------------------------------------------------------------------
+
+
+_RAW_SPEC_FOR_RESOLVE: dict[str, Any] = {
+    "paths": {
+        "/pet/{petId}": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "description": "successful operation",
+                        "content": {"application/json": {"schema": {"type": "object"}}},
+                    },
+                    "404": {"description": "Pet not found"},
+                    "2XX": {"description": "other success"},
+                    "default": {"description": "unexpected error"},
+                }
+            }
+        }
+    }
+}
+
+
+def test_resolve_response_def_exact_match() -> None:
+    result = resolve_response_def(_RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 200)
+    assert result is not None
+    assert result["description"] == "successful operation"
+
+
+def test_resolve_response_def_range_match() -> None:
+    result = resolve_response_def(_RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 201)
+    assert result is not None
+    assert result["description"] == "other success"
+
+
+def test_resolve_response_def_default_match() -> None:
+    result = resolve_response_def(_RAW_SPEC_FOR_RESOLVE, "get", "/pet/{petId}", 500)
+    assert result is not None
+    assert result["description"] == "unexpected error"
+
+
+def test_resolve_response_def_no_match() -> None:
+    spec: dict[str, Any] = {
+        "paths": {"/pet/{petId}": {"get": {"responses": {"404": {"description": "not found"}}}}}
+    }
+    result = resolve_response_def(spec, "get", "/pet/{petId}", 200)
+    assert result is None
+
+
+def test_resolve_response_def_missing_path() -> None:
+    result = resolve_response_def(_RAW_SPEC_FOR_RESOLVE, "get", "/nonexistent", 200)
+    assert result is None
+
+
+def test_resolve_response_def_with_ref() -> None:
+    spec: dict[str, Any] = {
+        "paths": {
+            "/pet": {
+                "get": {
+                    "responses": {
+                        "200": {"$ref": "#/components/responses/PetResponse"}
+                    }
+                }
+            }
+        },
+        "components": {
+            "responses": {
+                "PetResponse": {
+                    "description": "resolved response",
+                    "content": {"application/json": {"schema": {"type": "array"}}},
+                }
+            }
+        },
+    }
+    result = resolve_response_def(spec, "get", "/pet", 200)
+    assert result is not None
+    assert result["description"] == "resolved response"

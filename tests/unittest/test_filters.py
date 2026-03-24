@@ -447,6 +447,22 @@ def test_response_context_defaults() -> None:
     assert ctx.headers == {}
     assert ctx.body is None
     assert ctx.request_body is None
+    assert ctx.schema is None
+
+
+def test_response_context_schema() -> None:
+    schema = {
+        "description": "successful operation",
+        "content": {"application/json": {"schema": {"type": "object"}}},
+    }
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    assert ctx.schema == schema
 
 
 def test_response_context_fields() -> None:
@@ -675,6 +691,84 @@ def test_apply_response_filters_request_body_immutable() -> None:
     assert received == [{"name": "Fido"}]
     # 最終結果も元の request_body が維持される
     assert result.request_body == {"name": "Fido"}
+
+
+def test_apply_response_filters_schema_passed_to_filter() -> None:
+    """フィルターが schema を参照できる。"""
+    received: list[Any] = []
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema = {"description": "OK", "content": {"application/json": {"schema": {"type": "object"}}}}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        body={"id": 1},
+        schema=schema,
+    )
+    apply_response_filters(ctx, [("capture", capture)])
+    assert received == [schema]
+
+
+def test_apply_response_filters_schema_immutable() -> None:
+    """フィルターが schema を変更しても、後続フィルターと最終結果には元の値が維持される。"""
+    received: list[Any] = []
+
+    def mutate(ctx: ResponseContext) -> ResponseContext:
+        ctx.schema = {"mutated": True}
+        return ctx
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema = {"description": "OK"}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    result = apply_response_filters(ctx, [("mutate", mutate), ("capture", capture)])
+    assert result is not None
+    # 後続フィルターには元の schema が渡される
+    assert received == [schema]
+    # 最終結果も元の schema が維持される
+    assert result.schema == schema
+
+
+def test_apply_response_filters_schema_inplace_mutation_isolated() -> None:
+    """フィルターが schema をインプレース変更しても後続フィルターに漏れない。"""
+    received: list[Any] = []
+
+    def mutate_inplace(ctx: ResponseContext) -> ResponseContext:
+        assert isinstance(ctx.schema, dict)
+        ctx.schema["injected"] = True
+        return ctx
+
+    def capture(ctx: ResponseContext) -> ResponseContext:
+        received.append(ctx.schema)
+        return ctx
+
+    schema: dict[str, Any] = {"description": "OK"}
+    ctx = ResponseContext(
+        method="get",
+        url="http://example.com/api/pet/1",
+        status_code=200,
+        reason="OK",
+        schema=schema,
+    )
+    result = apply_response_filters(ctx, [("mutate", mutate_inplace), ("capture", capture)])
+    assert result is not None
+    # 後続フィルターには元の schema が渡される（injected キーがない）
+    assert received == [{"description": "OK"}]
+    # 最終結果も元の schema が維持される
+    assert result.schema == {"description": "OK"}
 
 
 # ---------------------------------------------------------------------------

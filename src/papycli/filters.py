@@ -220,6 +220,14 @@ class ResponseContext:
     ボディなしのリクエスト（GET 等）の場合は None。
     """
 
+    schema: dict[str, Any] | None = None
+    """レスポンスのステータスコードに対応する OpenAPI Response Object（$ref 解決済み、参照専用）.
+
+    ステータスコードに対応するレスポンス定義が OpenAPI spec に存在する場合、
+    そのオブジェクト（``responses["200"]`` 等）が $ref 解決済みの状態で格納される。
+    対応する定義がない場合、または raw_spec が利用できない場合は None。
+    """
+
 
 def load_response_filters() -> list[tuple[str, ResponseFilterFunc]]:
     """``papycli.response_filters`` グループのプラグインをプラグイン名の昇順でロードする。
@@ -266,9 +274,11 @@ def apply_response_filters(
     if not filters:
         return ctx
 
-    # request_body は参照専用フィールドのため、フィルターによる変更を無視して元の値を保持する。
-    # deepcopy することで呼び出し元が後から同じ dict/list を変更しても返り値が変化しないようにする。
+    # request_body・schema は参照専用フィールドのため、フィルターによる変更を無視して
+    # 元の値を保持する。deepcopy することで後から同じオブジェクトを変更しても
+    # 返り値が変化しないようにする。
     original_request_body = copy.deepcopy(ctx.request_body)
+    original_schema = copy.deepcopy(ctx.schema)
     for name, func in filters:
         snapshot = ResponseContext(
             method=ctx.method,
@@ -278,6 +288,7 @@ def apply_response_filters(
             headers=dict(ctx.headers),
             body=copy.deepcopy(ctx.body),
             request_body=copy.deepcopy(ctx.request_body),
+            schema=copy.deepcopy(original_schema),
         )
         try:
             result = func(snapshot)
@@ -299,7 +310,9 @@ def apply_response_filters(
             continue
         # 後続フィルターへのスナップショットにも元の値が渡るよう、成功時にも復元する。
         result.request_body = original_request_body
+        result.schema = original_schema
         ctx = result
     # 全フィルターが失敗した場合も含め、常に deepcopy 済みの値で上書きする。
     ctx.request_body = original_request_body
+    ctx.schema = original_schema
     return ctx
