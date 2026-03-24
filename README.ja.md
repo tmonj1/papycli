@@ -67,7 +67,7 @@ eval "$(papycli config completion-script bash)"
 ### 1. Petstore サーバーを起動する
 
 ```bash
-docker compose -f examples/docker-compose.yml up -d
+docker compose -f examples/petstore/docker-compose.yml up -d
 ```
 
 API は `http://localhost:8080/api/v3/` で利用可能になります。
@@ -75,7 +75,7 @@ API は `http://localhost:8080/api/v3/` で利用可能になります。
 ### 2. API を登録する
 
 ```bash
-papycli config add examples/petstore-oas3.json
+papycli config add examples/petstore/petstore-oas3.json
 ```
 
 ### 3. コマンドを試す

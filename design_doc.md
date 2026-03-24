@@ -3,7 +3,7 @@
 ## 現状
 
 - Python 3.12 / uv でパッケージ管理
-- `examples/petstore-oas3.json` と `examples/docker-compose.yml` 準備済み
+- `examples/petstore/petstore-oas3.json` と `examples/petstore/docker-compose.yml` 準備済み
 - Milestone 1〜5 の実装が完了し、`papycli` コマンドとして動作する状態
 
 ---
@@ -60,10 +60,11 @@ papycli/
 │       ├── conftest.py
 │       └── test_integration.py
 ├── examples/
+│   ├── petstore/
+│   │   ├── docker-compose.yml
+│   │   └── petstore-oas3.json
 │   ├── request_filter/      # リクエストフィルタープラグイン実装例
-│   ├── response_filter/     # レスポンスフィルタープラグイン実装例
-│   ├── docker-compose.yml
-│   └── petstore-oas3.json
+│   └── response_filter/     # レスポンスフィルタープラグイン実装例
 ├── design_doc.md
 ├── CLAUDE.md
 ├── README.md
@@ -164,7 +165,7 @@ papycli/
   - 変換結果の検証（petstore-oas3.json を使用）
   - config の CRUD
 
-**完了条件**: `papycli config add examples/petstore-oas3.json` が成功し、`~/.papycli/apis/petstore-oas3.json` が正しい内容で生成される。`papycli config list` で設定が表示される。テストがパスする。
+**完了条件**: `papycli config add examples/petstore/petstore-oas3.json` が成功し、`~/.papycli/apis/petstore-oas3.json` が正しい内容で生成される。`papycli config list` で設定が表示される。テストがパスする。
 
 ---
 

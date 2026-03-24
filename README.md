@@ -67,7 +67,7 @@ This repository includes a demo using the [Swagger Petstore](https://github.com/
 ### 1. Start the Petstore server
 
 ```bash
-docker compose -f examples/docker-compose.yml up -d
+docker compose -f examples/petstore/docker-compose.yml up -d
 ```
 
 The API will be available at `http://localhost:8080/api/v3/`.
@@ -75,7 +75,7 @@ The API will be available at `http://localhost:8080/api/v3/`.
 ### 2. Register the API
 
 ```bash
-papycli config add examples/petstore-oas3.json
+papycli config add examples/petstore/petstore-oas3.json
 ```
 
 ### 3. Try some commands
