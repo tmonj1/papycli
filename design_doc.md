@@ -41,19 +41,27 @@ papycli/
 │       ├── summary.py       # summary コマンドの出力
 │       ├── completion.py    # bash / zsh 補完スクリプト生成
 │       ├── filters.py        # リクエスト・レスポンスフィルタープラグイン機構
+│       ├── response_checker.py  # --response-check のレスポンス検証
 │       └── i18n.py          # 日英ヘルプテキストの切り替えユーティリティ
 ├── tests/
-│   ├── test_api_call.py
-│   ├── test_checker.py
-│   ├── test_completion.py
-│   ├── test_config.py
-│   ├── test_i18n.py
-│   ├── test_init_cmd.py
-│   ├── test_main.py
-│   ├── test_filters.py
-│   ├── test_spec_loader.py
-│   └── test_summary.py
+│   ├── unittest/
+│   │   ├── test_api_call.py
+│   │   ├── test_checker.py
+│   │   ├── test_completion.py
+│   │   ├── test_config.py
+│   │   ├── test_i18n.py
+│   │   ├── test_init_cmd.py
+│   │   ├── test_main.py
+│   │   ├── test_filters.py
+│   │   ├── test_response_checker.py
+│   │   ├── test_spec_loader.py
+│   │   └── test_summary.py
+│   └── integration/
+│       ├── conftest.py
+│       └── test_integration.py
 ├── examples/
+│   ├── request_filter/      # リクエストフィルタープラグイン実装例
+│   ├── response_filter/     # レスポンスフィルタープラグイン実装例
 │   ├── docker-compose.yml
 │   └── petstore-oas3.json
 ├── design_doc.md
@@ -242,9 +250,10 @@ papycli/
 
 **実装内容**:
 - `filters.py`
-  - `RequestContext` データクラス（`method`, `url`, `query_params`, `body`, `headers`）
+  - `RequestContext` データクラス（`method`, `url`, `query_params`, `body`, `headers`, `spec`）
+    - `spec`: 呼び出し中のオペレーション仕様（API 定義内の該当エントリ）。参照専用フィールド。
   - `load_filters()`: `papycli.request_filters` エントリポイントグループからフィルターをロードし、callable 検証後にプラグイン名の昇順で返す
-  - `apply_filters()`: フィルターを順番に適用。各フィルター呼び出し前にスナップショットを作成し（body は deepcopy、他はシャローコピー）、例外・戻り値不正の場合は警告して前の ctx を維持する
+  - `apply_filters()`: フィルターを順番に適用。各フィルター呼び出し前にスナップショットを作成し（body は deepcopy、spec は deepcopy で渡して成功後に元の参照を復元）、例外・戻り値不正の場合は警告して前の ctx を維持する
 - `api_call.py` の `call_api()` でフィルターを適用するよう更新
   - フィルター適用後の `method` は使用しない（API 定義マッチング時に確定した元の値を使う）
 - テスト: `test_filters.py`
@@ -301,9 +310,11 @@ my-filter = "my_plugin:request_filter"
   - 内部変換後の API 定義ではなく、元の OpenAPI spec を JSON で出力する
   - `resource` 指定時は該当パスのみ絞り込んで表示する
 - `filters.py` にレスポンスフィルター機構を追加
-  - `ResponseContext` データクラス（`status_code`, `reason`, `body`, `headers`）
+  - `ResponseContext` データクラス（`method`, `url`, `status_code`, `reason`, `body`, `headers`, `request_body`, `schema`）
+    - `request_body`: リクエストフィルター適用後に実際に送信されたボディ（参照専用）
+    - `schema`: 該当ステータスコードの OpenAPI Response Object（$ref 解決済み、参照専用）。対応する定義がない場合は `None`
   - `load_response_filters()`: `papycli.response_filters` エントリポイントグループからフィルターをロード
-  - `apply_response_filters()`: フィルターを順番に適用。例外・戻り値不正の場合は警告して前の ctx を維持する
+  - `apply_response_filters()`: フィルターを順番に適用。`None` 返却でチェーン中断（レスポンス出力を抑制）。例外・戻り値不正の場合は警告して前の ctx を維持する
 - `api_call.py` でレスポンス受信後にフィルターを適用するよう更新
 
 **完了条件**: `papycli spec --full` で生の OpenAPI spec が出力される。`papycli.response_filters` エントリポイントに登録したフィルターがレスポンス受信後に自動適用される。テストがパスする。
@@ -329,6 +340,73 @@ my-filter = "my_plugin:request_filter"
 - テスト: `test_response_checker.py`、`test_main.py`
 
 **完了条件**: `papycli get /pet/1 --response-check` で spec と一致しないレスポンスが返された場合に stderr へ警告が出力される。ステータスコード不一致・ボディスキーマ違反ともに検出される。テストがパスする。
+
+---
+
+### Milestone 10 — `config alias` コマンド
+
+**目的**: 登録済み API に対して短いコマンドエイリアスを作成し、`papycli` の代わりに使えるようにする。
+
+**実装内容**:
+- `main.py` に `papycli config alias [ALIAS_NAME] [SPEC_NAME]` コマンドを追加
+  - `ALIAS_NAME` と `SPEC_NAME` を指定すると `~/.papycli/bin/ALIAS_NAME` に papycli バイナリへのシンボリックリンクを作成し、エイリアスと spec のマッピングを `papycli.conf` の `aliases` キーに保存する
+  - `SPEC_NAME` 省略時はデフォルト API を使用する
+  - 引数なしで呼び出すとエイリアス一覧を表示する（設定なしは `(no aliases configured)` と表示）
+  - `-d ALIAS_NAME` でエイリアスとシンボリックリンクを削除する
+- `config.py` にエイリアス管理関数を追加（`get_aliases()`, `set_alias()`, `remove_alias()`）
+- テスト: `test_config.py`、`test_main.py`
+
+**完了条件**: `papycli config alias petcli` 実行後、`petcli get /store/inventory` が `papycli get /store/inventory` と同等に動作する。テストがパスする。
+
+---
+
+### Milestone 11 — `RequestContext.spec` 属性
+
+**目的**: リクエストフィルタープラグインが API 定義のオペレーション仕様を参照できるようにする。
+
+**実装内容**:
+- `filters.py` の `RequestContext` に `spec: dict[str, Any] | None` フィールドを追加
+  - API 定義にマッチしたオペレーション dict を格納する（参照専用）
+  - `apply_filters()` でのスナップショット作成時に `copy.deepcopy(original_spec)` を渡し、フィルターによるインプレース変異を防ぐ
+  - 各フィルター成功後に `result.spec = original_spec` で元の参照を復元する
+- `api_call.py` の `call_api()` で `RequestContext` 生成時に `spec` を設定するよう更新
+- テスト: `test_filters.py`
+  - `spec` フィールドがフィルターに渡されること
+  - フィルターが `spec` をインプレース変異させても後続フィルターに影響しないこと
+
+**完了条件**: リクエストフィルターが `ctx.spec` を参照してオペレーション仕様を取得できる。テストがパスする。
+
+---
+
+### Milestone 12 — 統合テスト
+
+**目的**: `papycli` バイナリを subprocess で実行する統合テストを追加し、エンドツーエンドの動作を検証する。
+
+**実装内容**:
+- `tests/integration/` ディレクトリを作成
+- `pytest-httpserver` を使ったモック HTTP サーバーでリクエスト送受信を検証する統合テストを実装
+- `tests/integration/conftest.py` で共通フィクスチャ（テスト用 spec ファイル、設定ディレクトリ等）を定義
+- `pyproject.toml` に `[tool.pytest.ini_options]` で `integration` マーカーを設定
+- テスト実行: `uv run pytest -m integration --override-ini addopts= tests/integration/`
+
+**完了条件**: `papycli get` / `papycli post` 等を subprocess で実行した際に正しく HTTP リクエストが送信されることを統合テストで検証できる。テストがパスする。
+
+---
+
+### Milestone 13 — `ResponseContext.schema` 属性
+
+**目的**: レスポンスフィルタープラグインが該当ステータスコードの OpenAPI Response Object を参照できるようにする。
+
+**実装内容**:
+- `filters.py` の `ResponseContext` に `schema: dict[str, Any] | None` フィールドを追加
+  - `response_checker.py` の `resolve_response_def()` で $ref 解決済みの Response Object を取得して設定する
+  - `apply_response_filters()` でのスナップショット作成時に `copy.deepcopy(original_schema)` を渡し、フィルターによる変更を後続フィルターに伝播させない
+  - 参照専用フィールドのため各フィルター成功後に `result.schema = original_schema` で元の値を復元する
+- `response_checker.py` に `resolve_response_def()` を共有ヘルパーとして追加
+- `api_call.py` で `ResponseContext` 生成時に `schema` を設定するよう更新
+- テスト: `test_filters.py`、`test_response_checker.py`
+
+**完了条件**: レスポンスフィルターが `ctx.schema` を参照して Response Object を取得できる。フィルターが `schema` をインプレース変異させても後続フィルターに影響しない。テストがパスする。
 
 ---
 
