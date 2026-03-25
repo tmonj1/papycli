@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.1](https://github.com/tmonj1/papycli/compare/v0.13.0...v0.13.1) (2026-03-25)
+
+
+### Documentation
+
+* add GitHub Pages documentation site with MkDocs Material ([7220f4e](https://github.com/tmonj1/papycli/commit/7220f4e9bfe2f4d2ea213f49670b69ac9349129f))
+* GitHub Pages ドキュメントサイトの追加 ([#139](https://github.com/tmonj1/papycli/issues/139)) ([7220f4e](https://github.com/tmonj1/papycli/commit/7220f4e9bfe2f4d2ea213f49670b69ac9349129f))
+* README および design_doc.md を最新の実装に追従させる ([#137](https://github.com/tmonj1/papycli/issues/137)) ([58712a2](https://github.com/tmonj1/papycli/commit/58712a28b25159bc74ee9652eeb0b452e8e2ea25))
+
 ## [0.13.0](https://github.com/tmonj1/papycli/compare/v0.12.2...v0.13.0) (2026-03-24)
 
 
