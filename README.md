@@ -67,7 +67,7 @@ This repository includes a demo using the [Swagger Petstore](https://github.com/
 ### 1. Start the Petstore server
 
 ```bash
-docker compose -f examples/docker-compose.yml up -d
+docker compose -f examples/petstore/docker-compose.yml up -d
 ```
 
 The API will be available at `http://localhost:8080/api/v3/`.
@@ -75,7 +75,7 @@ The API will be available at `http://localhost:8080/api/v3/`.
 ### 2. Register the API
 
 ```bash
-papycli config add examples/petstore-oas3.json
+papycli config add examples/petstore/petstore-oas3.json
 ```
 
 ### 3. Try some commands
@@ -185,6 +185,15 @@ papycli config remove petstore-oas3
 
 # Show registered APIs and the current default
 papycli config list
+
+# Create a short alias command for the current default API
+papycli config alias petcli
+
+# List configured aliases
+papycli config alias
+
+# Delete an alias
+papycli config alias -d petcli
 ```
 
 ---
@@ -200,6 +209,9 @@ papycli config list                        List registered APIs and current conf
 papycli config log                         Show the current log file path
 papycli config log <path>                  Set the log file path
 papycli config log --unset                 Disable logging
+papycli config alias [alias-name] [spec-name]  Create a command alias for a registered API
+papycli config alias                       List configured aliases
+papycli config alias -d <alias-name>       Delete an alias
 papycli config completion-script <bash|zsh>  Print a shell completion script
 
 # Inspection commands
@@ -282,6 +294,7 @@ Install the package and filters are applied automatically on every request, sort
 | `query_params` | `list[tuple[str, str]]` | Query parameters. |
 | `body` | `dict \| list \| str \| int \| float \| bool \| None` | JSON request body. |
 | `headers` | `dict[str, str]` | Custom HTTP headers. |
+| `spec` | `dict \| None` | The matched operation spec entry from the API definition (read-only). `None` if not resolvable. |
 
 ---
 
@@ -323,6 +336,7 @@ Install the package and the filters are applied automatically after every respon
 | `headers` | `dict[str, str]` | Response headers. |
 | `body` | `dict \| list \| str \| int \| float \| bool \| None` | Parsed response body. Modify this field to replace the response body. |
 | `request_body` | `dict \| list \| str \| int \| float \| bool \| None` | Request body sent to the server (read-only). `None` for requests without a body. |
+| `schema` | `dict \| None` | The resolved OpenAPI Response Object for the matched status code (read-only). `None` if no matching definition exists. |
 
 ---
 
