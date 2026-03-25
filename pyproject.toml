@@ -30,6 +30,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/tmonj1/papycli"
 Repository = "https://github.com/tmonj1/papycli"
+Documentation = "https://tmonj1.github.io/papycli/"
 "Bug Tracker" = "https://github.com/tmonj1/papycli/issues"
 
 [project.scripts]
@@ -52,6 +53,9 @@ dev = [
     "types-requests>=2.32",
     "types-pyyaml>=6.0",
     "pre-commit>=4.5.1",
+]
+docs = [
+    "mkdocs-material>=9.5",
 ]
 
 [tool.ruff]
