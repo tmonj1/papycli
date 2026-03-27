@@ -549,8 +549,9 @@ def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             wl = _shell_word_list(names)
+            pat = _shell_single_quote(f"{method}:{path}")
             lines.append(
-                f'            "{method}:{path}")'
+                f"            {pat})"
                 f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
             )
     lines.append("            *) ;;")
@@ -569,8 +570,9 @@ def _bash_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 wl = _shell_word_list(vals)
                 pname = p["name"]
+                pat = _shell_single_quote(f"{method}:{path}:{pname}")
                 lines.append(
-                    f'            "{method}:{path}:{pname}")'
+                    f"            {pat})"
                     f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
                 )
     lines.append("            *) ;;")
@@ -603,8 +605,9 @@ def _zsh_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             ae = _zsh_array_elems(names)
+            pat = _shell_single_quote(f"{method}:{path}")
             lines.append(
-                f'            "{method}:{path}") _c=({ae}); _describe \'\' _c ;;'
+                f"            {pat}) _c=({ae}); _describe '' _c ;;"
             )
     lines.append("            *) ;;")
     return "\n".join(lines)
@@ -622,8 +625,9 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 ae = _zsh_array_elems(vals)
                 pname = p["name"]
+                pat = _shell_single_quote(f"{method}:{path}:{pname}")
                 lines.append(
-                    f'            "{method}:{path}:{pname}")'
+                    f"            {pat})"
                     f" _c=({ae}); _describe '' _c ;;"
                 )
     lines.append("            *) ;;")
