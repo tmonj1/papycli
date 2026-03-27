@@ -8,6 +8,7 @@ from papycli.completion import (
     _used_param_names,
     completions_for_context,
     generate_script,
+    generate_static_script,  # ← add this
 )
 
 # ---------------------------------------------------------------------------
@@ -714,3 +715,59 @@ def test_generate_script_default_is_papycli_bash() -> None:
 
 def test_generate_script_default_is_papycli_zsh() -> None:
     assert generate_script("zsh") == generate_script("zsh", "papycli")
+
+
+class TestGenerateStaticScript:
+    def test_bash_contains_resources(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        assert "/pet/findByStatus" in script
+        assert "/pet/{petId}" in script
+
+    def test_bash_contains_api_names(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore", "myapi"])
+        assert "petstore" in script
+        assert "myapi" in script
+
+    def test_bash_contains_enum_values(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        assert "available" in script
+        assert "pending" in script
+        assert "sold" in script
+
+    def test_bash_contains_required_param_marker(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        # POST /pet の name は required → name* が含まれる
+        assert "name*" in script
+
+    def test_bash_has_completion_function_and_binding(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        assert "_papycli_completion()" in script
+        assert "complete -o nospace -F _papycli_completion papycli" in script
+
+    def test_bash_no_python_call(self) -> None:
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        assert "_complete" not in script
+
+    def test_bash_none_apidef_generates_valid_script(self) -> None:
+        script = generate_static_script("bash", "papycli", None, None)
+        assert "_papycli_completion()" in script
+        assert "get post put patch delete" in script
+        assert "_complete" not in script
+
+    def test_bash_custom_cmd_name(self) -> None:
+        script = generate_static_script("bash", "petcli", APIDEF, ["petstore"])
+        assert "_petcli_completion()" in script
+        assert "complete -o nospace -F _petcli_completion petcli" in script
+
+    def test_zsh_has_compdef(self) -> None:
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        assert "compdef _papycli papycli" in script
+        assert "/pet/findByStatus" in script
+
+    def test_zsh_no_python_call(self) -> None:
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        assert "_complete" not in script
+
+    def test_zsh_contains_enum_values(self) -> None:
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        assert "available" in script

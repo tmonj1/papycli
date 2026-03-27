@@ -79,8 +79,8 @@ def generate_script(shell: str, cmd_name: str = "papycli") -> str:
     cmd_name = Path(cmd_name).stem
     if not _SAFE_CMD_RE.match(cmd_name):
         raise ValueError(
-            f"Invalid command name '{cmd_name}': "
-            "must start with a letter or digit, and contain only letters, digits, hyphens, and underscores."
+            f"Invalid command name '{cmd_name}': must start with a letter or digit,"
+            " and contain only letters, digits, hyphens, and underscores."
         )
     if shell == "bash":
         return _render_script(_BASH_TEMPLATE, cmd_name)
@@ -295,6 +295,368 @@ def completions_for_context(
         if not op.get("post_parameters"):
             opts = [o for o in opts if o not in ("-p", "-d")]
     return [o for o in opts if o.startswith(incomplete)]
+
+
+# ---------------------------------------------------------------------------
+# 静的補完スクリプト生成
+# ---------------------------------------------------------------------------
+
+_STATIC_BASH_TEMPLATE = """\
+_@@SAFENAME@@_completion() {
+    local cur prev pprev
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev=""
+    pprev=""
+    [[ $COMP_CWORD -ge 1 ]] && prev="${COMP_WORDS[COMP_CWORD-1]}"
+    [[ $COMP_CWORD -ge 2 ]] && pprev="${COMP_WORDS[COMP_CWORD-2]}"
+
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "get post put patch delete config spec summary" -- "$cur"))
+        return
+    fi
+
+    local cmd="${COMP_WORDS[1]}"
+
+    if [[ "$cmd" == "config" ]]; then
+        case ${COMP_CWORD} in
+            2)  local _cfg="add alias completion-script list log remove use"
+                COMPREPLY=($(compgen -W "$_cfg" -- "$cur")) ;;
+            3)  case "${COMP_WORDS[2]}" in
+                    remove|use) COMPREPLY=($(compgen -W "@@API_NAMES@@" -- "$cur")) ;;
+                    add)        COMPREPLY=($(compgen -f -- "$cur"))
+                                compopt -o filenames 2>/dev/null ;;
+                esac ;;
+        esac
+        return
+    fi
+
+    if [[ "$cmd" == "summary" && ${COMP_CWORD} -eq 2 ]]; then
+        COMPREPLY=($(compgen -W "--csv @@ALL_RESOURCES@@" -- "$cur"))
+        return
+    fi
+
+    if [[ "$cmd" == "spec" ]]; then
+        if [[ ${COMP_CWORD} -eq 2 ]]; then
+            COMPREPLY=($(compgen -W "--full @@ALL_RESOURCES@@" -- "$cur"))
+        elif [[ ${COMP_CWORD} -eq 3 && "${COMP_WORDS[2]}" == "--full" ]]; then
+            COMPREPLY=($(compgen -W "@@ALL_RESOURCES@@" -- "$cur"))
+        fi
+        return
+    fi
+
+    case "$cmd" in get|post|put|patch|delete) ;; *) return ;; esac
+
+    if [[ ${COMP_CWORD} -eq 2 ]]; then
+        case "$cmd" in
+@@METHOD_RESOURCE_CASES@@
+        esac
+        return
+    fi
+
+    local resource="${COMP_WORDS[2]}"
+    local ctx="${cmd}:${resource}"
+
+    if [[ "$prev" == "-q" ]]; then
+        case "$ctx" in
+@@Q_PARAM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$pprev" == "-q" ]]; then
+        local pname="${prev%\\*}"
+        case "${ctx}:${pname}" in
+@@Q_ENUM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$prev" == "-p" ]]; then
+        case "$ctx" in
+@@P_PARAM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$pprev" == "-p" ]]; then
+        local pname="${prev%\\*}"
+        case "${ctx}:${pname}" in
+@@P_ENUM_CASES@@
+        esac
+        return
+    fi
+
+    local _opts="-q -p -d -H --summary -v --verbose --check --check-strict --response-check"
+    COMPREPLY=($(compgen -W "$_opts" -- "$cur"))
+}
+
+complete -o nospace -F _@@SAFENAME@@_completion @@CMDNAME@@
+"""
+
+_STATIC_ZSH_TEMPLATE = """\
+_@@SAFENAME@@() {
+    local cur="${words[CURRENT]}"
+    local prev="${words[CURRENT-1]:-}"
+    local pprev="${words[CURRENT-2]:-}"
+    local cword=$((CURRENT - 1))
+    local -a _c
+
+    if [[ $cword -eq 1 ]]; then
+        _c=(get post put patch delete config spec summary)
+        _describe 'command' _c && return
+    fi
+
+    local cmd="${words[2]}"
+
+    if [[ "$cmd" == "config" ]]; then
+        case $cword in
+            2)  _c=(add alias completion-script list log remove use)
+                _describe 'subcommand' _c ;;
+            3)  case "${words[3]}" in
+                    remove|use) _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
+                    add)        _files ;;
+                esac ;;
+        esac
+        return
+    fi
+
+    if [[ "$cmd" == "summary" && $cword -eq 2 ]]; then
+        _c=(--csv @@ALL_RESOURCES_ZSH@@)
+        _describe 'resource' _c
+        return
+    fi
+
+    if [[ "$cmd" == "spec" ]]; then
+        if [[ $cword -eq 2 ]]; then
+            _c=(--full @@ALL_RESOURCES_ZSH@@)
+            _describe 'resource' _c
+        elif [[ $cword -eq 3 && "${words[3]}" == "--full" ]]; then
+            _c=(@@ALL_RESOURCES_ZSH@@)
+            _describe 'resource' _c
+        fi
+        return
+    fi
+
+    case "$cmd" in get|post|put|patch|delete) ;; *) return ;; esac
+
+    if [[ $cword -eq 2 ]]; then
+        case "$cmd" in
+@@ZSH_METHOD_RESOURCE_CASES@@
+        esac
+        return
+    fi
+
+    local resource="${words[3]}"
+    local ctx="${cmd}:${resource}"
+
+    if [[ "$prev" == "-q" ]]; then
+        case "$ctx" in
+@@ZSH_Q_PARAM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$pprev" == "-q" ]]; then
+        local pname="${prev%\\*}"
+        case "${ctx}:${pname}" in
+@@ZSH_Q_ENUM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$prev" == "-p" ]]; then
+        case "$ctx" in
+@@ZSH_P_PARAM_CASES@@
+        esac
+        return
+    fi
+
+    if [[ "$pprev" == "-p" ]]; then
+        local pname="${prev%\\*}"
+        case "${ctx}:${pname}" in
+@@ZSH_P_ENUM_CASES@@
+        esac
+        return
+    fi
+
+    _c=(-q -p -d -H --summary -v --verbose --check --check-strict --response-check)
+    _describe 'option' _c
+}
+compdef _@@SAFENAME@@ @@CMDNAME@@
+"""
+
+
+def _shell_word_list(items: list[str]) -> str:
+    """スペース区切りの単語列をダブルクォートで囲んで返す（bash compgen -W 用）。"""
+    escaped = " ".join(w.replace("\\", "\\\\").replace('"', '\\"') for w in items)
+    return f'"{escaped}"'
+
+
+def _zsh_array_elems(items: list[str]) -> str:
+    """zsh 配列リテラルの要素部分（括弧なし）を返す。"""
+    return " ".join(f'"{w}"' for w in items)
+
+
+def _bash_method_resource_cases(apidef: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for method in ("get", "post", "put", "patch", "delete"):
+        resources = sorted(
+            p for p, ops in apidef.items() if any(o["method"] == method for o in ops)
+        )
+        if resources:
+            wl = _shell_word_list(resources)
+            lines.append(f'            {method}) COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;')
+    return "\n".join(lines)
+
+
+def _build_param_names(params: list[dict[str, Any]]) -> list[str]:
+    """required パラメータに * を付けてリストを返す。"""
+    return (
+        [p["name"] + "*" for p in params if p.get("required")]
+        + [p["name"] for p in params if not p.get("required")]
+    )
+
+
+def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            params = op.get(key, [])
+            if not params:
+                continue
+            method = op["method"]
+            names = _build_param_names(params)
+            wl = _shell_word_list(names)
+            lines.append(
+                f'            "{method}:{path}")'
+                f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
+            )
+    return "\n".join(lines)
+
+
+def _bash_enum_cases(apidef: dict[str, Any], kind: str) -> str:
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            method = op["method"]
+            for p in op.get(key, []):
+                if "enum" not in p:
+                    continue
+                vals = [str(v) for v in p["enum"]]
+                wl = _shell_word_list(vals)
+                pname = p["name"]
+                lines.append(
+                    f'            "{method}:{path}:{pname}")'
+                    f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
+                )
+    return "\n".join(lines)
+
+
+def _zsh_method_resource_cases(apidef: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for method in ("get", "post", "put", "patch", "delete"):
+        resources = sorted(
+            p for p, ops in apidef.items() if any(o["method"] == method for o in ops)
+        )
+        if resources:
+            ae = _zsh_array_elems(resources)
+            lines.append(
+                f"            {method}) _c=({ae}); _describe 'resource' _c ;;"
+            )
+    return "\n".join(lines)
+
+
+def _zsh_param_cases(apidef: dict[str, Any], kind: str) -> str:
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            params = op.get(key, [])
+            if not params:
+                continue
+            method = op["method"]
+            names = _build_param_names(params)
+            ae = _zsh_array_elems(names)
+            lines.append(
+                f'            "{method}:{path}") _c=({ae}); _describe \'\' _c ;;'
+            )
+    return "\n".join(lines)
+
+
+def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
+    key = "query_parameters" if kind == "query" else "post_parameters"
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            method = op["method"]
+            for p in op.get(key, []):
+                if "enum" not in p:
+                    continue
+                vals = [str(v) for v in p["enum"]]
+                ae = _zsh_array_elems(vals)
+                pname = p["name"]
+                lines.append(
+                    f'            "{method}:{path}:{pname}")'
+                    f" _c=({ae}); _describe '' _c ;;"
+                )
+    return "\n".join(lines)
+
+
+def generate_static_script(
+    shell: str,
+    cmd_name: str,
+    apidef: dict[str, Any] | None,
+    api_names: list[str] | None,
+) -> str:
+    """補完データ埋め込み済みの静的シェル補完スクリプトを返す。
+
+    Args:
+        shell: "bash" または "zsh"
+        cmd_name: 補完対象のコマンド名
+        apidef: API 定義 dict。None の場合は API 固有の補完候補なし。
+        api_names: 登録済み API 名リスト。None の場合は空。
+
+    Raises:
+        ValueError: cmd_name に安全でない文字が含まれる場合。
+    """
+    cmd_name = Path(cmd_name).stem
+    if not _SAFE_CMD_RE.match(cmd_name):
+        raise ValueError(
+            f"Invalid command name '{cmd_name}': must start with a letter or digit,"
+            " and contain only letters, digits, hyphens, and underscores."
+        )
+    safe = cmd_name.replace("-", "_")
+    names = api_names or []
+    adef = apidef or {}
+    all_resources = sorted(adef.keys())
+
+    if shell == "bash":
+        script = _STATIC_BASH_TEMPLATE
+        script = script.replace("@@CMDNAME@@", cmd_name)
+        script = script.replace("@@SAFENAME@@", safe)
+        script = script.replace("@@API_NAMES@@", " ".join(names))
+        script = script.replace("@@ALL_RESOURCES@@", " ".join(all_resources))
+        script = script.replace("@@METHOD_RESOURCE_CASES@@", _bash_method_resource_cases(adef))
+        script = script.replace("@@Q_PARAM_CASES@@", _bash_param_cases(adef, "query"))
+        script = script.replace("@@Q_ENUM_CASES@@", _bash_enum_cases(adef, "query"))
+        script = script.replace("@@P_PARAM_CASES@@", _bash_param_cases(adef, "body"))
+        script = script.replace("@@P_ENUM_CASES@@", _bash_enum_cases(adef, "body"))
+        return script
+
+    # zsh
+    script = _STATIC_ZSH_TEMPLATE
+    script = script.replace("@@CMDNAME@@", cmd_name)
+    script = script.replace("@@SAFENAME@@", safe)
+    script = script.replace("@@API_NAMES_ZSH@@", _zsh_array_elems(names))
+    script = script.replace("@@ALL_RESOURCES_ZSH@@", _zsh_array_elems(all_resources))
+    script = script.replace("@@ZSH_METHOD_RESOURCE_CASES@@", _zsh_method_resource_cases(adef))
+    script = script.replace("@@ZSH_Q_PARAM_CASES@@", _zsh_param_cases(adef, "query"))
+    script = script.replace("@@ZSH_Q_ENUM_CASES@@", _zsh_enum_cases(adef, "query"))
+    script = script.replace("@@ZSH_P_PARAM_CASES@@", _zsh_param_cases(adef, "body"))
+    script = script.replace("@@ZSH_P_ENUM_CASES@@", _zsh_enum_cases(adef, "body"))
+    return script
 
 
 def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:
