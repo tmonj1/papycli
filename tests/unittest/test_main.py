@@ -1359,5 +1359,6 @@ class TestCompletionScriptStatic:
         runner = CliRunner()
         result = runner.invoke(cli, ["config", "completion-script", "bash"])
         assert result.exit_code == 0
+        assert "_complete" not in result.output
         assert "/pet" in result.output
         assert "/store/inventory" in result.output

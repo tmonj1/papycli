@@ -300,15 +300,19 @@ def cmd_config_completion_script(shell: str) -> None:
     root_name = click.get_current_context().find_root().info_name or ""
     cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
     conf_dir = get_conf_dir()
+    api_names: list[str] = []
+    apidef = None
     try:
         conf = load_conf(conf_dir)
-        api_names: list[str] = [
+        api_names = [
             k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
         ]
-        apidef, _ = load_current_apidef(conf_dir, conf=conf)
     except Exception:
-        api_names = []
-        apidef = None
+        pass
+    try:
+        apidef, _ = load_current_apidef(conf_dir)
+    except Exception:
+        pass
     try:
         click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:
