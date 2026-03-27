@@ -307,12 +307,12 @@ def cmd_config_completion_script(shell: str) -> None:
         api_names = [
             k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
         ]
-    except Exception:
-        pass
+    except Exception as e:
+        click.echo(f"Warning: failed to load configuration for completion: {e}", err=True)
     try:
         apidef, _ = load_current_apidef(conf_dir)
-    except Exception:
-        pass
+    except Exception as e:
+        click.echo(f"Warning: failed to load current API definition for completion: {e}", err=True)
     try:
         click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:

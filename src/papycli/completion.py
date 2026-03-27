@@ -322,7 +322,7 @@ _@@SAFENAME@@_completion() {
             2)  local _cfg="add alias completion-script list log remove use"
                 COMPREPLY=($(compgen -W "$_cfg" -- "$cur")) ;;
             3)  case "${COMP_WORDS[2]}" in
-                    remove|use) COMPREPLY=($(compgen -W "@@API_NAMES@@" -- "$cur")) ;;
+                    remove|use) COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
                     add)        COMPREPLY=($(compgen -f -- "$cur"))
                                 compopt -o filenames 2>/dev/null ;;
                 esac ;;
@@ -331,15 +331,15 @@ _@@SAFENAME@@_completion() {
     fi
 
     if [[ "$cmd" == "summary" && ${COMP_CWORD} -eq 2 ]]; then
-        COMPREPLY=($(compgen -W "--csv @@ALL_RESOURCES@@" -- "$cur"))
+        COMPREPLY=($(compgen -W @@SUMMARY_OPTS@@ -- "$cur"))
         return
     fi
 
     if [[ "$cmd" == "spec" ]]; then
         if [[ ${COMP_CWORD} -eq 2 ]]; then
-            COMPREPLY=($(compgen -W "--full @@ALL_RESOURCES@@" -- "$cur"))
+            COMPREPLY=($(compgen -W @@SPEC_OPTS@@ -- "$cur"))
         elif [[ ${COMP_CWORD} -eq 3 && "${COMP_WORDS[2]}" == "--full" ]]; then
-            COMPREPLY=($(compgen -W "@@ALL_RESOURCES@@" -- "$cur"))
+            COMPREPLY=($(compgen -W @@ALL_RESOURCES@@ -- "$cur"))
         fi
         return
     fi
@@ -486,15 +486,24 @@ compdef _@@SAFENAME@@ @@CMDNAME@@
 """
 
 
+def _shell_single_quote(s: str) -> str:
+    """任意の文字列をシェルの単一クォートリテラルに変換する。
+
+    単一クォート内では変数展開やコマンド置換が行われないため、
+    スペース・$()・バッククォート等が含まれていても安全なリテラルとして使用できる。
+    文字列中の単一クォートは '\"'\"' の形で閉じて再度開くことで表現する。
+    """
+    return "'" + s.replace("'", "'\"'\"'") + "'"
+
+
 def _shell_word_list(items: list[str]) -> str:
-    """スペース区切りの単語列をダブルクォートで囲んで返す（bash compgen -W 用）。"""
-    escaped = " ".join(w.replace("\\", "\\\\").replace('"', '\\"') for w in items)
-    return f'"{escaped}"'
+    """スペース区切りの単語列を単一クォートで囲んで返す（bash compgen -W 用）。"""
+    return _shell_single_quote(" ".join(items))
 
 
 def _zsh_array_elems(items: list[str]) -> str:
     """zsh 配列リテラルの要素部分（括弧なし）を返す。"""
-    return " ".join(f'"{w}"' for w in items)
+    return " ".join(_shell_single_quote(w) for w in items)
 
 
 def _bash_method_resource_cases(apidef: dict[str, Any]) -> str:
@@ -506,6 +515,7 @@ def _bash_method_resource_cases(apidef: dict[str, Any]) -> str:
         if resources:
             wl = _shell_word_list(resources)
             lines.append(f'            {method}) COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;')
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -532,6 +542,7 @@ def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
                 f'            "{method}:{path}")'
                 f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
             )
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -551,6 +562,7 @@ def _bash_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                     f'            "{method}:{path}:{pname}")'
                     f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
                 )
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -565,6 +577,7 @@ def _zsh_method_resource_cases(apidef: dict[str, Any]) -> str:
             lines.append(
                 f"            {method}) _c=({ae}); _describe 'resource' _c ;;"
             )
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -582,6 +595,7 @@ def _zsh_param_cases(apidef: dict[str, Any], kind: str) -> str:
             lines.append(
                 f'            "{method}:{path}") _c=({ae}); _describe \'\' _c ;;'
             )
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -601,6 +615,7 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                     f'            "{method}:{path}:{pname}")'
                     f" _c=({ae}); _describe '' _c ;;"
                 )
+    lines.append("            *) ;;")
     return "\n".join(lines)
 
 
@@ -644,8 +659,10 @@ def generate_static_script(
         script = _STATIC_BASH_TEMPLATE
         script = script.replace("@@CMDNAME@@", cmd_name)
         script = script.replace("@@SAFENAME@@", safe)
-        script = script.replace("@@API_NAMES@@", " ".join(names))
-        script = script.replace("@@ALL_RESOURCES@@", " ".join(all_resources))
+        script = script.replace("@@API_NAMES@@", _shell_word_list(names))
+        script = script.replace("@@SUMMARY_OPTS@@", _shell_word_list(["--csv"] + all_resources))
+        script = script.replace("@@SPEC_OPTS@@", _shell_word_list(["--full"] + all_resources))
+        script = script.replace("@@ALL_RESOURCES@@", _shell_word_list(all_resources))
         script = script.replace("@@METHOD_RESOURCE_CASES@@", _bash_method_resource_cases(adef))
         script = script.replace("@@Q_PARAM_CASES@@", _bash_param_cases(adef, "query"))
         script = script.replace("@@Q_ENUM_CASES@@", _bash_enum_cases(adef, "query"))
