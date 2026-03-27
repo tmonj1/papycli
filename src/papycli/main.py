@@ -13,7 +13,7 @@ import requests
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
-from papycli.completion import _SAFE_CMD_RE, generate_script, get_completions
+from papycli.completion import _SAFE_CMD_RE, generate_static_script, get_completions
 from papycli.config import (
     get_aliases,
     get_apis_dir,
@@ -299,8 +299,18 @@ def cmd_config_completion_script(shell: str) -> None:
     # find_root().info_name でエイリアス経由でも正確なコマンド名を取得する
     root_name = click.get_current_context().find_root().info_name or ""
     cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
+    conf_dir = get_conf_dir()
     try:
-        click.echo(generate_script(shell, cmd_name), nl=False)
+        conf = load_conf(conf_dir)
+        api_names: list[str] = [
+            k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
+        ]
+        apidef, _ = load_current_apidef(conf_dir, conf=conf)
+    except Exception:
+        api_names = []
+        apidef = None
+    try:
+        click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
