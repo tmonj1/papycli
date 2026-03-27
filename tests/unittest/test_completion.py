@@ -8,7 +8,7 @@ from papycli.completion import (
     _used_param_names,
     completions_for_context,
     generate_script,
-    generate_static_script,  # ← add this
+    generate_static_script,
 )
 
 # ---------------------------------------------------------------------------

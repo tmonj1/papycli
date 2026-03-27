@@ -619,7 +619,15 @@ def generate_static_script(
         api_names: 登録済み API 名リスト。None の場合は空。
 
     Raises:
-        ValueError: cmd_name に安全でない文字が含まれる場合。
+        ValueError: shell が "bash" / "zsh" 以外、または cmd_name に安全でない文字が含まれる場合。
+
+    Note:
+        動的補完（`_complete` サブコマンド呼び出し）と比べた既知の制限:
+        - パステンプレート変数（例: /pet/{petId}）はリテラルで照合するため、
+          /pet/99 のように入力してもパラメータ・enum 補完は返らない。
+        - 操作にクエリ/ボディパラメータがなくても -q / -p / -d は常に表示される。
+        - `summary <resource> <TAB>` での --csv 補完は行われない（位置 2 のみ対応）。
+        - スペースを含む API 名は bash での補完が正しく動作しない場合がある。
     """
     cmd_name = Path(cmd_name).stem
     if not _SAFE_CMD_RE.match(cmd_name):
@@ -644,6 +652,9 @@ def generate_static_script(
         script = script.replace("@@P_PARAM_CASES@@", _bash_param_cases(adef, "body"))
         script = script.replace("@@P_ENUM_CASES@@", _bash_enum_cases(adef, "body"))
         return script
+
+    if shell != "zsh":
+        raise ValueError(f"Unsupported shell '{shell}': must be 'bash' or 'zsh'.")
 
     # zsh
     script = _STATIC_ZSH_TEMPLATE
