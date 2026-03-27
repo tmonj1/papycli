@@ -486,6 +486,17 @@ compdef _@@SAFENAME@@ @@CMDNAME@@
 """
 
 
+def _replace_placeholders(template: str, replacements: dict[str, str]) -> str:
+    """テンプレート内のプレースホルダーを一括で安全に置換する。
+
+    str.replace() を複数回呼ぶと置換済みテキストが再走査され、
+    データ内に @@...@@ 形式の文字列が含まれる場合に意図しない展開が起こりえる。
+    re.sub の一括置換により、置換テキストが再走査されないことを保証する。
+    """
+    pattern = re.compile("|".join(re.escape(k) for k in replacements))
+    return pattern.sub(lambda m: replacements[m.group(0)], template)
+
+
 def _shell_single_quote(s: str) -> str:
     """任意の文字列をシェルの単一クォートリテラルに変換する。
 
@@ -656,35 +667,34 @@ def generate_static_script(
     all_resources = sorted(adef.keys())
 
     if shell == "bash":
-        script = _STATIC_BASH_TEMPLATE
-        script = script.replace("@@CMDNAME@@", cmd_name)
-        script = script.replace("@@SAFENAME@@", safe)
-        script = script.replace("@@API_NAMES@@", _shell_word_list(names))
-        script = script.replace("@@SUMMARY_OPTS@@", _shell_word_list(["--csv"] + all_resources))
-        script = script.replace("@@SPEC_OPTS@@", _shell_word_list(["--full"] + all_resources))
-        script = script.replace("@@ALL_RESOURCES@@", _shell_word_list(all_resources))
-        script = script.replace("@@METHOD_RESOURCE_CASES@@", _bash_method_resource_cases(adef))
-        script = script.replace("@@Q_PARAM_CASES@@", _bash_param_cases(adef, "query"))
-        script = script.replace("@@Q_ENUM_CASES@@", _bash_enum_cases(adef, "query"))
-        script = script.replace("@@P_PARAM_CASES@@", _bash_param_cases(adef, "body"))
-        script = script.replace("@@P_ENUM_CASES@@", _bash_enum_cases(adef, "body"))
-        return script
+        return _replace_placeholders(_STATIC_BASH_TEMPLATE, {
+            "@@CMDNAME@@": cmd_name,
+            "@@SAFENAME@@": safe,
+            "@@API_NAMES@@": _shell_word_list(names),
+            "@@SUMMARY_OPTS@@": _shell_word_list(["--csv"] + all_resources),
+            "@@SPEC_OPTS@@": _shell_word_list(["--full"] + all_resources),
+            "@@ALL_RESOURCES@@": _shell_word_list(all_resources),
+            "@@METHOD_RESOURCE_CASES@@": _bash_method_resource_cases(adef),
+            "@@Q_PARAM_CASES@@": _bash_param_cases(adef, "query"),
+            "@@Q_ENUM_CASES@@": _bash_enum_cases(adef, "query"),
+            "@@P_PARAM_CASES@@": _bash_param_cases(adef, "body"),
+            "@@P_ENUM_CASES@@": _bash_enum_cases(adef, "body"),
+        })
 
     if shell != "zsh":
         raise ValueError(f"Unsupported shell '{shell}': must be 'bash' or 'zsh'.")
 
-    # zsh
-    script = _STATIC_ZSH_TEMPLATE
-    script = script.replace("@@CMDNAME@@", cmd_name)
-    script = script.replace("@@SAFENAME@@", safe)
-    script = script.replace("@@API_NAMES_ZSH@@", _zsh_array_elems(names))
-    script = script.replace("@@ALL_RESOURCES_ZSH@@", _zsh_array_elems(all_resources))
-    script = script.replace("@@ZSH_METHOD_RESOURCE_CASES@@", _zsh_method_resource_cases(adef))
-    script = script.replace("@@ZSH_Q_PARAM_CASES@@", _zsh_param_cases(adef, "query"))
-    script = script.replace("@@ZSH_Q_ENUM_CASES@@", _zsh_enum_cases(adef, "query"))
-    script = script.replace("@@ZSH_P_PARAM_CASES@@", _zsh_param_cases(adef, "body"))
-    script = script.replace("@@ZSH_P_ENUM_CASES@@", _zsh_enum_cases(adef, "body"))
-    return script
+    return _replace_placeholders(_STATIC_ZSH_TEMPLATE, {
+        "@@CMDNAME@@": cmd_name,
+        "@@SAFENAME@@": safe,
+        "@@API_NAMES_ZSH@@": _zsh_array_elems(names),
+        "@@ALL_RESOURCES_ZSH@@": _zsh_array_elems(all_resources),
+        "@@ZSH_METHOD_RESOURCE_CASES@@": _zsh_method_resource_cases(adef),
+        "@@ZSH_Q_PARAM_CASES@@": _zsh_param_cases(adef, "query"),
+        "@@ZSH_Q_ENUM_CASES@@": _zsh_enum_cases(adef, "query"),
+        "@@ZSH_P_PARAM_CASES@@": _zsh_param_cases(adef, "body"),
+        "@@ZSH_P_ENUM_CASES@@": _zsh_enum_cases(adef, "body"),
+    })
 
 
 def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:
