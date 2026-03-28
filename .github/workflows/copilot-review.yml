@@ -40,7 +40,7 @@ jobs:
             echo "Copilot is already a requested reviewer; removing to trigger re-review."
             gh api --method DELETE \
               repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-              -f 'reviewers[]=copilot-pull-request-reviewer' || true
+              -f 'reviewers[]=copilot-pull-request-reviewer' || { echo "Warning: Failed to remove existing Copilot review request; continuing to request review." >&2; }
           fi
           if ! gh api --method POST \
               repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
