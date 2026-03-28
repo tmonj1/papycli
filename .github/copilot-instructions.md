@@ -7,16 +7,18 @@
 
 ## Review priorities (most important first)
 1. **Correctness / behavior (strict)** for production source code:
-   - Logic correctness, edge cases, error handling, exit codes
+   - Logic correctness, error handling, exit codes
    - CLI UX: argument parsing, help text accuracy, defaults, backward compatibility
    - Security concerns: shell injection, path traversal, unsafe file operations, secrets handling
-   - Reliability: retries/timeouts, network failures, idempotency, atomic writes
 2. **Maintainability (moderate)**:
    - Clear structure, separation of concerns, naming (only when it impacts understanding)
    - Reasonable complexity and duplication (only when meaningful)
 3. **Style / comments / docstrings (light)**:
-   - Only mention if it causes misunderstanding or maintenance risk
+   - Basically no need to comment on style unless it is clear mistakes or it impacts readability. 
    - Otherwise skip
+4. **Verbosity**:
+   - Keep the number of comments in a single review up to three.
+   - Sort comments by priority and impact, and only include the most important ones.
 
 ## File-type sensitivity
 - For **application/source code** (e.g., `src/`, package modules): apply the strictness above.
