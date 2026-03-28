@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.14.0](https://github.com/tmonj1/papycli/compare/v0.13.0...v0.14.0) (2026-03-28)
+
+
+### Features
+
+* static shell completion script for Python-free Tab expansion ([#141](https://github.com/tmonj1/papycli/issues/141)) ([6b42365](https://github.com/tmonj1/papycli/commit/6b4236508761943fb724fae0af849434c40ce0b8))
+
+
+### Bug Fixes
+
+* **ci:** remove collaborator pre-check that always skips Copilot review request ([#142](https://github.com/tmonj1/papycli/issues/142)) ([28efea8](https://github.com/tmonj1/papycli/commit/28efea8f96067813764e0be997b247a40f7c73f6))
+
+
+### Documentation
+
+* add design spec for CLAUDE.md simplification ([dc2f199](https://github.com/tmonj1/papycli/commit/dc2f199f62c8dd6ba37228598b46862a4abacd44))
+* add GitHub Pages documentation site with MkDocs Material ([7220f4e](https://github.com/tmonj1/papycli/commit/7220f4e9bfe2f4d2ea213f49670b69ac9349129f))
+* add implementation plan for CLAUDE.md simplification ([40e7071](https://github.com/tmonj1/papycli/commit/40e70718c67dad5cf6b82ec872bfa52e85d9de81))
+* GitHub Pages ドキュメントサイトの追加 ([#139](https://github.com/tmonj1/papycli/issues/139)) ([7220f4e](https://github.com/tmonj1/papycli/commit/7220f4e9bfe2f4d2ea213f49670b69ac9349129f))
+* README および design_doc.md を最新の実装に追従させる ([#137](https://github.com/tmonj1/papycli/issues/137)) ([58712a2](https://github.com/tmonj1/papycli/commit/58712a28b25159bc74ee9652eeb0b452e8e2ea25))
+* simplify CLAUDE.md from 277 to ~144 lines ([451bf3a](https://github.com/tmonj1/papycli/commit/451bf3a1774185ec14c47e14db5c342f9df858cb))
+
 ## [0.13.0](https://github.com/tmonj1/papycli/compare/v0.12.2...v0.13.0) (2026-03-24)
 
 
