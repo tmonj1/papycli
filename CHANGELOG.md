@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/tmonj1/papycli/compare/v0.14.0...v0.15.0) (2026-03-28)
+
+
+### Features
+
+* ドット記法で任意の深さのネストオブジェクトをサポートする ([#145](https://github.com/tmonj1/papycli/issues/145)) ([a7490b2](https://github.com/tmonj1/papycli/commit/a7490b29341668b1a83f488cab3bec3b17d5aa2f)), closes [#144](https://github.com/tmonj1/papycli/issues/144)
+
 ## [0.14.0](https://github.com/tmonj1/papycli/compare/v0.13.0...v0.14.0) (2026-03-28)
 
 
