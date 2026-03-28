@@ -14,8 +14,8 @@
    - Clear structure, separation of concerns, naming (only when it impacts understanding)
    - Reasonable complexity and duplication (only when meaningful)
 3. **Style / comments / docstrings (light)**:
-   - Basically no need to comment on style unless it is clear mistakes or it impacts readability. 
-   - Otherwise skip
+   - Basically no need to comment on style unless it contains clear mistakes or impacts readability.
+   - Otherwise, skip.
 4. **Verbosity**:
    - Keep the number of comments in a single review up to three.
    - Sort comments by priority and impact, and only include the most important ones.
