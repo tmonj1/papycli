@@ -33,9 +33,7 @@ def _template_to_regex(template: str) -> tuple[str, list[str]]:
     return "".join(pattern_parts), param_names
 
 
-def match_path_template(
-    resource: str, templates: list[str]
-) -> tuple[str, dict[str, str]] | None:
+def match_path_template(resource: str, templates: list[str]) -> tuple[str, dict[str, str]] | None:
     """resource をテンプレート一覧にマッチさせる。
 
     完全一致を優先し、次にテンプレート変数が少ない（具体的な）順。
@@ -115,27 +113,27 @@ def build_body(
     """(-p name value) ペアから JSON ボディ dict を構築する。
 
     - 同じキーを繰り返すと JSON 配列になる
-    - ドット記法 (category.id) で 1 レベルのネストオブジェクトになる
+    - ドット記法 (category.id, a.b.c) で任意の深さのネストオブジェクトになる
     - post_parameters が渡された場合、type フィールドに基づき値を適切な型に変換する
     """
     type_map: dict[str, str] = (
-        {p["name"]: p.get("type", "string") for p in post_parameters}
-        if post_parameters
-        else {}
+        {p["name"]: p.get("type", "string") for p in post_parameters} if post_parameters else {}
     )
 
     result: dict[str, Any] = {}
     for name, value in pairs:
         if "." in name:
-            parent, child = name.split(".", 1)
-            if parent not in result:
-                result[parent] = {}
-            parent_obj = result[parent]
-            if not isinstance(parent_obj, dict):
-                raise ValueError(
-                    f"Cannot use dot notation on '{parent}': already a scalar or array"
-                )
-            _set_or_append(parent_obj, child, value)
+            *parents, leaf = name.split(".")
+            node = result
+            for part in parents:
+                if part not in node:
+                    node[part] = {}
+                if not isinstance(node[part], dict):
+                    raise ValueError(
+                        f"Cannot use dot notation on '{part}': already a scalar or array"
+                    )
+                node = node[part]
+            _set_or_append(node, leaf, value)
         else:
             type_str = type_map.get(name, "string")
             coerced = _coerce_value(value, type_str, name)
@@ -152,7 +150,7 @@ def parse_headers(
     header_strings: Sequence[str],
     custom_header_env: str | None = None,
 ) -> dict[str, str]:
-    """"-H Header: Value" 文字列と PAPYCLI_CUSTOM_HEADER 環境変数からヘッダー dict を構築する。
+    """ "-H Header: Value" 文字列と PAPYCLI_CUSTOM_HEADER 環境変数からヘッダー dict を構築する。
 
     環境変数より -H オプションが優先される。
     """
@@ -180,14 +178,16 @@ def parse_headers(
 
 _LOG_BODY_MAX_CHARS = 10_000
 
-_SENSITIVE_HEADERS = frozenset({
-    "authorization",
-    "cookie",
-    "set-cookie",
-    "proxy-authorization",
-    "x-api-key",
-    "x-auth-token",
-})
+_SENSITIVE_HEADERS = frozenset(
+    {
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "proxy-authorization",
+        "x-api-key",
+        "x-auth-token",
+    }
+)
 
 
 def _format_query_str(query_params: list[tuple[str, str]]) -> str:
@@ -231,9 +231,7 @@ def _write_log(
         body_str = json.dumps(body, ensure_ascii=False) if body is not None else "(none)"
         if len(body_str) > _LOG_BODY_MAX_CHARS:
             body_str = body_str[:_LOG_BODY_MAX_CHARS] + "...[truncated]"
-        masked = {
-            k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()
-        }
+        masked = {k: "***" if k.lower() in _SENSITIVE_HEADERS else v for k, v in headers.items()}
         headers_str = json.dumps(masked, ensure_ascii=False) if masked else "(none)"
 
         try:
@@ -329,16 +327,13 @@ def call_api(
     )
 
     if not base_url:
-        raise RuntimeError(
-            "Base URL is not configured. Edit papycli.conf and set the 'url' field."
-        )
+        raise RuntimeError("Base URL is not configured. Edit papycli.conf and set the 'url' field.")
 
     templates = list(apidef.keys())
     match = match_path_template(resource, templates)
     if match is None:
         raise ValueError(
-            f"No matching path for '{resource}'.\n"
-            f"Available paths: {', '.join(templates)}"
+            f"No matching path for '{resource}'.\nAvailable paths: {', '.join(templates)}"
         )
     template, path_params = match
 
@@ -347,8 +342,7 @@ def call_api(
     if op is None:
         available = [o["method"] for o in ops]
         raise ValueError(
-            f"Method '{method}' is not defined for '{template}'. "
-            f"Available: {', '.join(available)}"
+            f"Method '{method}' is not defined for '{template}'. Available: {', '.join(available)}"
         )
 
     expanded = expand_path(template, path_params)
@@ -387,7 +381,13 @@ def call_api(
         # フィルターが 1 件以上適用された場合は filtered_ctx を渡し、
         # 適用後の URL / クエリ / ボディ / ヘッダーも Filtered-* セクションとして記録する。
         _write_log(
-            logfile, method, url, list(query_params), json_body, headers, resp,
+            logfile,
+            method,
+            url,
+            list(query_params),
+            json_body,
+            headers,
+            resp,
             filtered_ctx=ctx if filters else None,
         )
 
@@ -419,6 +419,7 @@ def call_api(
         raise ValueError("raw_spec must be provided when do_response_check is True")
     if do_response_check and raw_spec is not None:
         from papycli.response_checker import check_response
+
         if response_filters and json_parse_ok:
             check_warnings = check_response(resp, raw_spec, method, template, _body=resp_body)
         else:
@@ -428,6 +429,7 @@ def call_api(
 
     if response_filters:
         from papycli.response_checker import resolve_response_def
+
         resp_schema: dict[str, Any] | None = None
         if raw_spec is not None:
             try:
@@ -494,8 +496,7 @@ def call_api(
                             is_text = base_type_lower.startswith("text/")
                             if is_text or base_type_lower == "application/json":
                                 other_params = [
-                                    p for p in parts[1:]
-                                    if not p.lower().startswith("charset=")
+                                    p for p in parts[1:] if not p.lower().startswith("charset=")
                                 ]
                                 resp_ctx.headers["Content-Type"] = "; ".join(
                                     [base_type, *other_params, "charset=utf-8"]
