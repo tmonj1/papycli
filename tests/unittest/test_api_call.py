@@ -161,6 +161,21 @@ def test_build_body_mixed() -> None:
     assert result["category"] == {"id": "2", "name": "Hounds"}
 
 
+def test_build_body_dot_notation_two_levels() -> None:
+    result = build_body([("a.b.c", "value")])
+    assert result == {"a": {"b": {"c": "value"}}}
+
+
+def test_build_body_dot_notation_three_levels() -> None:
+    result = build_body([("x.y.z.w", "deep")])
+    assert result == {"x": {"y": {"z": {"w": "deep"}}}}
+
+
+def test_build_body_dot_notation_mixed_depth() -> None:
+    result = build_body([("a.b", "1"), ("a.c.d", "2")])
+    assert result == {"a": {"b": "1", "c": {"d": "2"}}}
+
+
 def test_build_body_empty() -> None:
     assert build_body([]) == {}
 
