@@ -302,6 +302,7 @@ def cmd_config_completion_script(shell: str) -> None:
     conf_dir = get_conf_dir()
     api_names: list[str] = []
     apidef = None
+    conf: dict[str, Any] | None = None
     try:
         conf = load_conf(conf_dir)
         api_names = [
@@ -309,10 +310,15 @@ def cmd_config_completion_script(shell: str) -> None:
         ]
     except Exception as e:
         click.echo(f"Warning: failed to load configuration for completion: {e}", err=True)
-    try:
-        apidef, _ = load_current_apidef(conf_dir)
-    except Exception as e:
-        click.echo(f"Warning: failed to load current API definition for completion: {e}", err=True)
+    # デフォルト API が設定されている場合のみ apidef を読み込む。
+    # 未設定・設定ファイル未作成は通常ケースのため警告なしでスキップする。
+    if conf is not None and isinstance(conf.get("default"), str) and conf.get("default"):
+        try:
+            apidef, _ = load_current_apidef(conf_dir, conf=conf)
+        except Exception as e:
+            click.echo(
+                f"Warning: failed to load current API definition for completion: {e}", err=True
+            )
     try:
         click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:

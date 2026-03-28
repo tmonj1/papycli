@@ -507,13 +507,12 @@ def _shell_single_quote(s: str) -> str:
 
 
 def _case_pattern(s: str) -> str:
-    """bash/zsh の case パターン用に特殊文字をバックスラッシュでエスケープする。
+    """bash/zsh の case パターンとして安全に埋め込めるリテラル文字列を返す。
 
-    case パターンはグロブとして解釈されるため、spec 由来の文字列（パス・パラメータ名）に
-    glob メタ文字（* ? [ ] \\）が含まれる場合でもリテラル一致させる。
-    また、クォートなしパターン内での変数展開を防ぐため $ とバッククォートもエスケープする。
+    パターン全体を単一クォートで囲むことで、glob メタ文字（* ? [ ] \\）や
+    $・バッククォート・) | 改行などを含んでいても構文が壊れず、リテラル一致となる。
     """
-    return re.sub(r'([\\*?\[\]$`])', r'\\\1', s)
+    return _shell_single_quote(s)
 
 
 def _shell_word_list(items: list[str]) -> str:
