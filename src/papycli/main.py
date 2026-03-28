@@ -13,7 +13,7 @@ import requests
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
-from papycli.completion import _SAFE_CMD_RE, generate_script, get_completions
+from papycli.completion import _SAFE_CMD_RE, generate_static_script, get_completions
 from papycli.config import (
     get_aliases,
     get_apis_dir,
@@ -299,8 +299,28 @@ def cmd_config_completion_script(shell: str) -> None:
     # find_root().info_name でエイリアス経由でも正確なコマンド名を取得する
     root_name = click.get_current_context().find_root().info_name or ""
     cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
+    conf_dir = get_conf_dir()
+    api_names: list[str] = []
+    apidef = None
+    conf: dict[str, Any] | None = None
     try:
-        click.echo(generate_script(shell, cmd_name), nl=False)
+        conf = load_conf(conf_dir)
+        api_names = [
+            k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
+        ]
+    except Exception as e:
+        click.echo(f"Warning: failed to load configuration for completion: {e}", err=True)
+    # デフォルト API が設定されている場合のみ apidef を読み込む。
+    # 未設定・設定ファイル未作成は通常ケースのため警告なしでスキップする。
+    if conf is not None and isinstance(conf.get("default"), str) and conf.get("default"):
+        try:
+            apidef, _ = load_current_apidef(conf_dir, conf=conf)
+        except Exception as e:
+            click.echo(
+                f"Warning: failed to load current API definition for completion: {e}", err=True
+            )
+    try:
+        click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)

@@ -974,7 +974,7 @@ def test_cmd_completion_script_bash() -> None:
     result = runner.invoke(cli, ["config", "completion-script", "bash"], prog_name="papycli")
     assert result.exit_code == 0
     assert "_papycli_completion" in result.output
-    assert "papycli _complete" in result.output
+    assert "_complete" not in result.output
 
 
 def test_cmd_completion_script_zsh() -> None:
@@ -982,7 +982,7 @@ def test_cmd_completion_script_zsh() -> None:
     result = runner.invoke(cli, ["config", "completion-script", "zsh"], prog_name="papycli")
     assert result.exit_code == 0
     assert "compdef" in result.output
-    assert "papycli _complete" in result.output
+    assert "_complete" not in result.output
 
 
 def test_cmd_completion_script_invalid_shell() -> None:
@@ -1330,3 +1330,35 @@ def test_alias_detection_sets_api_override(
 
     # set_api_override が "petstore-oas3" で呼ばれていること
     assert "petstore-oas3" in overrides
+
+
+class TestCompletionScriptStatic:
+    def test_bash_no_python_call(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """生成スクリプトに _complete 呼び出しが含まれないこと。"""
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(cli, ["config", "completion-script", "bash"], prog_name="papycli")
+        assert result.exit_code == 0
+        assert "_complete" not in result.output
+        assert "_papycli_completion()" in result.output
+
+    def test_zsh_no_python_call(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+        runner = CliRunner()
+        result = runner.invoke(cli, ["config", "completion-script", "zsh"], prog_name="papycli")
+        assert result.exit_code == 0
+        assert "_complete" not in result.output
+        assert "compdef _papycli papycli" in result.output
+
+    @pytest.mark.skipif(not PETSTORE_PATH.exists(), reason="petstore-oas3.json not found")
+    def test_bash_with_apidef_contains_resources(
+        self, petstore_conf_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """apidef がある場合、生成スクリプトにリソースパスが含まれること。"""
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(petstore_conf_dir))
+        runner = CliRunner()
+        result = runner.invoke(cli, ["config", "completion-script", "bash"])
+        assert result.exit_code == 0
+        assert "_complete" not in result.output
+        assert "/pet" in result.output
+        assert "/store/inventory" in result.output
