@@ -39,7 +39,7 @@ papycli <method> <resource> [options]
 |-----------|------|
 | `-H <header: value>` | カスタム HTTP ヘッダー（繰り返し可） |
 | `-q <name> <value>` | クエリパラメータ（繰り返し可）。リソースパスにクエリ文字列を直接埋め込むことも可能: `/pet/findByStatus?status=available`。インラインパラメータは `-q` より先に送信される。 |
-| `-p <name> <value>` | ボディパラメータ（繰り返し可）。API 仕様に基づいて値を適切な JSON 型（integer / number / boolean）に自動変換する。文字列はそのまま送信される。同じキーを繰り返すと JSON 配列を構築する。ドット記法でネストしたオブジェクトを構築できる（1 レベルのみ）。 |
+| `-p <name> <value>` | ボディパラメータ（繰り返し可）。API 仕様に基づいて値を適切な JSON 型（integer / number / boolean）に自動変換する。文字列はそのまま送信される。同じキーを繰り返すと JSON 配列を構築する。ドット記法でネストしたオブジェクトを構築できる。 |
 | `-d <json>` | 生の JSON ボディ（`-p` を上書きする） |
 | `--summary` | リクエストを送らずにエンドポイント情報を表示する |
 | `--check` | 送信前にパラメータを検証する（警告を stderr に出力、リクエストは送信） |
@@ -56,7 +56,7 @@ papycli <method> <resource> [options]
 papycli put /pet -p photoUrls "http://example.com/a.jpg" -p photoUrls "http://example.com/b.jpg"
 # → {"photoUrls": ["http://example.com/a.jpg", "http://example.com/b.jpg"]}
 
-# ドット記法でネストしたオブジェクトを構築する（1 レベル）
+# ドット記法でネストしたオブジェクトを構築する
 papycli put /pet -p category.id 2 -p category.name "Dogs"
 # → {"category": {"id": 2, "name": "Dogs"}}
 

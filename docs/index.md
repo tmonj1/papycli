@@ -25,5 +25,4 @@
 
 - Request bodies are `application/json` only
 - Array parameters support scalar element types only (arrays of objects are not supported)
-- Dot notation for nested objects supports one level of nesting only
 - Pass auth headers via `-H "Authorization: Bearer token"` or the `PAPYCLI_CUSTOM_HEADER` env var
