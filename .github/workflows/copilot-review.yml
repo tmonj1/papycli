@@ -30,25 +30,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # copilot-pull-request-reviewer がコラボレーターでない場合はリクエスト不可。
-          # gh api は 2xx で exit 0、4xx で exit non-zero を返すため終了コードで判定する。
-          if ! gh api \
-              repos/${{ github.repository }}/collaborators/copilot-pull-request-reviewer \
-              --silent 2>/dev/null; then
-            echo "copilot-pull-request-reviewer is not a collaborator; skipping review request."
-            exit 0
-          fi
           # すでにレビューリクエスト済みの場合は一度削除してから再リクエストする。
           # 削除→再追加することで、新しいコミットがプッシュされたときも Copilot が再レビューを行う。
           already_requested=$(gh api \
             repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-            --jq '[.users[].login] | contains(["copilot-pull-request-reviewer"])')
+            --jq '[.users[].login] | contains(["copilot-pull-request-reviewer"])' \
+            || { echo "Warning: failed to fetch existing Copilot review requests via gh api; treating as not yet requested." >&2; echo "false"; })
           if [ "$already_requested" = "true" ]; then
             echo "Copilot is already a requested reviewer; removing to trigger re-review."
             gh api --method DELETE \
               repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-              -f 'reviewers[]=copilot-pull-request-reviewer'
+              -f 'reviewers[]=copilot-pull-request-reviewer' || { echo "Warning: Failed to remove existing Copilot review request; continuing to request review." >&2; }
           fi
-          gh api --method POST \
-            repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
-            -f 'reviewers[]=copilot-pull-request-reviewer'
+          if ! gh api --method POST \
+              repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/requested_reviewers \
+              -f 'reviewers[]=copilot-pull-request-reviewer'; then
+            echo "Failed to request Copilot review." \
+              "Ensure Copilot code review is enabled for this repository."
+          fi
