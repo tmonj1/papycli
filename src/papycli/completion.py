@@ -311,7 +311,7 @@ _@@SAFENAME@@_completion() {
     [[ $COMP_CWORD -ge 2 ]] && pprev="${COMP_WORDS[COMP_CWORD-2]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        COMPREPLY=($(compgen -W "get post put patch delete config spec summary" -- "$cur"))
+        COMPREPLY=($(compgen -W @@TOP_LEVEL_CMDS@@ -- "$cur"))
         return
     fi
 
@@ -319,8 +319,7 @@ _@@SAFENAME@@_completion() {
 
     if [[ "$cmd" == "config" ]]; then
         case ${COMP_CWORD} in
-            2)  local _cfg="add alias completion-script list log remove use"
-                COMPREPLY=($(compgen -W "$_cfg" -- "$cur")) ;;
+            2)  COMPREPLY=($(compgen -W @@CONFIG_SUBCMDS@@ -- "$cur")) ;;
             3)  case "${COMP_WORDS[2]}" in
                     remove|use) COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
                     add)        COMPREPLY=($(compgen -f -- "$cur"))
@@ -402,7 +401,7 @@ _@@SAFENAME@@() {
     local -a _c
 
     if [[ $cword -eq 1 ]]; then
-        _c=(get post put patch delete config spec summary)
+        _c=(@@TOP_LEVEL_CMDS_ZSH@@)
         _describe 'command' _c && return
     fi
 
@@ -410,7 +409,7 @@ _@@SAFENAME@@() {
 
     if [[ "$cmd" == "config" ]]; then
         case $cword in
-            2)  _c=(add alias completion-script list log remove use)
+            2)  _c=(@@CONFIG_SUBCMDS_ZSH@@)
                 _describe 'subcommand' _c ;;
             3)  case "${words[3]}" in
                     remove|use) _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
@@ -507,6 +506,16 @@ def _shell_single_quote(s: str) -> str:
     return "'" + s.replace("'", "'\"'\"'") + "'"
 
 
+def _case_pattern(s: str) -> str:
+    """bash/zsh の case パターン用に特殊文字をバックスラッシュでエスケープする。
+
+    case パターンはグロブとして解釈されるため、spec 由来の文字列（パス・パラメータ名）に
+    glob メタ文字（* ? [ ] \\）が含まれる場合でもリテラル一致させる。
+    また、クォートなしパターン内での変数展開を防ぐため $ とバッククォートもエスケープする。
+    """
+    return re.sub(r'([\\*?\[\]$`])', r'\\\1', s)
+
+
 def _shell_word_list(items: list[str]) -> str:
     """スペース区切りの単語列を単一クォートで囲んで返す（bash compgen -W 用）。"""
     return _shell_single_quote(" ".join(items))
@@ -549,7 +558,7 @@ def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             wl = _shell_word_list(names)
-            pat = _shell_single_quote(f"{method}:{path}")
+            pat = _case_pattern(f"{method}:{path}")
             lines.append(
                 f"            {pat})"
                 f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
@@ -570,7 +579,7 @@ def _bash_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 wl = _shell_word_list(vals)
                 pname = p["name"]
-                pat = _shell_single_quote(f"{method}:{path}:{pname}")
+                pat = _case_pattern(f"{method}:{path}:{pname}")
                 lines.append(
                     f"            {pat})"
                     f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
@@ -605,7 +614,7 @@ def _zsh_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             ae = _zsh_array_elems(names)
-            pat = _shell_single_quote(f"{method}:{path}")
+            pat = _case_pattern(f"{method}:{path}")
             lines.append(
                 f"            {pat}) _c=({ae}); _describe '' _c ;;"
             )
@@ -625,7 +634,7 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 ae = _zsh_array_elems(vals)
                 pname = p["name"]
-                pat = _shell_single_quote(f"{method}:{path}:{pname}")
+                pat = _case_pattern(f"{method}:{path}:{pname}")
                 lines.append(
                     f"            {pat})"
                     f" _c=({ae}); _describe '' _c ;;"
@@ -674,6 +683,8 @@ def generate_static_script(
         return _replace_placeholders(_STATIC_BASH_TEMPLATE, {
             "@@CMDNAME@@": cmd_name,
             "@@SAFENAME@@": safe,
+            "@@TOP_LEVEL_CMDS@@": _shell_word_list(TOP_LEVEL_COMMANDS),
+            "@@CONFIG_SUBCMDS@@": _shell_word_list(CONFIG_SUBCOMMANDS),
             "@@API_NAMES@@": _shell_word_list(names),
             "@@SUMMARY_OPTS@@": _shell_word_list(["--csv"] + all_resources),
             "@@SPEC_OPTS@@": _shell_word_list(["--full"] + all_resources),
@@ -691,6 +702,8 @@ def generate_static_script(
     return _replace_placeholders(_STATIC_ZSH_TEMPLATE, {
         "@@CMDNAME@@": cmd_name,
         "@@SAFENAME@@": safe,
+        "@@TOP_LEVEL_CMDS_ZSH@@": _zsh_array_elems(TOP_LEVEL_COMMANDS),
+        "@@CONFIG_SUBCMDS_ZSH@@": _zsh_array_elems(CONFIG_SUBCOMMANDS),
         "@@API_NAMES_ZSH@@": _zsh_array_elems(names),
         "@@ALL_RESOURCES_ZSH@@": _zsh_array_elems(all_resources),
         "@@ZSH_METHOD_RESOURCE_CASES@@": _zsh_method_resource_cases(adef),
