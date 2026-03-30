@@ -312,9 +312,6 @@ def completions_for_context(
 _STATIC_BASH_TEMPLATE = """\
 _@@SAFENAME@@_completion() {
     local cur prev pprev
-    shopt -q extglob; local _extglob_off=$?
-    (( _extglob_off )) && shopt -s extglob
-    trap '(( _extglob_off )) && shopt -u extglob' RETURN
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev=""
     pprev=""
@@ -366,10 +363,16 @@ _@@SAFENAME@@_completion() {
     local resource="${COMP_WORDS[2]}"
     local ctx="${cmd}:${resource}"
 
+    # ここから extglob パターン（+([^ /])）を使う case 文があるため extglob を有効化する。
+    # もともと無効だった場合のみ有効化し、各 return の直前で元の状態に戻す。
+    shopt -q extglob; local _extglob_off=$?
+    (( _extglob_off )) && shopt -s extglob
+
     if [[ "$prev" == "-q" ]]; then
         case "$ctx" in
 @@Q_PARAM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -378,6 +381,7 @@ _@@SAFENAME@@_completion() {
         case "${ctx}:${pname}" in
 @@Q_ENUM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -385,6 +389,7 @@ _@@SAFENAME@@_completion() {
         case "$ctx" in
 @@P_PARAM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -393,9 +398,11 @@ _@@SAFENAME@@_completion() {
         case "${ctx}:${pname}" in
 @@P_ENUM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
+    (( _extglob_off )) && shopt -u extglob
     local _opts="-q -p -d -H --summary -v --verbose --check --check-strict --response-check"
     COMPREPLY=($(compgen -W "$_opts" -- "$cur"))
 }
