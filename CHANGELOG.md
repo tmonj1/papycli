@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.1](https://github.com/tmonj1/papycli/compare/v0.15.0...v0.15.1) (2026-03-30)
+
+
+### Bug Fixes
+
+* 静的補完スクリプトのパステンプレート変数を extglob/glob パターンに変換する ([#152](https://github.com/tmonj1/papycli/issues/152)) ([3234f37](https://github.com/tmonj1/papycli/commit/3234f37b34fa39a1b37f581b53eeff8d0a3bb397))
+
+
+### Documentation
+
+* ドット記法の1レベル制限に関する記述を削除する ([#150](https://github.com/tmonj1/papycli/issues/150)) ([9879d99](https://github.com/tmonj1/papycli/commit/9879d99d95d4b5ade5bcfd72931786c0280a6aed)), closes [#149](https://github.com/tmonj1/papycli/issues/149)
+
 ## [0.15.0](https://github.com/tmonj1/papycli/compare/v0.14.0...v0.15.0) (2026-03-28)
 
 
