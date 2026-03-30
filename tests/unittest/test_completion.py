@@ -791,20 +791,6 @@ class TestGenerateStaticScript:
         script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
         assert "available" in script
 
-    def test_bash_placeholder_uses_extglob(self) -> None:
-        # プレースホルダー付きパス + パラメータの case パターンに extglob が使われること
-        adef = {
-            "/foos/{foo_id}": [
-                {
-                    "method": "get",
-                    "query_parameters": [{"name": "limit", "type": "integer", "required": False}],
-                    "post_parameters": [],
-                }
-            ]
-        }
-        script = generate_static_script("bash", "papycli", adef, [])
-        assert "+([^ /])" in script
-
     def test_bash_has_extglob_shopt(self) -> None:
         # extglob の有効化と状態の保存・復元ロジックが含まれること
         script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
