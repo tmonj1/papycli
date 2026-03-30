@@ -7,11 +7,13 @@ on:
       # 自動実行されるため、ここでリクエストすると二重実行になる。
       - synchronize
 
-# このワークフローを動作させるには、リポジトリの以下の設定を有効にする必要がある:
-#   Settings → Actions → General → Workflow permissions
-#   ☑ Allow GitHub Actions to create and approve pull requests
-permissions:
-  pull-requests: write
+# このワークフローを動作させるには、以下の設定が必要:
+# 1. Copilot コードレビューがリポジトリで有効になっていること
+#    (Settings → Copilot → Code review)
+# 2. Copilot が有効なユーザーの Personal Access Token (classic, repo スコープ) を
+#    リポジトリシークレット GH_PAT に設定すること
+#    (GITHUB_TOKEN は Copilot 権限を持たないため 422 エラーになる)
+permissions: {}
 
 # 同一 PR への連続プッシュで多重実行されないよう PR 番号単位で直列化する。
 # cancel-in-progress: true にすることで古い実行をキャンセルし最新のみを実行する。
@@ -23,12 +25,12 @@ jobs:
   request-copilot-review:
     name: Request Copilot review
     runs-on: ubuntu-latest
-    # fork からの PR は GITHUB_TOKEN の書き込み権限がなく 403 になるためスキップする。
+    # fork からの PR ではシークレットが利用できないためスキップする。
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: Request review from Copilot
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           # すでにレビューリクエスト済みの場合は一度削除してから再リクエストする。
           # 削除→再追加することで、新しいコミットがプッシュされたときも Copilot が再レビューを行う。
