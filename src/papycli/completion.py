@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 _SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+_PLACEHOLDER_RE = re.compile(r"\{[^}]+\}")
 
 METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
@@ -92,9 +93,7 @@ def generate_script(shell: str, cmd_name: str = "papycli") -> str:
 # ---------------------------------------------------------------------------
 
 
-def _find_op(
-    apidef: dict[str, Any], method: str, resource: str
-) -> dict[str, Any] | None:
+def _find_op(apidef: dict[str, Any], method: str, resource: str) -> dict[str, Any] | None:
     """resource にマッチするテンプレートを探し、指定 method の operation を返す。"""
     from papycli.api_call import match_path_template
 
@@ -107,7 +106,8 @@ def _find_op(
 
 def _complete_resources(apidef: dict[str, Any], method: str, incomplete: str) -> list[str]:
     return [
-        p for p in sorted(apidef.keys())
+        p
+        for p in sorted(apidef.keys())
         if p.startswith(incomplete) and any(o["method"] == method for o in apidef[p])
     ]
 
@@ -286,8 +286,16 @@ def completions_for_context(
     # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
     op = _find_op(apidef, method, resource)
     opts: list[str] = [
-        "-q", "-p", "-d", "-H", "--summary", "-v", "--verbose",
-        "--check", "--check-strict", "--response-check",
+        "-q",
+        "-p",
+        "-d",
+        "-H",
+        "--summary",
+        "-v",
+        "--verbose",
+        "--check",
+        "--check-strict",
+        "--response-check",
     ]
     if op is not None:
         if not op.get("query_parameters"):
@@ -355,10 +363,16 @@ _@@SAFENAME@@_completion() {
     local resource="${COMP_WORDS[2]}"
     local ctx="${cmd}:${resource}"
 
+    # ここから extglob パターン（+([^ /])）を使う case 文があるため extglob を有効化する。
+    # もともと無効だった場合のみ有効化し、各 return の直前で元の状態に戻す。
+    shopt -q extglob; local _extglob_off=$?
+    (( _extglob_off )) && shopt -s extglob
+
     if [[ "$prev" == "-q" ]]; then
         case "$ctx" in
 @@Q_PARAM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -367,6 +381,7 @@ _@@SAFENAME@@_completion() {
         case "${ctx}:${pname}" in
 @@Q_ENUM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -374,6 +389,7 @@ _@@SAFENAME@@_completion() {
         case "$ctx" in
 @@P_PARAM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
@@ -382,9 +398,11 @@ _@@SAFENAME@@_completion() {
         case "${ctx}:${pname}" in
 @@P_ENUM_CASES@@
         esac
+        (( _extglob_off )) && shopt -u extglob
         return
     fi
 
+    (( _extglob_off )) && shopt -u extglob
     local _opts="-q -p -d -H --summary -v --verbose --check --check-strict --response-check"
     COMPREPLY=($(compgen -W "$_opts" -- "$cur"))
 }
@@ -506,13 +524,20 @@ def _shell_single_quote(s: str) -> str:
     return "'" + s.replace("'", "'\"'\"'") + "'"
 
 
-def _case_pattern(s: str) -> str:
+def _case_pattern(s: str, shell: str = "bash") -> str:
     """bash/zsh の case パターンとして安全に埋め込めるリテラル文字列を返す。
 
-    パターン全体を単一クォートで囲むことで、glob メタ文字（* ? [ ] \\）や
-    $・バッククォート・) | 改行などを含んでいても構文が壊れず、リテラル一致となる。
+    `{placeholder}` 形式のパステンプレート変数はシェルに応じたワイルドカードに変換する。
+    - bash: extglob `+([^ /])` — スラッシュ・スペース以外の1文字以上（shopt -s extglob が必要）
+    - zsh: `[^/ ][^/ ]*` — 標準グロブで同等の意味（setopt 不要）
+
+    プレースホルダーを含まない文字列は従来どおり単一クォートのリテラルとして返す。
     """
-    return _shell_single_quote(s)
+    parts = _PLACEHOLDER_RE.split(s)
+    if len(parts) == 1:
+        return _shell_single_quote(s)
+    wildcard = "+([^ /])" if shell == "bash" else "[^/ ][^/ ]*"
+    return wildcard.join(_shell_single_quote(p) for p in parts)
 
 
 def _shell_word_list(items: list[str]) -> str:
@@ -540,10 +565,9 @@ def _bash_method_resource_cases(apidef: dict[str, Any]) -> str:
 
 def _build_param_names(params: list[dict[str, Any]]) -> list[str]:
     """required パラメータに * を付けてリストを返す。"""
-    return (
-        [p["name"] + "*" for p in params if p.get("required")]
-        + [p["name"] for p in params if not p.get("required")]
-    )
+    return [p["name"] + "*" for p in params if p.get("required")] + [
+        p["name"] for p in params if not p.get("required")
+    ]
 
 
 def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
@@ -557,11 +581,8 @@ def _bash_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             wl = _shell_word_list(names)
-            pat = _case_pattern(f"{method}:{path}")
-            lines.append(
-                f"            {pat})"
-                f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
-            )
+            pat = _case_pattern(f"{method}:{path}", shell="bash")
+            lines.append(f'            {pat}) COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;')
     lines.append("            *) ;;")
     return "\n".join(lines)
 
@@ -578,11 +599,8 @@ def _bash_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 wl = _shell_word_list(vals)
                 pname = p["name"]
-                pat = _case_pattern(f"{method}:{path}:{pname}")
-                lines.append(
-                    f"            {pat})"
-                    f' COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;'
-                )
+                pat = _case_pattern(f"{method}:{path}:{pname}", shell="bash")
+                lines.append(f'            {pat}) COMPREPLY=($(compgen -W {wl} -- "$cur")) ;;')
     lines.append("            *) ;;")
     return "\n".join(lines)
 
@@ -595,9 +613,7 @@ def _zsh_method_resource_cases(apidef: dict[str, Any]) -> str:
         )
         if resources:
             ae = _zsh_array_elems(resources)
-            lines.append(
-                f"            {method}) _c=({ae}); _describe 'resource' _c ;;"
-            )
+            lines.append(f"            {method}) _c=({ae}); _describe 'resource' _c ;;")
     lines.append("            *) ;;")
     return "\n".join(lines)
 
@@ -613,10 +629,8 @@ def _zsh_param_cases(apidef: dict[str, Any], kind: str) -> str:
             method = op["method"]
             names = _build_param_names(params)
             ae = _zsh_array_elems(names)
-            pat = _case_pattern(f"{method}:{path}")
-            lines.append(
-                f"            {pat}) _c=({ae}); _describe '' _c ;;"
-            )
+            pat = _case_pattern(f"{method}:{path}", shell="zsh")
+            lines.append(f"            {pat}) _c=({ae}); _describe '' _c ;;")
     lines.append("            *) ;;")
     return "\n".join(lines)
 
@@ -633,11 +647,8 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 vals = [str(v) for v in p["enum"]]
                 ae = _zsh_array_elems(vals)
                 pname = p["name"]
-                pat = _case_pattern(f"{method}:{path}:{pname}")
-                lines.append(
-                    f"            {pat})"
-                    f" _c=({ae}); _describe '' _c ;;"
-                )
+                pat = _case_pattern(f"{method}:{path}:{pname}", shell="zsh")
+                lines.append(f"            {pat}) _c=({ae}); _describe '' _c ;;")
     lines.append("            *) ;;")
     return "\n".join(lines)
 
@@ -661,8 +672,6 @@ def generate_static_script(
 
     Note:
         動的補完（`_complete` サブコマンド呼び出し）と比べた既知の制限:
-        - パステンプレート変数（例: /pet/{petId}）はリテラルで照合するため、
-          /pet/99 のように入力してもパラメータ・enum 補完は返らない。
         - 操作にクエリ/ボディパラメータがなくても -q / -p / -d は常に表示される。
         - `summary <resource> <TAB>` での --csv 補完は行われない（位置 2 のみ対応）。
         - スペースを含む API 名は bash での補完が正しく動作しない場合がある。
@@ -679,38 +688,44 @@ def generate_static_script(
     all_resources = sorted(adef.keys())
 
     if shell == "bash":
-        return _replace_placeholders(_STATIC_BASH_TEMPLATE, {
-            "@@CMDNAME@@": cmd_name,
-            "@@SAFENAME@@": safe,
-            "@@TOP_LEVEL_CMDS@@": _shell_word_list(TOP_LEVEL_COMMANDS),
-            "@@CONFIG_SUBCMDS@@": _shell_word_list(CONFIG_SUBCOMMANDS),
-            "@@API_NAMES@@": _shell_word_list(names),
-            "@@SUMMARY_OPTS@@": _shell_word_list(["--csv"] + all_resources),
-            "@@SPEC_OPTS@@": _shell_word_list(["--full"] + all_resources),
-            "@@ALL_RESOURCES@@": _shell_word_list(all_resources),
-            "@@METHOD_RESOURCE_CASES@@": _bash_method_resource_cases(adef),
-            "@@Q_PARAM_CASES@@": _bash_param_cases(adef, "query"),
-            "@@Q_ENUM_CASES@@": _bash_enum_cases(adef, "query"),
-            "@@P_PARAM_CASES@@": _bash_param_cases(adef, "body"),
-            "@@P_ENUM_CASES@@": _bash_enum_cases(adef, "body"),
-        })
+        return _replace_placeholders(
+            _STATIC_BASH_TEMPLATE,
+            {
+                "@@CMDNAME@@": cmd_name,
+                "@@SAFENAME@@": safe,
+                "@@TOP_LEVEL_CMDS@@": _shell_word_list(TOP_LEVEL_COMMANDS),
+                "@@CONFIG_SUBCMDS@@": _shell_word_list(CONFIG_SUBCOMMANDS),
+                "@@API_NAMES@@": _shell_word_list(names),
+                "@@SUMMARY_OPTS@@": _shell_word_list(["--csv"] + all_resources),
+                "@@SPEC_OPTS@@": _shell_word_list(["--full"] + all_resources),
+                "@@ALL_RESOURCES@@": _shell_word_list(all_resources),
+                "@@METHOD_RESOURCE_CASES@@": _bash_method_resource_cases(adef),
+                "@@Q_PARAM_CASES@@": _bash_param_cases(adef, "query"),
+                "@@Q_ENUM_CASES@@": _bash_enum_cases(adef, "query"),
+                "@@P_PARAM_CASES@@": _bash_param_cases(adef, "body"),
+                "@@P_ENUM_CASES@@": _bash_enum_cases(adef, "body"),
+            },
+        )
 
     if shell != "zsh":
         raise ValueError(f"Unsupported shell '{shell}': must be 'bash' or 'zsh'.")
 
-    return _replace_placeholders(_STATIC_ZSH_TEMPLATE, {
-        "@@CMDNAME@@": cmd_name,
-        "@@SAFENAME@@": safe,
-        "@@TOP_LEVEL_CMDS_ZSH@@": _zsh_array_elems(TOP_LEVEL_COMMANDS),
-        "@@CONFIG_SUBCMDS_ZSH@@": _zsh_array_elems(CONFIG_SUBCOMMANDS),
-        "@@API_NAMES_ZSH@@": _zsh_array_elems(names),
-        "@@ALL_RESOURCES_ZSH@@": _zsh_array_elems(all_resources),
-        "@@ZSH_METHOD_RESOURCE_CASES@@": _zsh_method_resource_cases(adef),
-        "@@ZSH_Q_PARAM_CASES@@": _zsh_param_cases(adef, "query"),
-        "@@ZSH_Q_ENUM_CASES@@": _zsh_enum_cases(adef, "query"),
-        "@@ZSH_P_PARAM_CASES@@": _zsh_param_cases(adef, "body"),
-        "@@ZSH_P_ENUM_CASES@@": _zsh_enum_cases(adef, "body"),
-    })
+    return _replace_placeholders(
+        _STATIC_ZSH_TEMPLATE,
+        {
+            "@@CMDNAME@@": cmd_name,
+            "@@SAFENAME@@": safe,
+            "@@TOP_LEVEL_CMDS_ZSH@@": _zsh_array_elems(TOP_LEVEL_COMMANDS),
+            "@@CONFIG_SUBCMDS_ZSH@@": _zsh_array_elems(CONFIG_SUBCOMMANDS),
+            "@@API_NAMES_ZSH@@": _zsh_array_elems(names),
+            "@@ALL_RESOURCES_ZSH@@": _zsh_array_elems(all_resources),
+            "@@ZSH_METHOD_RESOURCE_CASES@@": _zsh_method_resource_cases(adef),
+            "@@ZSH_Q_PARAM_CASES@@": _zsh_param_cases(adef, "query"),
+            "@@ZSH_Q_ENUM_CASES@@": _zsh_enum_cases(adef, "query"),
+            "@@ZSH_P_PARAM_CASES@@": _zsh_param_cases(adef, "body"),
+            "@@ZSH_P_ENUM_CASES@@": _zsh_enum_cases(adef, "body"),
+        },
+    )
 
 
 def get_completions(words: list[str], current: int, conf_dir: Path | None = None) -> list[str]:

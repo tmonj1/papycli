@@ -22,8 +22,12 @@ APIDEF: dict[str, Any] = {
             "query_parameters": [],
             "post_parameters": [
                 {"name": "name", "type": "string", "required": True},
-                {"name": "status", "type": "string", "required": False,
-                 "enum": ["available", "pending", "sold"]},
+                {
+                    "name": "status",
+                    "type": "string",
+                    "required": False,
+                    "enum": ["available", "pending", "sold"],
+                },
                 {"name": "photoUrls", "type": "array", "required": True},
             ],
         },
@@ -33,8 +37,12 @@ APIDEF: dict[str, Any] = {
         {
             "method": "get",
             "query_parameters": [
-                {"name": "status", "type": "string", "required": False,
-                 "enum": ["available", "pending", "sold"]},
+                {
+                    "name": "status",
+                    "type": "string",
+                    "required": False,
+                    "enum": ["available", "pending", "sold"],
+                },
             ],
             "post_parameters": [],
         }
@@ -53,9 +61,7 @@ APIDEF: dict[str, Any] = {
         {"method": "get", "query_parameters": [], "post_parameters": []},
         {"method": "delete", "query_parameters": [], "post_parameters": []},
     ],
-    "/store/inventory": [
-        {"method": "get", "query_parameters": [], "post_parameters": []}
-    ],
+    "/store/inventory": [{"method": "get", "query_parameters": [], "post_parameters": []}],
 }
 
 
@@ -103,7 +109,14 @@ def test_complete_subcommand_no_match() -> None:
 
 def test_top_level_commands_covers_expected() -> None:
     assert set(TOP_LEVEL_COMMANDS) == {
-        "get", "post", "put", "patch", "delete", "config", "spec", "summary"
+        "get",
+        "post",
+        "put",
+        "patch",
+        "delete",
+        "config",
+        "spec",
+        "summary",
     }
 
 
@@ -161,7 +174,13 @@ def test_complete_config_subcommands_prefix() -> None:
 
 def test_complete_config_subcommands_covers_all() -> None:
     assert set(CONFIG_SUBCOMMANDS) == {
-        "add", "alias", "completion-script", "list", "log", "remove", "use",
+        "add",
+        "alias",
+        "completion-script",
+        "list",
+        "log",
+        "remove",
+        "use",
     }
 
 
@@ -771,3 +790,45 @@ class TestGenerateStaticScript:
     def test_zsh_contains_enum_values(self) -> None:
         script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
         assert "available" in script
+
+    def test_bash_has_extglob_shopt(self) -> None:
+        # extglob の有効化と状態の保存・復元ロジックが含まれること
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        assert "shopt -s extglob" in script
+        assert "shopt -u extglob" in script
+
+    def test_zsh_placeholder_uses_glob(self) -> None:
+        # プレースホルダー付きパスの case パターンに [^/ ][^/ ]* が使われること（zsh）
+        adef = {
+            "/foos/{foo_id}": [
+                {
+                    "method": "get",
+                    "query_parameters": [{"name": "limit", "type": "integer", "required": False}],
+                    "post_parameters": [],
+                }
+            ]
+        }
+        script = generate_static_script("zsh", "papycli", adef, [])
+        # extglob は含まれないはず
+        assert "+([^ /])" not in script
+        # zsh case パターン内に {foo_id} がリテラルで残らないこと
+        assert "'{foo_id}'" not in script
+        # [^/ ][^/ ]* がワイルドカードとして使われること（/ にマッチしない）
+        assert "'get:/foos/'[^/ ][^/ ]*" in script
+
+    def test_bash_placeholder_not_literal(self) -> None:
+        # プレースホルダーが case パターン内にリテラルのまま残らないこと
+        adef = {
+            "/foos/{foo_id}": [
+                {
+                    "method": "get",
+                    "query_parameters": [{"name": "limit", "type": "integer", "required": False}],
+                    "post_parameters": [],
+                }
+            ]
+        }
+        script = generate_static_script("bash", "papycli", adef, [])
+        # case パターン内に '{foo_id}' がリテラルとして含まれないこと
+        assert "'{foo_id}'" not in script
+        # extglob パターンが含まれること（末尾の '' は空文字結合で無害）
+        assert "'get:/foos/'+([^ /])" in script
