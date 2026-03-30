@@ -25,5 +25,4 @@
 
 - リクエストボディは `application/json` のみ対応
 - 配列パラメータはスカラー型（string、integer 等）のみ対応（オブジェクトの配列は非対応）
-- ドット記法によるオブジェクトのネストは 1 レベルのみ対応
 - 認証ヘッダーは `-H "Authorization: Bearer token"` または `PAPYCLI_CUSTOM_HEADER` 環境変数で渡す

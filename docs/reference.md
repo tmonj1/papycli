@@ -39,7 +39,7 @@ papycli <method> <resource> [options]
 |--------|-------------|
 | `-H <header: value>` | Custom HTTP header (repeatable) |
 | `-q <name> <value>` | Query parameter (repeatable). You can also embed query parameters directly in the resource path: `/pet/findByStatus?status=available`. Inline parameters are sent before any `-q` parameters. |
-| `-p <name> <value>` | Body parameter (repeatable). Values are coerced to the correct JSON type (integer, number, boolean) based on the API spec. Strings are passed as-is. Repeat the same key to build a JSON array. Use dot notation to build a nested object (one level deep). |
+| `-p <name> <value>` | Body parameter (repeatable). Values are coerced to the correct JSON type (integer, number, boolean) based on the API spec. Strings are passed as-is. Repeat the same key to build a JSON array. Use dot notation to build a nested object. |
 | `-d <json>` | Raw JSON body (overrides `-p`) |
 | `--summary` | Show endpoint info without sending a request |
 | `--check` | Validate params before sending (warn on stderr, request is still sent) |
@@ -56,7 +56,7 @@ papycli <method> <resource> [options]
 papycli put /pet -p photoUrls "http://example.com/a.jpg" -p photoUrls "http://example.com/b.jpg"
 # → {"photoUrls": ["http://example.com/a.jpg", "http://example.com/b.jpg"]}
 
-# Use dot notation to build a nested object (one level)
+# Use dot notation to build a nested object
 papycli put /pet -p category.id 2 -p category.name "Dogs"
 # → {"category": {"id": 2, "name": "Dogs"}}
 
