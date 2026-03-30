@@ -806,12 +806,13 @@ class TestGenerateStaticScript:
         assert "+([^ /])" in script
 
     def test_bash_has_extglob_shopt(self) -> None:
-        # bash 5 向け extglob を有効化する shopt が含まれること
+        # extglob の有効化と状態の保存・復元ロジックが含まれること
         script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
         assert "shopt -s extglob" in script
+        assert "shopt -u extglob" in script
 
     def test_zsh_placeholder_uses_glob(self) -> None:
-        # プレースホルダー付きパス + パラメータの case パターンに * が使われること（zsh）
+        # プレースホルダー付きパスの case パターンに [^/ ][^/ ]* が使われること（zsh）
         adef = {
             "/foos/{foo_id}": [
                 {
@@ -826,8 +827,8 @@ class TestGenerateStaticScript:
         assert "+([^ /])" not in script
         # zsh case パターン内に {foo_id} がリテラルで残らないこと
         assert "'{foo_id}'" not in script
-        # * がワイルドカードとして使われること（末尾の '' は空文字結合で無害）
-        assert "'get:/foos/'*" in script
+        # [^/ ][^/ ]* がワイルドカードとして使われること（/ にマッチしない）
+        assert "'get:/foos/'[^/ ][^/ ]*" in script
 
     def test_bash_placeholder_not_literal(self) -> None:
         # プレースホルダーが case パターン内にリテラルのまま残らないこと

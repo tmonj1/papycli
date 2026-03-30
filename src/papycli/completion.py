@@ -311,8 +311,10 @@ def completions_for_context(
 
 _STATIC_BASH_TEMPLATE = """\
 _@@SAFENAME@@_completion() {
-    shopt -s extglob
     local cur prev pprev
+    shopt -q extglob; local _extglob_off=$?
+    (( _extglob_off )) && shopt -s extglob
+    trap '(( _extglob_off )) && shopt -u extglob' RETURN
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev=""
     pprev=""
@@ -520,14 +522,14 @@ def _case_pattern(s: str, shell: str = "bash") -> str:
 
     `{placeholder}` 形式のパステンプレート変数はシェルに応じたワイルドカードに変換する。
     - bash: extglob `+([^ /])` — スラッシュ・スペース以外の1文字以上（shopt -s extglob が必要）
-    - zsh: `*`
+    - zsh: `[^/ ][^/ ]*` — 標準グロブで同等の意味（setopt 不要）
 
     プレースホルダーを含まない文字列は従来どおり単一クォートのリテラルとして返す。
     """
     parts = _PLACEHOLDER_RE.split(s)
     if len(parts) == 1:
         return _shell_single_quote(s)
-    wildcard = "+([^ /])" if shell == "bash" else "*"
+    wildcard = "+([^ /])" if shell == "bash" else "[^/ ][^/ ]*"
     return wildcard.join(_shell_single_quote(p) for p in parts)
 
 
