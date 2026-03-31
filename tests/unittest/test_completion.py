@@ -910,8 +910,16 @@ class TestGenerateStaticScript:
     def test_zsh_static_option_cases_exist(self) -> None:
         # zsh 静的スクリプトにオプション候補フィルタリング用の case 文が含まれること
         script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
-        # GET /pet/findByStatus はクエリパラメータあり → -q を含む case アームが存在する
-        assert "-q" in script
+        # GET /pet/findByStatus はクエリパラメータあり → options case アームに '-q' が含まれること
+        # options case アームは --summary を含む行で識別する（パラメータ case アームとの区別）
+        lines = script.splitlines()
+        target = "get:/pet/findByStatus"
+        for line in lines:
+            if target in line and "--summary" in line:
+                assert "'-q'" in line, f"'-q' not found in options case arm for {target!r}: {line}"
+                break
+        else:
+            raise AssertionError(f"Options case arm for {target!r} not found in zsh script")
         # GET /pet/{petId} 対応の case アーム内で -q が除かれていること（フォールバック行以外）
         # zsh ワイルドカードパターン 'get:/pet/'[^/ ][^/ ]* が存在する
         assert "'get:/pet/'[^/ ][^/ ]*" in script

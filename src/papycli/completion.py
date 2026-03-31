@@ -30,7 +30,7 @@ _ALL_OPTS = [
     "--check-strict",
     "--response-check",
 ]
-_BASE_OPTS = ["-H", "--summary", "-v", "--verbose", "--check", "--check-strict", "--response-check"]
+_BASE_OPTS = [opt for opt in _ALL_OPTS if opt not in ("-q", "-p", "-d")]
 
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
