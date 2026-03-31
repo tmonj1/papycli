@@ -312,7 +312,7 @@ def completions_for_context(
 _STATIC_BASH_TEMPLATE = """\
 # case パターンに extglob (+([^ /])) を使うため、関数定義の前に有効化する。
 # もともと無効だった場合は complete 登録後に元に戻す。
-{ shopt -q extglob; } 2>/dev/null; _@@SAFENAME@@_extglob_off=$?
+if shopt -q extglob 2>/dev/null; then _@@SAFENAME@@_extglob_off=0; else _@@SAFENAME@@_extglob_off=1; fi
 shopt -s extglob
 
 _@@SAFENAME@@_completion() {
