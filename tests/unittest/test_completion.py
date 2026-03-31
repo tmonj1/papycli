@@ -849,3 +849,82 @@ class TestGenerateStaticScript:
         assert "'{foo_id}'" not in script
         # extglob パターンが含まれること（末尾の '' は空文字結合で無害）
         assert "'get:/foos/'+([^ /])" in script
+
+    # ---------------------------------------------------------------------------
+    # 静的スクリプトのオプション候補フィルタリング（Issue #158）
+    # ---------------------------------------------------------------------------
+
+    def _run_bash_completion(self, script: str, words: list[str], cword: int) -> list[str]:
+        """bash 補完関数を呼び出して COMPREPLY の内容を返す。"""
+        import shlex
+        import subprocess
+
+        words_str = " ".join(f'"{w}"' for w in words)
+        test_script = (
+            script
+            + f"\nCOMP_WORDS=({words_str})\nCOMP_CWORD={cword}\n"
+            "_papycli_completion\necho \"${COMPREPLY[@]}\"\n"
+        )
+        result = subprocess.run(["bash", "-c", test_script], capture_output=True, text=True)
+        assert result.returncode == 0, f"bash failed: {result.stderr}"
+        return result.stdout.split()
+
+    def test_bash_static_hides_q_p_d_for_no_params(self) -> None:
+        # GET /pet/{petId} はクエリ・ボディパラメータなし → -q, -p, -d は候補に出ない
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(script, ["papycli", "get", "/pet/99", ""], 3)
+        assert "-q" not in completions
+        assert "-p" not in completions
+        assert "-d" not in completions
+        assert "--summary" in completions
+        assert "-v" in completions
+
+    def test_bash_static_shows_q_for_query_params(self) -> None:
+        # GET /pet/findByStatus はクエリパラメータあり → -q が候補に出る
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(
+            script, ["papycli", "get", "/pet/findByStatus", ""], 3
+        )
+        assert "-q" in completions
+        assert "-p" not in completions
+        assert "-d" not in completions
+
+    def test_bash_static_shows_p_d_for_body_params(self) -> None:
+        # POST /pet はボディパラメータあり → -p, -d が候補に出る
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(script, ["papycli", "post", "/pet", ""], 3)
+        assert "-p" in completions
+        assert "-d" in completions
+        assert "-q" not in completions
+
+    def test_bash_static_fallback_shows_all_for_unknown_path(self) -> None:
+        # マッチしないパスの場合はすべてのオプションを表示（フォールバック）
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(
+            script, ["papycli", "get", "/unknown/path", ""], 3
+        )
+        assert "-q" in completions
+        assert "-p" in completions
+        assert "-d" in completions
+
+    def test_zsh_static_option_cases_exist(self) -> None:
+        # zsh 静的スクリプトにオプション候補フィルタリング用の case 文が含まれること
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        # GET /pet/findByStatus はクエリパラメータあり → -q を含む case アームが存在する
+        assert "-q" in script
+        # GET /pet/{petId} 対応の case アーム内で -q が除かれていること（フォールバック行以外）
+        # zsh ワイルドカードパターン 'get:/pet/'[^/ ][^/ ]* が存在する
+        assert "'get:/pet/'[^/ ][^/ ]*" in script
+
+    def test_zsh_static_no_param_endpoint_omits_q(self) -> None:
+        # GET /pet/{petId} 向けの case アームに -q が含まれないこと
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        # 'get:/pet/'[^/ ][^/ ]* に続く行に -q が含まれないことを確認
+        lines = script.splitlines()
+        petid_pat = "'get:/pet/'[^/ ][^/ ]*"
+        for i, line in enumerate(lines):
+            if petid_pat in line:
+                assert "'-q'" not in line, f"Line {i} for GET /pet/{{petId}} contains -q: {line}"
+                break
+        else:
+            raise AssertionError(f"Pattern {petid_pat!r} not found in zsh script")
