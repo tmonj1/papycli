@@ -18,6 +18,20 @@ METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
 TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 
+_ALL_OPTS = [
+    "-q",
+    "-p",
+    "-d",
+    "-H",
+    "--summary",
+    "-v",
+    "--verbose",
+    "--check",
+    "--check-strict",
+    "--response-check",
+]
+_BASE_OPTS = ["-H", "--summary", "-v", "--verbose", "--check", "--check-strict", "--response-check"]
+
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
 # ---------------------------------------------------------------------------
@@ -285,23 +299,7 @@ def completions_for_context(
 
     # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
     op = _find_op(apidef, method, resource)
-    opts: list[str] = [
-        "-q",
-        "-p",
-        "-d",
-        "-H",
-        "--summary",
-        "-v",
-        "--verbose",
-        "--check",
-        "--check-strict",
-        "--response-check",
-    ]
-    if op is not None:
-        if not op.get("query_parameters"):
-            opts = [o for o in opts if o != "-q"]
-        if not op.get("post_parameters"):
-            opts = [o for o in opts if o not in ("-p", "-d")]
+    opts = _opts_for_op(op) if op is not None else list(_ALL_OPTS)
     return [o for o in opts if o.startswith(incomplete)]
 
 
@@ -664,21 +662,6 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
                 lines.append(f"            {pat}) _c=({ae}); _describe '' _c ;;")
     lines.append("            *) ;;")
     return "\n".join(lines)
-
-
-_ALL_OPTS = [
-    "-q",
-    "-p",
-    "-d",
-    "-H",
-    "--summary",
-    "-v",
-    "--verbose",
-    "--check",
-    "--check-strict",
-    "--response-check",
-]
-_BASE_OPTS = ["-H", "--summary", "-v", "--verbose", "--check", "--check-strict", "--response-check"]
 
 
 def _opts_for_op(op: dict[str, Any]) -> list[str]:

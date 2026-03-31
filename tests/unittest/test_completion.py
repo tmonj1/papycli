@@ -859,7 +859,7 @@ class TestGenerateStaticScript:
         import shlex
         import subprocess
 
-        words_str = " ".join(f'"{w}"' for w in words)
+        words_str = " ".join(shlex.quote(w) for w in words)
         test_script = (
             script
             + f"\nCOMP_WORDS=({words_str})\nCOMP_CWORD={cword}\n"
