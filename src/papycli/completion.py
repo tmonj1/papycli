@@ -310,6 +310,11 @@ def completions_for_context(
 # ---------------------------------------------------------------------------
 
 _STATIC_BASH_TEMPLATE = """\
+# case パターンに extglob (+([^ /])) を使うため、関数定義の前に有効化する。
+# もともと無効だった場合は complete 登録後に元に戻す。
+{ shopt -q extglob; } 2>/dev/null; _@@SAFENAME@@_extglob_off=$?
+shopt -s extglob
+
 _@@SAFENAME@@_completion() {
     local cur prev pprev
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -408,6 +413,8 @@ _@@SAFENAME@@_completion() {
 }
 
 complete -o nospace -F _@@SAFENAME@@_completion @@CMDNAME@@
+(( _@@SAFENAME@@_extglob_off )) && shopt -u extglob
+unset _@@SAFENAME@@_extglob_off
 """
 
 _STATIC_ZSH_TEMPLATE = """\
