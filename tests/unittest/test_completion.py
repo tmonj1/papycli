@@ -796,6 +796,23 @@ class TestGenerateStaticScript:
         script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
         assert "shopt -s extglob" in script
         assert "shopt -u extglob" in script
+        # shopt -s extglob が関数定義より前に現れること（eval 時のパース順序の保証）
+        extglob_pos = script.index("shopt -s extglob")
+        func_def_pos = script.index("_papycli_completion()")
+        assert extglob_pos < func_def_pos
+
+    def test_bash_eval_with_extglob_disabled(self) -> None:
+        import shlex
+        import subprocess
+
+        # extglob を無効化した bash 環境で eval しても構文エラーにならないこと
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        result = subprocess.run(
+            ["bash", "-c", f"shopt -u extglob; eval {shlex.quote(script)}"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"eval failed: {result.stderr}"
 
     def test_zsh_placeholder_uses_glob(self) -> None:
         # プレースホルダー付きパスの case パターンに [^/ ][^/ ]* が使われること（zsh）
