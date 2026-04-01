@@ -120,6 +120,15 @@ def cmd_config_add(spec_file: str, upgrade: bool) -> None:
         )
         sys.exit(1)
 
+    # upgrade で既存 API を上書きする場合、save_conf() が失敗したときに
+    # ファイルだけ新内容になって conf と不整合にならないよう旧ファイルをバックアップする。
+    apis_dir = get_apis_dir(conf_dir)
+    backup: dict[Path, bytes] = {}
+    if upgrade and already_registered:
+        for p in [apis_dir / f"{api_name}.json", apis_dir / f"{api_name}.spec.json"]:
+            if p.exists():
+                backup[p] = p.read_bytes()
+
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
     except Exception as e:
@@ -127,7 +136,13 @@ def cmd_config_add(spec_file: str, upgrade: bool) -> None:
         sys.exit(1)
 
     register_initialized_api(conf, api_name, spec_path, base_url)
-    save_conf(conf, conf_dir)
+    try:
+        save_conf(conf, conf_dir)
+    except Exception as e:
+        for p, data in backup.items():
+            p.write_bytes(data)
+        click.echo(f"Error: failed to save configuration: {e}", err=True)
+        sys.exit(1)
 
     if upgrade and already_registered:
         click.echo(f"Updated API '{api_name}'")
