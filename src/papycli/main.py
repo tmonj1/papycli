@@ -93,15 +93,16 @@ def cmd_config(ctx: click.Context) -> None:
 @click.option(
     "--upgrade", "upgrade", is_flag=True,
     help=h(
-        "Update an existing registered API with a new spec.",
-        "既存の登録済み API を新しい spec で更新する。",
+        "Update an existing registered API with a new spec."
+        " If the API is not registered yet, register it as new.",
+        "既存の登録済み API を新しい spec で更新する。未登録の場合は新規登録として処理する。",
     ),
 )
 def cmd_config_add(spec_file: str, upgrade: bool) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
-    if spec_path.stem in ("default", "aliases"):
+    if spec_path.stem in ("default", "aliases", "logfile"):
         click.echo(
             f"Error: '{spec_path.stem}' is a reserved name and cannot be used as an API name.",
             err=True,

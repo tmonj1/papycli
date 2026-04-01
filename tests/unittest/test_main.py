@@ -149,6 +149,19 @@ def test_cmd_add_reserved_name_default(tmp_path: Path, monkeypatch: pytest.Monke
     assert not (tmp_path / "papycli.conf").exists()
 
 
+def test_cmd_add_reserved_name_logfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A spec file named 'logfile.json' must be rejected to avoid overwriting the logfile setting.
+    """
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    spec = tmp_path / "logfile.json"
+    spec.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "add", str(spec)])
+    assert result.exit_code != 0
+    assert "logfile" in result.output
+    assert not (tmp_path / "papycli.conf").exists()
+
+
 def test_cmd_add_already_registered_errors(
     tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
