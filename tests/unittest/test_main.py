@@ -249,6 +249,42 @@ def test_cmd_add_upgrade_on_new_api_registers(
     assert conf["default"] == "myapi"
 
 
+def test_cmd_add_upgrade_rollback_on_save_conf_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--upgrade で save_conf() が失敗した場合、apidef/spec が旧内容に復元される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+
+    old_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://old.example.com/api"}],
+        "paths": {"/items": {"get": {"parameters": []}}},
+    }
+    spec_file = tmp_path / "myapi.json"
+    spec_file.write_text(json.dumps(old_spec), encoding="utf-8")
+    first = runner.invoke(cli, ["config", "add", str(spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
+
+    old_apidef = (tmp_path / "apis" / "myapi.json").read_bytes()
+    old_raw_spec = (tmp_path / "apis" / "myapi.spec.json").read_bytes()
+
+    new_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://new.example.com/api"}],
+        "paths": {"/items": {"get": {"parameters": []}}, "/users": {"get": {"parameters": []}}},
+    }
+    spec_file.write_text(json.dumps(new_spec), encoding="utf-8")
+
+    from unittest.mock import patch
+    with patch("papycli.main.save_conf", side_effect=OSError("disk full")):
+        result = runner.invoke(cli, ["config", "add", "--upgrade", str(spec_file)])
+
+    assert result.exit_code != 0
+    assert (tmp_path / "apis" / "myapi.json").read_bytes() == old_apidef
+    assert (tmp_path / "apis" / "myapi.spec.json").read_bytes() == old_raw_spec
+
+
 # ---------------------------------------------------------------------------
 # papycli config use
 # ---------------------------------------------------------------------------

@@ -24,8 +24,9 @@
 @click.option(
     "--upgrade", "upgrade", is_flag=True,
     help=h(
-        "Update an existing registered API with a new spec.",
-        "既存の登録済み API を新しい spec で更新する。",
+        "Update an existing registered API with a new spec."
+        " If the API is not registered yet, register it as new.",
+        "既存の登録済み API を新しい spec で更新する。未登録の場合は新規登録として処理する。",
     ),
 )
 def cmd_config_add(spec_file: str, upgrade: bool) -> None:
