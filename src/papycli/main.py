@@ -90,7 +90,14 @@ def cmd_config(ctx: click.Context) -> None:
     ),
 )
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
-def cmd_config_add(spec_file: str) -> None:
+@click.option(
+    "--upgrade", "upgrade", is_flag=True,
+    help=h(
+        "Update an existing registered API with a new spec.",
+        "既存の登録済み API を新しい spec で更新する。",
+    ),
+)
+def cmd_config_add(spec_file: str, upgrade: bool) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
@@ -101,17 +108,30 @@ def cmd_config_add(spec_file: str) -> None:
         )
         sys.exit(1)
 
+    conf = load_conf(conf_dir)
+    api_name = spec_path.stem
+    already_registered = api_name in conf and isinstance(conf[api_name], dict)
+
+    if not upgrade and already_registered:
+        click.echo(
+            f"Error: API '{api_name}' is already registered. Use --upgrade to update it.",
+            err=True,
+        )
+        sys.exit(1)
+
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
     except Exception as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    conf = load_conf(conf_dir)
     register_initialized_api(conf, api_name, spec_path, base_url)
     save_conf(conf, conf_dir)
 
-    click.echo(f"Registered API '{api_name}'")
+    if upgrade and already_registered:
+        click.echo(f"Updated API '{api_name}'")
+    else:
+        click.echo(f"Registered API '{api_name}'")
     if base_url:
         click.echo(f"  Base URL : {base_url}")
     else:
