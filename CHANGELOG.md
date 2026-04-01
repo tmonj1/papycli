@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.15.2](https://github.com/tmonj1/papycli/compare/v0.15.1...v0.15.2) (2026-04-01)
+
+
+### Bug Fixes
+
+* **ci:** add copilot-pull-request-reviewer as outside collaborator before requesting review ([8348e2e](https://github.com/tmonj1/papycli/commit/8348e2e52823dd581ffb020abcaadea2c3cec97b))
+* **ci:** Copilot レビュー再リクエストが 422 で失敗する問題を修正 ([#160](https://github.com/tmonj1/papycli/issues/160)) ([8348e2e](https://github.com/tmonj1/papycli/commit/8348e2e52823dd581ffb020abcaadea2c3cec97b))
+* eval "$(papycli config completion-script bash)" が extglob 無効環境でシンタックスエラーになる ([#156](https://github.com/tmonj1/papycli/issues/156)) ([6a19ade](https://github.com/tmonj1/papycli/commit/6a19ade49315824f1d4cd1f5e15ae14c00f5457d))
+* 静的補完スクリプトで利用不可能なオプションが候補に表示されるバグを修正 ([#159](https://github.com/tmonj1/papycli/issues/159)) ([8f679d4](https://github.com/tmonj1/papycli/commit/8f679d456b25c60c49b4024e4c19d3c50a1b940f))
+
 ## [0.15.1](https://github.com/tmonj1/papycli/compare/v0.15.0...v0.15.1) (2026-03-30)
 
 
