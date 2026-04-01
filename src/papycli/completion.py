@@ -18,6 +18,20 @@ METHODS = ["get", "post", "put", "patch", "delete"]
 CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
 TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 
+_ALL_OPTS = [
+    "-q",
+    "-p",
+    "-d",
+    "-H",
+    "--summary",
+    "-v",
+    "--verbose",
+    "--check",
+    "--check-strict",
+    "--response-check",
+]
+_BASE_OPTS = [opt for opt in _ALL_OPTS if opt not in ("-q", "-p", "-d")]
+
 # ---------------------------------------------------------------------------
 # シェルスクリプトテンプレート
 # ---------------------------------------------------------------------------
@@ -285,23 +299,7 @@ def completions_for_context(
 
     # オプション名（エンドポイントのパラメータ有無に応じてフィルタリング）
     op = _find_op(apidef, method, resource)
-    opts: list[str] = [
-        "-q",
-        "-p",
-        "-d",
-        "-H",
-        "--summary",
-        "-v",
-        "--verbose",
-        "--check",
-        "--check-strict",
-        "--response-check",
-    ]
-    if op is not None:
-        if not op.get("query_parameters"):
-            opts = [o for o in opts if o != "-q"]
-        if not op.get("post_parameters"):
-            opts = [o for o in opts if o not in ("-p", "-d")]
+    opts = _opts_for_op(op) if op is not None else list(_ALL_OPTS)
     return [o for o in opts if o.startswith(incomplete)]
 
 
@@ -312,7 +310,8 @@ def completions_for_context(
 _STATIC_BASH_TEMPLATE = """\
 # case パターンに extglob (+([^ /])) を使うため、関数定義の前に有効化する。
 # もともと無効だった場合は complete 登録後に元に戻す。
-if shopt -q extglob 2>/dev/null; then _@@SAFENAME@@_extglob_off=0; else _@@SAFENAME@@_extglob_off=1; fi
+if shopt -q extglob 2>/dev/null; then _@@SAFENAME@@_extglob_off=0
+else _@@SAFENAME@@_extglob_off=1; fi
 shopt -s extglob
 
 _@@SAFENAME@@_completion() {
@@ -407,8 +406,11 @@ _@@SAFENAME@@_completion() {
         return
     fi
 
+    local _opts
+    case "$ctx" in
+@@OPTION_CASES@@
+    esac
     (( _extglob_off )) && shopt -u extglob
-    local _opts="-q -p -d -H --summary -v --verbose --check --check-strict --response-check"
     COMPREPLY=($(compgen -W "$_opts" -- "$cur"))
 }
 
@@ -503,7 +505,9 @@ _@@SAFENAME@@() {
         return
     fi
 
-    _c=(-q -p -d -H --summary -v --verbose --check --check-strict --response-check)
+    case "$ctx" in
+@@ZSH_OPTION_CASES@@
+    esac
     _describe 'option' _c
 }
 compdef _@@SAFENAME@@ @@CMDNAME@@
@@ -660,6 +664,42 @@ def _zsh_enum_cases(apidef: dict[str, Any], kind: str) -> str:
     return "\n".join(lines)
 
 
+def _opts_for_op(op: dict[str, Any]) -> list[str]:
+    opts: list[str] = []
+    if op.get("query_parameters"):
+        opts.append("-q")
+    if op.get("post_parameters"):
+        opts.extend(["-p", "-d"])
+    opts.extend(_BASE_OPTS)
+    return opts
+
+
+def _bash_option_cases(apidef: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            method = op["method"]
+            opts = _opts_for_op(op)
+            wl = _shell_word_list(opts)
+            pat = _case_pattern(f"{method}:{path}", shell="bash")
+            lines.append(f"        {pat}) _opts={wl} ;;")
+    lines.append(f"        *) _opts={_shell_word_list(_ALL_OPTS)} ;;")
+    return "\n".join(lines)
+
+
+def _zsh_option_cases(apidef: dict[str, Any]) -> str:
+    lines: list[str] = []
+    for path in sorted(apidef):
+        for op in apidef[path]:
+            method = op["method"]
+            opts = _opts_for_op(op)
+            ae = _zsh_array_elems(opts)
+            pat = _case_pattern(f"{method}:{path}", shell="zsh")
+            lines.append(f"        {pat}) _c=({ae}) ;;")
+    lines.append(f"        *) _c=({_zsh_array_elems(_ALL_OPTS)}) ;;")
+    return "\n".join(lines)
+
+
 def generate_static_script(
     shell: str,
     cmd_name: str,
@@ -679,7 +719,6 @@ def generate_static_script(
 
     Note:
         動的補完（`_complete` サブコマンド呼び出し）と比べた既知の制限:
-        - 操作にクエリ/ボディパラメータがなくても -q / -p / -d は常に表示される。
         - `summary <resource> <TAB>` での --csv 補完は行われない（位置 2 のみ対応）。
         - スペースを含む API 名は bash での補完が正しく動作しない場合がある。
     """
@@ -711,6 +750,7 @@ def generate_static_script(
                 "@@Q_ENUM_CASES@@": _bash_enum_cases(adef, "query"),
                 "@@P_PARAM_CASES@@": _bash_param_cases(adef, "body"),
                 "@@P_ENUM_CASES@@": _bash_enum_cases(adef, "body"),
+                "@@OPTION_CASES@@": _bash_option_cases(adef),
             },
         )
 
@@ -731,6 +771,7 @@ def generate_static_script(
             "@@ZSH_Q_ENUM_CASES@@": _zsh_enum_cases(adef, "query"),
             "@@ZSH_P_PARAM_CASES@@": _zsh_param_cases(adef, "body"),
             "@@ZSH_P_ENUM_CASES@@": _zsh_enum_cases(adef, "body"),
+            "@@ZSH_OPTION_CASES@@": _zsh_option_cases(adef),
         },
     )
 
