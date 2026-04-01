@@ -155,11 +155,17 @@ def test_cmd_add_already_registered_errors(
     """config add を同じ API 名で2回実行するとエラーになる。"""
     monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
     runner = CliRunner()
-    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    first = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
+    conf_before = (tmp_path / "papycli.conf").read_text(encoding="utf-8")
+    apidef_before = (tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8")
+
     result = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
     assert result.exit_code != 0
     assert "already registered" in result.output
     assert "--upgrade" in result.output
+    assert (tmp_path / "papycli.conf").read_text(encoding="utf-8") == conf_before
+    assert (tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8") == apidef_before
 
 
 def test_cmd_add_upgrade_updates_existing(
@@ -179,7 +185,8 @@ def test_cmd_add_upgrade_updates_existing(
     }
     spec_file = tmp_path / "myapi.json"
     spec_file.write_text(json.dumps(old_spec), encoding="utf-8")
-    runner.invoke(cli, ["config", "add", str(spec_file)])
+    first = runner.invoke(cli, ["config", "add", str(spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
 
     # 新 spec で --upgrade
     new_spec: dict[str, Any] = {
@@ -202,6 +209,9 @@ def test_cmd_add_upgrade_updates_existing(
 
     apidef = json.loads((tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8"))
     assert "/users" in apidef
+
+    raw_spec = json.loads((tmp_path / "apis" / "myapi.spec.json").read_text(encoding="utf-8"))
+    assert raw_spec["servers"][0]["url"] == "http://new.example.com/api"
 
 
 def test_cmd_add_upgrade_on_new_api_registers(
