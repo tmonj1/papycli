@@ -120,14 +120,13 @@ def cmd_config_add(spec_file: str, upgrade: bool) -> None:
         )
         sys.exit(1)
 
-    # upgrade で既存 API を上書きする場合、save_conf() が失敗したときに
-    # ファイルだけ新内容になって conf と不整合にならないよう旧状態を記録する。
+    # save_conf() が失敗したときに apis/ 配下の apidef/raw spec ファイルと
+    # config の不整合が発生しないよう、旧状態を常に記録しておく。
     # existing: 上書き前の内容 (bytes)、None: 上書き前に存在しなかった（削除対象）
     apis_dir = get_apis_dir(conf_dir)
     file_snapshot: dict[Path, bytes | None] = {}
-    if upgrade and already_registered:
-        for p in [apis_dir / f"{api_name}.json", apis_dir / f"{api_name}.spec.json"]:
-            file_snapshot[p] = p.read_bytes() if p.exists() else None
+    for p in [apis_dir / f"{api_name}.json", apis_dir / f"{api_name}.spec.json"]:
+        file_snapshot[p] = p.read_bytes() if p.exists() else None
 
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
@@ -139,12 +138,23 @@ def cmd_config_add(spec_file: str, upgrade: bool) -> None:
     try:
         save_conf(conf, conf_dir)
     except Exception as e:
+        rollback_errors: list[str] = []
         for p, data in file_snapshot.items():
-            if data is None:
-                p.unlink(missing_ok=True)
-            else:
-                p.write_bytes(data)
+            try:
+                if data is None:
+                    p.unlink(missing_ok=True)
+                else:
+                    p.write_bytes(data)
+            except OSError as re:
+                rollback_errors.append(f"{p}: {re}")
         click.echo(f"Error: failed to save configuration: {e}", err=True)
+        if rollback_errors:
+            click.echo(
+                "Error: failed to rollback updated API files; manual cleanup may be required:",
+                err=True,
+            )
+            for msg in rollback_errors:
+                click.echo(f"  {msg}", err=True)
         sys.exit(1)
 
     if upgrade and already_registered:
