@@ -28,6 +28,11 @@ jobs:
     # fork からの PR ではシークレットが利用できないためスキップする。
     if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       - name: Request review from Copilot
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
