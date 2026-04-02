@@ -13,7 +13,7 @@ from click.testing import CliRunner
 from papycli import __version__
 from papycli.config import load_conf, save_conf
 from papycli.init_cmd import init_api, register_initialized_api
-from papycli.main import _load_env_files, cli
+from papycli.main import _load_env_files, cli, main
 
 PETSTORE_PATH = Path(__file__).parent.parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 BASE_URL = "http://localhost:8080/api/v3"
@@ -1562,3 +1562,17 @@ class TestLoadEnvFiles:
         _load_env_files()
 
         assert os.environ.get("TEST_VAR_PRIO") == "from_cwd"
+
+
+class TestMain:
+    def test_main_calls_load_env_files_then_cli(self) -> None:
+        """main() が _load_env_files() を呼んでから cli() を呼ぶこと。"""
+        call_order: list[str] = []
+
+        with (
+            patch("papycli.main._load_env_files", side_effect=lambda: call_order.append("load")),
+            patch("papycli.main.cli", side_effect=lambda: call_order.append("cli")),
+        ):
+            main()
+
+        assert call_order == ["load", "cli"]
