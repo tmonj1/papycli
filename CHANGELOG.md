@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.16.0](https://github.com/tmonj1/papycli/compare/v0.15.2...v0.16.0) (2026-04-02)
+
+
+### Features
+
+* .env ファイルの自動読み込み ([#167](https://github.com/tmonj1/papycli/issues/167)) ([950f9a9](https://github.com/tmonj1/papycli/commit/950f9a9c2af862e2d1e8545d3ae9b922a4b8c62a))
+* config add に --upgrade オプションを追加する ([#162](https://github.com/tmonj1/papycli/issues/162)) ([cec6586](https://github.com/tmonj1/papycli/commit/cec6586ca5be6b0c21038c606b7ead2bdd641077))
+* implement config add upgrade option ([0e3134f](https://github.com/tmonj1/papycli/commit/0e3134f4e6d6761e5c6aa38a6985c744e47b869e))
+
+
+### Bug Fixes
+
+* **ci:** add actions/checkout step before gh CLI calls in copilot-review workflow ([ae6aaa3](https://github.com/tmonj1/papycli/commit/ae6aaa3874cb405301fd799d9f32c86a08c6bb9f))
+* **ci:** add checkout step to copilot-review workflow ([#166](https://github.com/tmonj1/papycli/issues/166)) ([ae6aaa3](https://github.com/tmonj1/papycli/commit/ae6aaa3874cb405301fd799d9f32c86a08c6bb9f))
+* **ci:** replace direct API calls with gh pr edit --add-reviewer [@copilot](https://github.com/copilot) ([2ba29d9](https://github.com/tmonj1/papycli/commit/2ba29d92319496ab0a9bc4998fb0f86ea501e9ed))
+* **ci:** trigger Copilot re-review on push via gh pr edit --add-reviewer [@copilot](https://github.com/copilot) ([#164](https://github.com/tmonj1/papycli/issues/164)) ([2ba29d9](https://github.com/tmonj1/papycli/commit/2ba29d92319496ab0a9bc4998fb0f86ea501e9ed))
+
+
+### Documentation
+
+* add design spec for config add --upgrade option ([b55938e](https://github.com/tmonj1/papycli/commit/b55938eb98c16aa482858d96c5dce689b138f6e8))
+* add implementation plan for config add --upgrade option ([8af1594](https://github.com/tmonj1/papycli/commit/8af15946b1ea65e3bed4b21da8de8649a1bd292e))
+
 ## [0.15.2](https://github.com/tmonj1/papycli/compare/v0.15.1...v0.15.2) (2026-04-01)
 
 
