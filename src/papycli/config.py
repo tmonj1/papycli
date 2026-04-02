@@ -44,8 +44,9 @@ def save_conf(conf: dict[str, Any], conf_dir: Path | None = None) -> None:
     path = get_conf_path(conf_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".papycli.conf.", suffix=".tmp")
+    os.close(fd)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(conf, f, indent=2, ensure_ascii=False)
             f.write("\n")
         os.replace(tmp, path)
