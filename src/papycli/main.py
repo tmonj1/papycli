@@ -1,11 +1,14 @@
 """CLI entry point."""
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
+
+from dotenv import load_dotenv
 
 import click
 import requests
@@ -829,3 +832,16 @@ def cmd_complete(current_index: int, words: tuple[str, ...]) -> None:
         stdout_bin = click.get_binary_stream("stdout")
         encoding = sys.stdout.encoding or "utf-8"
         stdout_bin.write(("\n".join(results) + "\n").encode(encoding, errors="replace"))
+
+
+def _load_env_files() -> None:
+    """Load .env files from CWD and PAPYCLI_CONF_DIR (shell env takes precedence)."""
+    load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
+    conf_dir = Path(os.environ.get("PAPYCLI_CONF_DIR", "~/.papycli")).expanduser()
+    load_dotenv(dotenv_path=conf_dir / ".env", override=False)
+
+
+def main() -> None:
+    """Entry point wrapper: load .env files before invoking CLI."""
+    _load_env_files()
+    cli()
