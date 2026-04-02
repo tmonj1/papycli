@@ -1563,6 +1563,18 @@ class TestLoadEnvFiles:
 
         assert os.environ.get("TEST_VAR_PRIO") == "from_cwd"
 
+    def test_disable_dotenv_skips_loading(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PAPYCLI_DISABLE_DOTENV=1 のとき .env が読み込まれないこと。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("TEST_VAR_DISABLED=should_not_be_set\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("TEST_VAR_DISABLED", raising=False)
+        monkeypatch.setenv("PAPYCLI_DISABLE_DOTENV", "1")
+
+        _load_env_files()
+
+        assert os.environ.get("TEST_VAR_DISABLED") is None
+
 
 class TestMain:
     def test_main_calls_load_env_files_then_cli(self) -> None:

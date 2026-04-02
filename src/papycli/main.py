@@ -1,6 +1,7 @@
 """CLI entry point."""
 
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -834,7 +835,12 @@ def cmd_complete(current_index: int, words: tuple[str, ...]) -> None:
 
 
 def _load_env_files() -> None:
-    """Load .env files from CWD and PAPYCLI_CONF_DIR (shell env takes precedence)."""
+    """Load .env files from CWD and PAPYCLI_CONF_DIR (shell env takes precedence).
+
+    Skipped when PAPYCLI_DISABLE_DOTENV=1.
+    """
+    if os.environ.get("PAPYCLI_DISABLE_DOTENV") == "1":
+        return
     load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
     load_dotenv(dotenv_path=get_conf_dir() / ".env", override=False)
 
