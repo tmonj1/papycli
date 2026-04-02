@@ -14,7 +14,11 @@
 
 ## 変更ファイル
 
-`src/papycli/main.py` の `cmd_config_add` のみ変更する。`init_cmd.py` は変更しない。
+- `src/papycli/main.py` の `cmd_config_add`
+- `src/papycli/config.py` の `save_conf`（設定ファイルの atomic 書き込みに対応）
+- 上記に対応するテスト（`tests/unittest/` 配下）およびプラン／設計ドキュメント
+
+`init_cmd.py` は変更しない。
 
 ## 設計詳細
 
