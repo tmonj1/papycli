@@ -149,6 +149,142 @@ def test_cmd_add_reserved_name_default(tmp_path: Path, monkeypatch: pytest.Monke
     assert not (tmp_path / "papycli.conf").exists()
 
 
+def test_cmd_add_reserved_name_logfile(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A spec file named 'logfile.json' must be rejected to avoid overwriting the logfile setting.
+    """
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    spec = tmp_path / "logfile.json"
+    spec.write_text(json.dumps(MINIMAL_SPEC), encoding="utf-8")
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "add", str(spec)])
+    assert result.exit_code != 0
+    assert "logfile" in result.output
+    assert not (tmp_path / "papycli.conf").exists()
+
+
+def test_cmd_add_already_registered_errors(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """config add を同じ API 名で2回実行するとエラーになる。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+    first = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
+    conf_before = (tmp_path / "papycli.conf").read_text(encoding="utf-8")
+    apidef_before = (tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8")
+
+    result = runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    assert result.exit_code != 0
+    assert "already registered" in result.output
+    assert "--upgrade" in result.output
+    assert (tmp_path / "papycli.conf").read_text(encoding="utf-8") == conf_before
+    assert (tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8") == apidef_before
+
+
+def test_cmd_add_upgrade_updates_existing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--upgrade で既存 API の spec・apidef・URL が更新される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+
+    # 旧 spec で登録
+    old_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://old.example.com/api"}],
+        "paths": {
+            "/items": {"get": {"parameters": []}},
+        },
+    }
+    spec_file = tmp_path / "myapi.json"
+    spec_file.write_text(json.dumps(old_spec), encoding="utf-8")
+    first = runner.invoke(cli, ["config", "add", str(spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
+
+    # 新 spec で --upgrade
+    new_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://new.example.com/api"}],
+        "paths": {
+            "/items": {"get": {"parameters": []}},
+            "/users": {"get": {"parameters": []}},
+        },
+    }
+    spec_file.write_text(json.dumps(new_spec), encoding="utf-8")
+    result = runner.invoke(cli, ["config", "add", "--upgrade", str(spec_file)])
+
+    assert result.exit_code == 0
+    assert "Updated API 'myapi'" in result.output
+    assert "http://new.example.com/api" in result.output
+
+    conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
+    assert conf["myapi"]["url"] == "http://new.example.com/api"
+
+    apidef = json.loads((tmp_path / "apis" / "myapi.json").read_text(encoding="utf-8"))
+    assert "/users" in apidef
+
+    raw_spec = json.loads((tmp_path / "apis" / "myapi.spec.json").read_text(encoding="utf-8"))
+    assert raw_spec["servers"][0]["url"] == "http://new.example.com/api"
+
+
+def test_cmd_add_upgrade_on_new_api_registers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--upgrade で未登録 API を指定すると新規登録として扱われる。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://localhost:9000/api"}],
+        "paths": {"/items": {"get": {"parameters": []}}},
+    }
+    spec_file = tmp_path / "myapi.json"
+    spec_file.write_text(json.dumps(spec), encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["config", "add", "--upgrade", str(spec_file)])
+
+    assert result.exit_code == 0
+    assert "Registered API 'myapi'" in result.output
+    conf = json.loads((tmp_path / "papycli.conf").read_text(encoding="utf-8"))
+    assert conf["default"] == "myapi"
+
+
+def test_cmd_add_upgrade_rollback_on_save_conf_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--upgrade で save_conf() が失敗した場合、apidef/spec が旧内容に復元される。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    runner = CliRunner()
+
+    old_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://old.example.com/api"}],
+        "paths": {"/items": {"get": {"parameters": []}}},
+    }
+    spec_file = tmp_path / "myapi.json"
+    spec_file.write_text(json.dumps(old_spec), encoding="utf-8")
+    first = runner.invoke(cli, ["config", "add", str(spec_file)])
+    assert first.exit_code == 0, f"1回目の add が失敗した: {first.output}"
+
+    old_apidef = (tmp_path / "apis" / "myapi.json").read_bytes()
+    old_raw_spec = (tmp_path / "apis" / "myapi.spec.json").read_bytes()
+
+    new_spec: dict[str, Any] = {
+        "openapi": "3.0.2",
+        "servers": [{"url": "http://new.example.com/api"}],
+        "paths": {"/items": {"get": {"parameters": []}}, "/users": {"get": {"parameters": []}}},
+    }
+    spec_file.write_text(json.dumps(new_spec), encoding="utf-8")
+
+    from unittest.mock import patch
+    with patch("papycli.main.save_conf", side_effect=OSError("disk full")):
+        result = runner.invoke(cli, ["config", "add", "--upgrade", str(spec_file)])
+
+    assert result.exit_code != 0
+    assert (tmp_path / "apis" / "myapi.json").read_bytes() == old_apidef
+    assert (tmp_path / "apis" / "myapi.spec.json").read_bytes() == old_raw_spec
+
+
 # ---------------------------------------------------------------------------
 # papycli config use
 # ---------------------------------------------------------------------------
