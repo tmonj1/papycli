@@ -1,6 +1,7 @@
 """CLI エントリポイントのテスト."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -12,7 +13,7 @@ from click.testing import CliRunner
 from papycli import __version__
 from papycli.config import load_conf, save_conf
 from papycli.init_cmd import init_api, register_initialized_api
-from papycli.main import cli
+from papycli.main import _load_env_files, cli
 
 PETSTORE_PATH = Path(__file__).parent.parent.parent / "examples" / "petstore" / "petstore-oas3.json"
 BASE_URL = "http://localhost:8080/api/v3"
@@ -1498,3 +1499,66 @@ class TestCompletionScriptStatic:
         assert "_complete" not in result.output
         assert "/pet" in result.output
         assert "/store/inventory" in result.output
+
+
+class TestLoadEnvFiles:
+    def test_loads_cwd_dotenv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """カレントディレクトリの .env が読み込まれること。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("TEST_VAR_CWD=hello_cwd\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("TEST_VAR_CWD", raising=False)
+
+        _load_env_files()
+
+        assert os.environ.get("TEST_VAR_CWD") == "hello_cwd"
+
+    def test_loads_conf_dir_dotenv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """PAPYCLI_CONF_DIR 配下の .env が読み込まれること。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("TEST_VAR_CONF=hello_conf\n", encoding="utf-8")
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+        monkeypatch.delenv("TEST_VAR_CONF", raising=False)
+        cwd_without_env = tmp_path / "subdir"
+        cwd_without_env.mkdir()
+        monkeypatch.chdir(cwd_without_env)
+
+        _load_env_files()
+
+        assert os.environ.get("TEST_VAR_CONF") == "hello_conf"
+
+    def test_shell_env_takes_precedence(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """シェルで既にセットされた環境変数が .env の値で上書きされないこと。"""
+        env_file = tmp_path / ".env"
+        env_file.write_text("TEST_VAR_OVERRIDE=from_dotenv\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("TEST_VAR_OVERRIDE", "from_shell")
+
+        _load_env_files()
+
+        assert os.environ.get("TEST_VAR_OVERRIDE") == "from_shell"
+
+    def test_no_error_when_no_dotenv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """.env が存在しない場合にエラーにならないこと。"""
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+
+        _load_env_files()
+
+    def test_cwd_takes_precedence_over_conf_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """カレントディレクトリの .env が PAPYCLI_CONF_DIR の .env より優先されること。"""
+        cwd_dir = tmp_path / "cwd"
+        conf_dir = tmp_path / "conf"
+        cwd_dir.mkdir()
+        conf_dir.mkdir()
+        (cwd_dir / ".env").write_text("TEST_VAR_PRIO=from_cwd\n", encoding="utf-8")
+        (conf_dir / ".env").write_text("TEST_VAR_PRIO=from_conf\n", encoding="utf-8")
+        monkeypatch.chdir(cwd_dir)
+        monkeypatch.setenv("PAPYCLI_CONF_DIR", str(conf_dir))
+        monkeypatch.delenv("TEST_VAR_PRIO", raising=False)
+
+        _load_env_files()
+
+        assert os.environ.get("TEST_VAR_PRIO") == "from_cwd"
