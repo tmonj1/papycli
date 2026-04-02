@@ -253,10 +253,15 @@ Options:
   --help / -h             Show help
 
 Environment variables:
-  PAPYCLI_CONF_DIR        Path to the config directory (default: ~/.papycli)
-  PAPYCLI_CUSTOM_HEADER   Custom HTTP headers applied to every request.
-                            Separate multiple headers with newlines:
-                            export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
+  PAPYCLI_CONF_DIR         Path to the config directory (default: ~/.papycli)
+  PAPYCLI_CUSTOM_HEADER    Custom HTTP headers applied to every request.
+                             Separate multiple headers with newlines:
+                             export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
+  PAPYCLI_DISABLE_DOTENV   Set to 1 to disable automatic .env file loading.
+                             By default papycli loads .env from the current directory
+                             and $PAPYCLI_CONF_DIR on startup. Disable this when running
+                             in untrusted directories to prevent unintended env injection:
+                             export PAPYCLI_DISABLE_DOTENV=1
 ```
 
 ---

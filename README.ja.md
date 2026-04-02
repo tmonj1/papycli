@@ -252,10 +252,15 @@ papycli <method> <resource> [options]
   --help / -h             使い方を表示する
 
 環境変数:
-  PAPYCLI_CONF_DIR        設定ディレクトリのパス（デフォルト: ~/.papycli）
-  PAPYCLI_CUSTOM_HEADER   すべてのリクエストに適用するカスタム HTTP ヘッダー
-                            複数のヘッダーは改行で区切る:
-                            export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
+  PAPYCLI_CONF_DIR         設定ディレクトリのパス（デフォルト: ~/.papycli）
+  PAPYCLI_CUSTOM_HEADER    すべてのリクエストに適用するカスタム HTTP ヘッダー
+                             複数のヘッダーは改行で区切る:
+                             export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'
+  PAPYCLI_DISABLE_DOTENV   1 に設定すると .env ファイルの自動読み込みを無効化する。
+                             デフォルトでは起動時にカレントディレクトリと
+                             $PAPYCLI_CONF_DIR の .env を読み込む。信頼できない
+                             ディレクトリで実行する際は無効化を推奨する:
+                             export PAPYCLI_DISABLE_DOTENV=1
 ```
 
 ---
