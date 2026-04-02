@@ -90,16 +90,43 @@ def cmd_config(ctx: click.Context) -> None:
     ),
 )
 @click.argument("spec_file", metavar="SPEC_FILE", type=click.Path(exists=True, dir_okay=False))
-def cmd_config_add(spec_file: str) -> None:
+@click.option(
+    "--upgrade", "upgrade", is_flag=True,
+    help=h(
+        "Update an existing registered API with a new spec."
+        " If the API is not registered yet, register it as new.",
+        "既存の登録済み API を新しい spec で更新する。未登録の場合は新規登録として処理する。",
+    ),
+)
+def cmd_config_add(spec_file: str, upgrade: bool) -> None:
     spec_path = Path(spec_file)
     conf_dir = get_conf_dir()
 
-    if spec_path.stem in ("default", "aliases"):
+    if spec_path.stem in ("default", "aliases", "logfile"):
         click.echo(
             f"Error: '{spec_path.stem}' is a reserved name and cannot be used as an API name.",
             err=True,
         )
         sys.exit(1)
+
+    conf = load_conf(conf_dir)
+    api_name = spec_path.stem
+    already_registered = api_name in conf and isinstance(conf[api_name], dict)
+
+    if not upgrade and already_registered:
+        click.echo(
+            f"Error: API '{api_name}' is already registered. Use --upgrade to update it.",
+            err=True,
+        )
+        sys.exit(1)
+
+    # save_conf() が失敗したときに apis/ 配下の apidef/raw spec ファイルと
+    # config の不整合が発生しないよう、旧状態を常に記録しておく。
+    # existing: 上書き前の内容 (bytes)、None: 上書き前に存在しなかった（削除対象）
+    apis_dir = get_apis_dir(conf_dir)
+    file_snapshot: dict[Path, bytes | None] = {}
+    for p in [apis_dir / f"{api_name}.json", apis_dir / f"{api_name}.spec.json"]:
+        file_snapshot[p] = p.read_bytes() if p.exists() else None
 
     try:
         api_name, base_url = init_api(spec_path, conf_dir)
@@ -107,11 +134,33 @@ def cmd_config_add(spec_file: str) -> None:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    conf = load_conf(conf_dir)
     register_initialized_api(conf, api_name, spec_path, base_url)
-    save_conf(conf, conf_dir)
+    try:
+        save_conf(conf, conf_dir)
+    except Exception as e:
+        rollback_errors: list[str] = []
+        for p, data in file_snapshot.items():
+            try:
+                if data is None:
+                    p.unlink(missing_ok=True)
+                else:
+                    p.write_bytes(data)
+            except OSError as re:
+                rollback_errors.append(f"{p}: {re}")
+        click.echo(f"Error: failed to save configuration: {e}", err=True)
+        if rollback_errors:
+            click.echo(
+                "Error: failed to rollback updated API files; manual cleanup may be required:",
+                err=True,
+            )
+            for msg in rollback_errors:
+                click.echo(f"  {msg}", err=True)
+        sys.exit(1)
 
-    click.echo(f"Registered API '{api_name}'")
+    if upgrade and already_registered:
+        click.echo(f"Updated API '{api_name}'")
+    else:
+        click.echo(f"Registered API '{api_name}'")
     if base_url:
         click.echo(f"  Base URL : {base_url}")
     else:

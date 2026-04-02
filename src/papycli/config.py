@@ -2,6 +2,7 @@
 
 import json
 import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -35,12 +36,26 @@ def load_conf(conf_dir: Path | None = None) -> dict[str, Any]:
 
 
 def save_conf(conf: dict[str, Any], conf_dir: Path | None = None) -> None:
-    """設定ファイルを保存する。ディレクトリが存在しない場合は作成する。"""
+    """設定ファイルを保存する。ディレクトリが存在しない場合は作成する。
+
+    一時ファイルに書き込んでから atomic rename することで、書き込み途中の
+    失敗でも既存の設定ファイルが壊れないようにする。
+    """
     path = get_conf_path(conf_dir)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(conf, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=".papycli.conf.", suffix=".tmp")
+    os.close(fd)
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(conf, f, indent=2, ensure_ascii=False)
+            f.write("\n")
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def register_api(
