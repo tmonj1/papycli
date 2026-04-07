@@ -360,6 +360,7 @@ _@@SAFENAME@@_completion() {
                         COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
                     fi
                 fi ;;
+            *)  COMPREPLY=() ;;
         esac
         return
     fi
