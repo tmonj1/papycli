@@ -349,7 +349,6 @@ Install the package and the filters are applied automatically after every respon
 
 - Request bodies are `application/json` only
 - Array parameters support scalar element types only (arrays of objects are not supported)
-- Pass auth headers via `-H "Authorization: Bearer token"` or the `PAPYCLI_CUSTOM_HEADER` env var
 
 ---
 
