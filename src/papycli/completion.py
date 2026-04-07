@@ -351,8 +351,14 @@ _@@SAFENAME@@_completion() {
                                     compopt -o filenames 2>/dev/null
                                 fi ;;
                 esac ;;
-            4)  if [[ "${COMP_WORDS[2]}" == "add" && "${COMP_WORDS[3]}" != "--upgrade" ]]; then
-                    COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
+            4)  COMPREPLY=()
+                if [[ "${COMP_WORDS[2]}" == "add" ]]; then
+                    if [[ "${COMP_WORDS[3]}" == "--upgrade" ]]; then
+                        COMPREPLY=($(compgen -f -- "$cur"))
+                        compopt -o filenames 2>/dev/null
+                    else
+                        COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
+                    fi
                 fi ;;
         esac
         return
@@ -463,8 +469,12 @@ _@@SAFENAME@@() {
                                     _files
                                 fi ;;
                 esac ;;
-            4)  if [[ "${words[3]}" == "add" && "${words[4]}" != "--upgrade" ]]; then
-                    _c=('--upgrade'); _describe 'option' _c
+            4)  if [[ "${words[3]}" == "add" ]]; then
+                    if [[ "${words[4]}" == "--upgrade" ]]; then
+                        _files
+                    else
+                        _c=('--upgrade'); _describe 'option' _c
+                    fi
                 fi ;;
         esac
         return

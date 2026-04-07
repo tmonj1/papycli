@@ -984,7 +984,7 @@ class TestGenerateStaticScript:
         assert "--upgrade" in completions
 
     def test_bash_static_config_add_upgrade_not_duplicated(self) -> None:
-        # --upgrade 使用済みの場合は候補に出ないこと
+        # --upgrade 使用済みの場合は --upgrade が候補に出ず、ファイル補完になること
         script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
         completions = self._run_bash_completion(
             script, ["papycli", "config", "add", "--upgrade", ""], 4
