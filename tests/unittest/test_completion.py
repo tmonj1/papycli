@@ -185,8 +185,38 @@ def test_complete_config_subcommands_covers_all() -> None:
 
 
 def test_complete_config_no_further_completion() -> None:
-    # config add の引数は補完しない（api_names なし）
+    # config add <TAB>（空入力）はファイル補完フォールバックに委ねるため []
     result = ctx(["papycli", "config", "add", ""], 3)
+    assert result == []
+
+
+def test_complete_config_add_upgrade_prefix() -> None:
+    # config add -- TAB → --upgrade が候補に現れる
+    result = ctx(["papycli", "config", "add", "--"], 3)
+    assert result == ["--upgrade"]
+
+
+def test_complete_config_add_upgrade_full() -> None:
+    # config add --upgrade まで入力済みでも一致する
+    result = ctx(["papycli", "config", "add", "--upgrade"], 3)
+    assert result == ["--upgrade"]
+
+
+def test_complete_config_add_upgrade_after_file() -> None:
+    # config add file.yaml <TAB> → --upgrade が候補
+    result = ctx(["papycli", "config", "add", "file.yaml", ""], 4)
+    assert result == ["--upgrade"]
+
+
+def test_complete_config_add_upgrade_not_duplicated() -> None:
+    # --upgrade 使用済みの場合は候補に出ない
+    result = ctx(["papycli", "config", "add", "--upgrade", ""], 4)
+    assert result == []
+
+
+def test_complete_config_add_nonmatching_prefix() -> None:
+    # - で始まるが --upgrade に一致しないプレフィックスは空
+    result = ctx(["papycli", "config", "add", "--other"], 3)
     assert result == []
 
 
@@ -936,3 +966,32 @@ class TestGenerateStaticScript:
                 break
         else:
             raise AssertionError(f"Pattern {petid_pat!r} not found in zsh script")
+
+    def test_bash_static_config_add_upgrade_completion(self) -> None:
+        # config add -- TAB で --upgrade が補完候補に現れること
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(
+            script, ["papycli", "config", "add", "--"], 3
+        )
+        assert "--upgrade" in completions
+
+    def test_bash_static_config_add_upgrade_after_file(self) -> None:
+        # config add file.yaml <TAB> で --upgrade が候補に現れること
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(
+            script, ["papycli", "config", "add", "file.yaml", ""], 4
+        )
+        assert "--upgrade" in completions
+
+    def test_bash_static_config_add_upgrade_not_duplicated(self) -> None:
+        # --upgrade 使用済みの場合は --upgrade が候補に出ず、ファイル補完になること
+        script = generate_static_script("bash", "papycli", APIDEF, ["petstore"])
+        completions = self._run_bash_completion(
+            script, ["papycli", "config", "add", "--upgrade", ""], 4
+        )
+        assert "--upgrade" not in completions
+
+    def test_zsh_static_contains_upgrade_option(self) -> None:
+        # 静的 zsh スクリプトに --upgrade が含まれること
+        script = generate_static_script("zsh", "papycli", APIDEF, ["petstore"])
+        assert "'--upgrade'" in script

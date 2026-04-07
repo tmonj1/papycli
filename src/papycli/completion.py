@@ -230,6 +230,16 @@ def completions_for_context(
             and api_names is not None
         ):
             return [n for n in api_names if n.startswith(incomplete)]
+        if current >= 3 and len(words) > 2 and words[2] == "add":
+            # --upgrade が未使用かつプレフィックスが一致する場合に補完候補として返す。
+            # words[:current] で現在入力中のトークンを除いた使用済み単語を確認する。
+            # ただし current == 3 かつ incomplete が空のときは返さない（シェルの
+            # ファイル補完フォールバックをブロックしないようにするため）。
+            if "--upgrade" not in words[:current] and "--upgrade".startswith(incomplete) and (
+                current > 3 or incomplete
+            ):
+                return ["--upgrade"]
+            return []
         return []
 
     # summary コマンドの補完
@@ -334,9 +344,23 @@ _@@SAFENAME@@_completion() {
             2)  COMPREPLY=($(compgen -W @@CONFIG_SUBCMDS@@ -- "$cur")) ;;
             3)  case "${COMP_WORDS[2]}" in
                     remove|use) COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
-                    add)        COMPREPLY=($(compgen -f -- "$cur"))
-                                compopt -o filenames 2>/dev/null ;;
+                    add)        if [[ "$cur" == -* ]]; then
+                                    COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
+                                else
+                                    COMPREPLY=($(compgen -f -- "$cur"))
+                                    compopt -o filenames 2>/dev/null
+                                fi ;;
                 esac ;;
+            4)  COMPREPLY=()
+                if [[ "${COMP_WORDS[2]}" == "add" ]]; then
+                    if [[ "${COMP_WORDS[3]}" == "--upgrade" ]]; then
+                        COMPREPLY=($(compgen -f -- "$cur"))
+                        compopt -o filenames 2>/dev/null
+                    else
+                        COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
+                    fi
+                fi ;;
+            *)  COMPREPLY=() ;;
         esac
         return
     fi
@@ -440,8 +464,19 @@ _@@SAFENAME@@() {
                 _describe 'subcommand' _c ;;
             3)  case "${words[3]}" in
                     remove|use) _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
-                    add)        _files ;;
+                    add)        if [[ "$cur" == -* ]]; then
+                                    _c=('--upgrade'); _describe 'option' _c
+                                else
+                                    _files
+                                fi ;;
                 esac ;;
+            4)  if [[ "${words[3]}" == "add" ]]; then
+                    if [[ "${words[4]}" == "--upgrade" ]]; then
+                        _files
+                    else
+                        _c=('--upgrade'); _describe 'option' _c
+                    fi
+                fi ;;
         esac
         return
     fi
