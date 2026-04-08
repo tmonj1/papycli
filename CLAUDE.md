@@ -44,4 +44,4 @@
 
 - `.claude/rules/workflow.md` — 開発ワークフロー・issue 管理・Conventional Commits（常時ロード）
 - `.claude/rules/data-format.md` — 内部データフォーマット・環境変数（Python ファイル編集時にロード）
-- `.claude/rules/cli-spec.md` — CLI 仕様（`src/main.py` 編集時にロード）
+- `.claude/rules/cli-spec.md` — CLI 仕様（`src/papycli/main.py` 編集時にロード）

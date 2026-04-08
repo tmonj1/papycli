@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/main.py"
+  - "src/papycli/main.py"
 ---
 
 # CLI 仕様
