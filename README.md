@@ -367,7 +367,7 @@ These commands assume [uv](https://docs.astral.sh/uv/) is installed. If you set 
 **Unit tests:**
 
 ```bash
-uv run pytest
+uv run pytest [--cov] [--cov-branch]
 ```
 
 **Integration tests:**

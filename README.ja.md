@@ -367,7 +367,7 @@ pip install -e ".[dev]"
 **ユニットテスト：**
 
 ```bash
-uv run pytest
+uv run pytest [--cov] [--cov-branch]
 ```
 
 **統合テスト：**
