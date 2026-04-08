@@ -23,54 +23,6 @@
 - `summary.py` — summary コマンド・CSV 出力
 - `i18n.py` — 日英ヘルプテキスト切り替え
 
-## 内部データフォーマット
-
-### API 定義ファイル (`apis/<name>.json`)
-
-`{ "<path>": [ { "method", "query_parameters", "post_parameters" } ] }` の形式。
-
-- `method`: `"get"` / `"post"` / `"put"` / `"patch"` / `"delete"`
-- `query_parameters` / `post_parameters`: `[{ "name", "type", "required", "enum"(省略可) }]`
-- path にはパステンプレート（`/pet/{petId}` 形式）も使用可
-
-### 設定ファイル (`papycli.conf`)
-
-`{ "default": "<api-name>", "<api-name>": { "openapispec", "apidef", "url" } }` の形式。
-
-## CLI 仕様
-
-### コマンド構文
-
-```
-papycli <method> <resource> [options]
-papycli config add <spec-file>
-papycli config use <api-name>
-papycli config remove <api-name>
-papycli config list
-papycli config log [PATH] [--unset]
-papycli config completion-script <bash|zsh>
-papycli spec [resource]
-papycli spec --full [resource]
-papycli summary [resource] [--csv]
-papycli --version
-papycli --help / -h
-```
-
-### サポートするメソッド
-
-`get | post | put | patch | delete` をサポートする。
-
-### パステンプレートのマッチング
-
-リソースパスに数値や文字列が含まれる場合（例：`/pet/99`）、API 定義内のテンプレート（`/pet/{petId}`）にマッチさせ、値を埋め込んでリクエストを送信する。
-
-## 環境変数
-
-| 変数 | デフォルト | 説明 |
-|------|-----------|------|
-| `PAPYCLI_CONF_DIR` | `~/.papycli` | 設定ディレクトリのパス |
-| `PAPYCLI_CUSTOM_HEADER` | （なし） | 全リクエストに付与するカスタムヘッダー（改行区切りで複数指定可） |
-
 ## コーディング規約
 
 - フォーマッタ・Lint は `ruff` を使用する (`uv run ruff check`)
@@ -86,40 +38,10 @@ papycli --help / -h
 - HTTP リクエストは `responses` ライブラリ等でモックして実テストしない
 - OpenAPI spec の解釈ロジックは代表的なケースを網羅するテストを書く
 
-## 開発ワークフロー
+## 追加ルール
 
-コードの追加・修正は以下のフローに従う。ドキュメントだけの追加・修正時も同じ（テストは実行不要）。
+詳細なルールは `.claude/rules/` 以下を参照。
 
-- 修正の内容を簡潔に記述し、GitHub の issue に登録する (issueのない修正は厳禁)
-- `main` ブランチを最新化する
-- `main` ブランチからトピックブランチを作成する (`main` ブランチへの直接コミットは厳禁)
-- トピックブランチでコードの追加・修正をおこなう
-- `ruff` と `mypy` でチェックし、警告がなくなるまで修正する
-- コードが完成したらコミットする (コミットメッセージは Conventional Commits に従う)
-- PR を作成する
-- PR を2分おきに監視し、レビュー・コメントが追加されたら修正してPRに追加コミットをプッシュする
-- プッシュ後、修正内容を簡潔にまとめてPRに返信する
-- PR コメント追加とコード修正のサイクルを追加のコメントがなくなるまで繰り返す
-- レビューアが追加のコメントはないとのコメントを書くか、10分以上コメントが追加されなければ PR の監視を解除して終わる
-
-## issue 管理
-
-- issue には適切なラベルをつける。使用するラベルは以下のいずれか
-- 機能以外のバグの場合、`ci`、`chore` など適切なラベルを追加する
-
-| ラベル | 用途 |
-|---------------|------|
-| `feature` | 新機能の追加 |
-| `bug` | バグ修正 |
-| `refactor` | 機能変更を伴わないリファクタリング |
-| `test` | テストコードの追加 |
-| `ci` | GitHub Actions など Continuous Integration に関係する変更 |
-| `documentation` | ドキュメントのみの変更 |
-| `chore` | 上記以外 (ビルド・依存関係・設定等のメンテナンス) |
-
-## Conventional Commits の注意点
-
-- ユーザーから見て機能に変更がないときは `feat` は使わない
-- 破壊的変更を伴う場合、`feat!:` や `fix!` のようにコミットメッセージのタイプに**必ず**`!`を付ける
-- `ci` や `chore` のバグ修正の場合、`fix(ci):`、`fix(chore)` のように機能上の不具合修正でないことがわかるように明記する
-- コミットに互換性を損なう破壊的変更が含まれる場合、"BREAKING CHANGE:" フッターを**必ず**追加する
+- `.claude/rules/workflow.md` — 開発ワークフロー・issue 管理・Conventional Commits（常時ロード）
+- `.claude/rules/data-format.md` — 内部データフォーマット・環境変数（Python ファイル編集時にロード）
+- `.claude/rules/cli-spec.md` — CLI 仕様（`src/main.py` 編集時にロード）
