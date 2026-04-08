@@ -16,7 +16,12 @@ paths:
 
 ## 設定ファイル (`papycli.conf`)
 
-`{ "default": "<api-name>", "<api-name>": { "openapispec", "apidef", "url" } }` の形式。
+`{ "default": "<api-name>", "aliases": { "<alias-name>": "<api-name>" }, "logfile": "<log-path>", "<api-name>": { "openapispec", "apidef", "url" } }` の形式。
+
+- `default`: デフォルトで使用する API 名
+- `aliases`: エイリアス名 → スペック名のマップ
+- `logfile`: ログ出力先のパス（省略可）
+- `<api-name>`: 各 API エントリ。`openapispec` / `apidef` / `url` を持つ
 
 ## 環境変数
 

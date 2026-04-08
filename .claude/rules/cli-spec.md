@@ -14,6 +14,8 @@ papycli config use <api-name>
 papycli config remove <api-name>
 papycli config list
 papycli config log [PATH] [--unset]
+papycli config alias [ALIAS_NAME] [SPEC_NAME]
+papycli config alias -d <alias-name>
 papycli config completion-script <bash|zsh>
 papycli spec [resource]
 papycli spec --full [resource]
