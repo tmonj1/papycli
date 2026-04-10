@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.16.1](https://github.com/tmonj1/papycli/compare/v0.16.0...v0.16.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* config add TAB で --upgrade が補完候補に表示されない ([#169](https://github.com/tmonj1/papycli/issues/169)) ([3814b14](https://github.com/tmonj1/papycli/commit/3814b142c665a77ab30edb5dee587f37d1a7e864))
+* **docs:** update README.md ([d654e6a](https://github.com/tmonj1/papycli/commit/d654e6a4b37b7cf92c94d1ff3a476c4beb6bc0b2))
+
+
+### Documentation
+
+* カバレッジの説明をREADMEに追加 ([ea78582](https://github.com/tmonj1/papycli/commit/ea78582bb79e372f716a718856b757310c8cce2a))
+
 ## [0.16.0](https://github.com/tmonj1/papycli/compare/v0.15.2...v0.16.0) (2026-04-02)
 
 
