@@ -451,10 +451,11 @@ def call_api(
             request_body=ctx.body,
             schema=resp_schema,
         )
-        resp_ctx = apply_response_filters(resp_ctx, response_filters)
-        if resp_ctx is None:
+        filtered_ctx = apply_response_filters(resp_ctx, response_filters)
+        if filtered_ctx is None:
             # フィルターが None を返してチェーンを中断した。出力を抑制するため None を返す。
             return None
+        resp_ctx = filtered_ctx
 
         # フィルターがフィールドを変更した場合、resp に反映する。
         # ボディ: 値の等価比較で変更を検出し、_content・encoding・Content-Type を更新する。
