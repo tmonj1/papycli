@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/tmonj1/papycli/compare/v0.16.1...v0.16.2) (2026-04-11)
+
+
+### Bug Fixes
+
+* api_call.py の mypy エラーを修正 (ResponseContext | None の型不整合) ([#176](https://github.com/tmonj1/papycli/issues/176)) ([9b9917c](https://github.com/tmonj1/papycli/commit/9b9917c2f8d3ea8b660d5618b15c1dfa0fa28c15)), closes [#175](https://github.com/tmonj1/papycli/issues/175)
+
 ## [0.16.1](https://github.com/tmonj1/papycli/compare/v0.16.0...v0.16.1) (2026-04-08)
 
 
