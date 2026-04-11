@@ -3,7 +3,8 @@ site_description: Python CLI for OpenAPI 3.0 REST APIs
 site_url: https://tmonj1.github.io/papycli/
 repo_url: https://github.com/tmonj1/papycli
 repo_name: tmonj1/papycli
-edit_uri: edit/main/docs/
+docs_dir: manual
+edit_uri: edit/main/manual/
 
 theme:
   name: material
