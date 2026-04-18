@@ -202,7 +202,8 @@ def cmd_config_use(api_name: str) -> None:
 
     # シェル補完の再登録ヒントを表示する
     shell = os.environ.get("SHELL", "")
-    cmd_name = Path(click.get_current_context().find_root().info_name or "papycli").stem
+    raw_name = Path(click.get_current_context().find_root().info_name or "").stem
+    cmd_name = raw_name if _SAFE_CMD_RE.match(raw_name) else "papycli"
     if shell.endswith("zsh"):
         click.echo(
             f'To update shell completion, run: eval "$({cmd_name} config completion-script zsh)"'

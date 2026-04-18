@@ -342,7 +342,8 @@ def test_cmd_use_shows_completion_hint_bash(
 
     result = runner.invoke(cli, ["config", "use", "myapi"])
     assert result.exit_code == 0
-    assert "completion-script bash" in result.output
+    assert 'eval "$(' in result.output
+    assert "config completion-script bash)" in result.output
 
 
 def test_cmd_use_shows_completion_hint_zsh(
@@ -361,7 +362,8 @@ def test_cmd_use_shows_completion_hint_zsh(
 
     result = runner.invoke(cli, ["config", "use", "myapi"])
     assert result.exit_code == 0
-    assert "completion-script zsh" in result.output
+    assert 'eval "$(' in result.output
+    assert "config completion-script zsh)" in result.output
 
 
 def test_cmd_use_shows_completion_hint_unknown_shell(
@@ -380,8 +382,9 @@ def test_cmd_use_shows_completion_hint_unknown_shell(
 
     result = runner.invoke(cli, ["config", "use", "myapi"])
     assert result.exit_code == 0
-    assert "completion-script bash" in result.output
-    assert "completion-script zsh" in result.output
+    assert 'eval "$(' in result.output
+    assert "config completion-script bash)" in result.output
+    assert "config completion-script zsh)" in result.output
 
 
 # ---------------------------------------------------------------------------
