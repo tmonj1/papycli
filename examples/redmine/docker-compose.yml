@@ -19,8 +19,13 @@ services:
       MYSQL_DATABASE: redmine
       MYSQL_USER: redmine
       MYSQL_PASSWORD: redmine
+    volumes:
+      - redmine-mysql-data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "redmine", "-predmine"]
       interval: 10s
       timeout: 5s
       retries: 10
+
+volumes:
+  redmine-mysql-data:

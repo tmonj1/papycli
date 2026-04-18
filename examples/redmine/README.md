@@ -6,20 +6,25 @@ OpenAPI spec は [d-yoshi/redmine-openapi](https://github.com/d-yoshi/redmine-op
 
 ## 事前準備
 
+以下の手順はすべて `examples/redmine` ディレクトリで実行してください。
+
+```bash
+cd examples/redmine
+```
+
 ### 1. OpenAPI spec を取得する
 
 このディレクトリには OpenAPI spec ファイルは含まれていません。
 以下のコマンドで [d-yoshi/redmine-openapi](https://github.com/d-yoshi/redmine-openapi) から取得してください。
 
 ```bash
-curl -o examples/redmine/openapi.yaml \
+curl -o openapi.yaml \
   https://raw.githubusercontent.com/d-yoshi/redmine-openapi/main/openapi.yaml
 ```
 
 ### 2. Redmine を起動する
 
 ```bash
-cd examples/redmine
 docker compose up -d
 ```
 
@@ -47,7 +52,7 @@ docker compose exec redmine bash -c \
 ### 4. papycli に登録する
 
 ```bash
-papycli config add examples/redmine/openapi.yaml
+papycli config add openapi.yaml
 ```
 
 設定ファイル (`~/.papycli/papycli.conf`) を開き、登録された `openapi` エントリの `url` と名前を編集します。
