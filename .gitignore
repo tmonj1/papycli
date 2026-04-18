@@ -208,3 +208,6 @@ __marimo__/
 
 # Git worktrees
 .worktrees/
+
+# Example OpenAPI specs (downloaded separately, not committed)
+examples/redmine/openapi.yaml
