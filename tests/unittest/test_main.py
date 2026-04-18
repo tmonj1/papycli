@@ -326,6 +326,67 @@ def test_cmd_use_reserved_key_default(
     assert "default" in result.output
 
 
+def test_cmd_use_shows_completion_hint_bash(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """bash シェルでは bash 向けの補完ヒントを表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    monkeypatch.setenv("SHELL", "/bin/bash")
+    runner = CliRunner()
+    spec2 = tmp_path / "otherapi.json"
+    spec2.write_text(
+        json.dumps({**MINIMAL_SPEC, "servers": [{"url": "http://other"}]}), encoding="utf-8"
+    )
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(spec2)])
+
+    result = runner.invoke(cli, ["config", "use", "myapi"])
+    assert result.exit_code == 0
+    assert 'eval "$(' in result.output
+    assert "config completion-script bash)" in result.output
+
+
+def test_cmd_use_shows_completion_hint_zsh(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """zsh シェルでは zsh 向けの補完ヒントを表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    runner = CliRunner()
+    spec2 = tmp_path / "otherapi.json"
+    spec2.write_text(
+        json.dumps({**MINIMAL_SPEC, "servers": [{"url": "http://other"}]}), encoding="utf-8"
+    )
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(spec2)])
+
+    result = runner.invoke(cli, ["config", "use", "myapi"])
+    assert result.exit_code == 0
+    assert 'eval "$(' in result.output
+    assert "config completion-script zsh)" in result.output
+
+
+def test_cmd_use_shows_completion_hint_unknown_shell(
+    tmp_path: Path, minimal_spec_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """シェルが不明な場合は bash/zsh 両方のヒントを表示する。"""
+    monkeypatch.setenv("PAPYCLI_CONF_DIR", str(tmp_path))
+    monkeypatch.delenv("SHELL", raising=False)
+    runner = CliRunner()
+    spec2 = tmp_path / "otherapi.json"
+    spec2.write_text(
+        json.dumps({**MINIMAL_SPEC, "servers": [{"url": "http://other"}]}), encoding="utf-8"
+    )
+    runner.invoke(cli, ["config", "add", str(minimal_spec_file)])
+    runner.invoke(cli, ["config", "add", str(spec2)])
+
+    result = runner.invoke(cli, ["config", "use", "myapi"])
+    assert result.exit_code == 0
+    assert 'eval "$(' in result.output
+    assert "config completion-script bash)" in result.output
+    assert "config completion-script zsh)" in result.output
+
+
 # ---------------------------------------------------------------------------
 # papycli config remove
 # ---------------------------------------------------------------------------
