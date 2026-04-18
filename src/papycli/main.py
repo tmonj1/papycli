@@ -8,10 +8,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qsl
 
-from dotenv import load_dotenv
-
 import click
 import requests
+from dotenv import load_dotenv
 
 from papycli import __version__
 from papycli.api_call import call_api, match_path_template
@@ -200,6 +199,27 @@ def cmd_config_use(api_name: str) -> None:
     set_default_api(conf, api_name)
     save_conf(conf, conf_dir)
     click.echo(f"Switched default API to '{api_name}'")
+
+    # シェル補完の再登録ヒントを表示する
+    shell = os.environ.get("SHELL", "")
+    cmd_name = Path(click.get_current_context().find_root().info_name or "papycli").stem
+    if shell.endswith("zsh"):
+        click.echo(
+            f'To update shell completion, run: eval "$({cmd_name} config completion-script zsh)"'
+        )
+    elif shell.endswith("bash"):
+        click.echo(
+            f'To update shell completion, run: eval "$({cmd_name} config completion-script bash)"'
+        )
+    else:
+        click.echo(
+            f'To update shell completion, run: eval "$({cmd_name} config completion-script bash)"'
+            f"  # bash"
+        )
+        click.echo(
+            f'To update shell completion, run: eval "$({cmd_name} config completion-script zsh)"'
+            f"   # zsh"
+        )
 
 
 @cmd_config.command(
