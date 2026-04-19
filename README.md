@@ -1,4 +1,4 @@
-# papycli — Python CLI for OpenAPI 3.0 REST APIs
+# papycli — Turn Any OpenAPI 3.0 Spec into a CLI
 
 `papycli` is an interactive CLI that reads OpenAPI 3.0 specs and lets you call REST API endpoints directly from the terminal.
 

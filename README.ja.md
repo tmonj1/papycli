@@ -1,4 +1,4 @@
-# papycli — OpenAPI 3.0 REST API を操作する Python 製 CLI
+# papycli — OpenAPI 3.0 仕様から REST API を CLI で呼び出すツール
 
 `papycli` は OpenAPI 3.0 仕様を読み込み、REST API エンドポイントをターミナルから直接呼び出せるインタラクティブな CLI を提供します。
 
