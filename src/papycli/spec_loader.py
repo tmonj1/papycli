@@ -71,7 +71,9 @@ def _extract_schema_properties(
     return required, properties
 
 
-def _param_entry(name: str, schema: dict[str, Any], required: bool) -> dict[str, Any]:
+def _param_entry(
+    name: str, schema: dict[str, Any], required: bool, description: str = ""
+) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "name": name,
         "type": schema.get("type", "string"),
@@ -79,6 +81,8 @@ def _param_entry(name: str, schema: dict[str, Any], required: bool) -> dict[str,
     }
     if "enum" in schema:
         entry["enum"] = schema["enum"]
+    if description:
+        entry["description"] = description
     return entry
 
 
@@ -105,7 +109,12 @@ def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
                 merged_params[p["name"]] = p
 
             query_parameters = [
-                _param_entry(p["name"], p.get("schema", {}), bool(p.get("required", False)))
+                _param_entry(
+                    p["name"],
+                    p.get("schema", {}),
+                    bool(p.get("required", False)),
+                    p.get("description", ""),
+                )
                 for p in merged_params.values()
                 if p.get("in") == "query"
             ]
@@ -121,13 +130,17 @@ def spec_to_apidef(spec: dict[str, Any]) -> dict[str, Any]:
             if json_schema:
                 req_fields, props = _extract_schema_properties(json_schema)
                 post_parameters = [
-                    _param_entry(name, prop_schema, name in req_fields)
+                    _param_entry(
+                        name, prop_schema, name in req_fields, prop_schema.get("description", "")
+                    )
                     for name, prop_schema in props.items()
                 ]
 
+            op_description = operation.get("summary") or operation.get("description") or ""
             methods.append(
                 {
                     "method": method,
+                    "description": op_description,
                     "query_parameters": query_parameters,
                     "post_parameters": post_parameters,
                 }

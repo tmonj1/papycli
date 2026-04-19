@@ -18,9 +18,10 @@ APIDEF: dict[str, Any] = {
     "/pet": [
         {
             "method": "post",
+            "description": "Add a new pet to the store",
             "query_parameters": [],
             "post_parameters": [
-                {"name": "name", "type": "string", "required": True},
+                {"name": "name", "type": "string", "required": True, "description": "Pet name"},
                 {"name": "status", "type": "string", "required": False,
                  "enum": ["available", "pending", "sold"]},
                 {"name": "photoUrls", "type": "array", "required": True},
@@ -30,19 +31,23 @@ APIDEF: dict[str, Any] = {
     "/pet/findByStatus": [
         {
             "method": "get",
+            "description": "Finds Pets by status",
             "query_parameters": [
-                {"name": "status", "type": "string", "required": False,
-                 "enum": ["available", "pending", "sold"]},
+                {
+                    "name": "status", "type": "string", "required": False,
+                    "enum": ["available", "pending", "sold"],
+                    "description": "Status values to filter by",
+                },
             ],
             "post_parameters": [],
         }
     ],
     "/pet/{petId}": [
-        {"method": "get", "query_parameters": [], "post_parameters": []},
-        {"method": "delete", "query_parameters": [], "post_parameters": []},
+        {"method": "get", "description": "", "query_parameters": [], "post_parameters": []},
+        {"method": "delete", "description": "", "query_parameters": [], "post_parameters": []},
     ],
     "/store/inventory": [
-        {"method": "get", "query_parameters": [], "post_parameters": []}
+        {"method": "get", "description": "", "query_parameters": [], "post_parameters": []}
     ],
 }
 
@@ -156,6 +161,52 @@ def test_print_summary_empty_apidef() -> None:
     print_summary({}, file=buf)
     output = buf.getvalue()
     assert "no endpoints" in output
+
+
+def test_print_summary_shows_resource_section() -> None:
+    buf = io.StringIO()
+    print_summary(APIDEF, file=buf)
+    output = buf.getvalue()
+    assert "RESOURCE" in output
+    assert "METHODS:" in output
+
+
+def test_print_summary_shows_description() -> None:
+    buf = io.StringIO()
+    print_summary(APIDEF, file=buf)
+    output = buf.getvalue()
+    assert "DESCRIPTION:" in output
+    assert "Add a new pet to the store" in output
+
+
+def test_print_summary_shows_query_parameters_section() -> None:
+    buf = io.StringIO()
+    print_summary(APIDEF, file=buf)
+    output = buf.getvalue()
+    assert "QUERY PARAMETERS" in output
+    assert "status" in output
+    assert "Status values to filter by" in output
+
+
+def test_print_summary_shows_properties_section() -> None:
+    buf = io.StringIO()
+    print_summary(APIDEF, file=buf)
+    output = buf.getvalue()
+    assert "PROPERTIES" in output
+    assert "name: Pet name" in output
+
+
+def test_print_summary_no_description_section_when_empty() -> None:
+    """description が空のメソッドには DESCRIPTION セクションを表示しない。"""
+    buf = io.StringIO()
+    apidef: dict[str, Any] = {
+        "/items": [
+            {"method": "get", "description": "", "query_parameters": [], "post_parameters": []}
+        ]
+    }
+    print_summary(apidef, file=buf)
+    output = buf.getvalue()
+    assert "DESCRIPTION:" not in output
 
 
 # ---------------------------------------------------------------------------

@@ -5,7 +5,6 @@ import io
 from typing import Any, TextIO
 
 from rich.console import Console
-from rich.table import Table
 
 
 def _format_param(p: dict[str, Any], flag: str) -> str:
@@ -49,27 +48,54 @@ def print_summary(
     *,
     file: TextIO | None = None,
 ) -> None:
-    """エンドポイント一覧を rich テーブルで出力する。"""
-    rows = build_rows(apidef, resource_filter)
-    if not rows:
-        click_echo = print if file is None else lambda s: file.write(s + "\n")
-        click_echo("(no endpoints found)")
-        return
+    """エンドポイント一覧をリソース・メソッド別の構造化テキストで出力する。"""
+    console = Console(file=file, highlight=False, no_color=(file is not None))
+    found = False
 
-    table = Table(
-        show_header=True,
-        header_style="bold",
-        box=None,
-        pad_edge=False,
-        show_edge=False,
-    )
-    table.add_column("METHOD", min_width=8)
-    table.add_column("PATH", min_width=24)
-    table.add_column("PARAMETERS")
-    for method, path, params in rows:
-        table.add_row(method, path, params)
+    for path in sorted(apidef.keys()):
+        if resource_filter and not path.startswith(resource_filter):
+            continue
+        ops = apidef[path]
+        if not ops:
+            continue
+        found = True
 
-    Console(file=file, highlight=False, no_color=(file is not None)).print(table)
+        console.print("RESOURCE")
+        console.print(f"  {path}")
+        console.print()
+        console.print("METHODS:")
+
+        for op in ops:
+            method = op["method"].upper()
+            console.print(f"  {method}")
+            console.print()
+
+            desc = op.get("description", "")
+            if desc:
+                console.print("  DESCRIPTION:")
+                console.print(f"    {desc}")
+                console.print()
+
+            q_params = op.get("query_parameters", [])
+            if q_params:
+                console.print("  QUERY PARAMETERS")
+                for p in q_params:
+                    p_desc = p.get("description", "")
+                    line = f"    {p['name']}: {p_desc}" if p_desc else f"    {p['name']}"
+                    console.print(line)
+                console.print()
+
+            p_params = op.get("post_parameters", [])
+            if p_params:
+                console.print("  PROPERTIES")
+                for p in p_params:
+                    p_desc = p.get("description", "")
+                    line = f"    {p['name']}: {p_desc}" if p_desc else f"    {p['name']}"
+                    console.print(line)
+                console.print()
+
+    if not found:
+        console.print("(no endpoints found)")
 
 
 def format_summary_csv(apidef: dict[str, Any]) -> str:

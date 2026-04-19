@@ -182,6 +182,108 @@ def test_spec_to_apidef_methods_only_defined() -> None:
     assert methods == {"get", "delete"}
 
 
+def test_spec_to_apidef_operation_description_from_summary() -> None:
+    """summary フィールドが operation の description として抽出される。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/things": {
+                "get": {
+                    "summary": "List all things",
+                    "parameters": [],
+                }
+            }
+        }
+    }
+    apidef = spec_to_apidef(spec)
+    get_op = apidef["/things"][0]
+    assert get_op["description"] == "List all things"
+
+
+def test_spec_to_apidef_operation_description_fallback_to_description() -> None:
+    """summary がない場合、description フィールドが使われる。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/things": {
+                "get": {
+                    "description": "Detailed description",
+                    "parameters": [],
+                }
+            }
+        }
+    }
+    apidef = spec_to_apidef(spec)
+    get_op = apidef["/things"][0]
+    assert get_op["description"] == "Detailed description"
+
+
+def test_spec_to_apidef_operation_description_empty_when_absent() -> None:
+    """summary も description もない場合、空文字が設定される。"""
+    apidef = spec_to_apidef(MINIMAL_SPEC)
+    get_op = next(op for op in apidef["/items"] if op["method"] == "get")
+    assert get_op["description"] == ""
+
+
+def test_spec_to_apidef_query_param_description() -> None:
+    """クエリパラメータの description が抽出される。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "status",
+                            "in": "query",
+                            "required": False,
+                            "description": "Filter by status",
+                            "schema": {"type": "string"},
+                        }
+                    ]
+                }
+            }
+        }
+    }
+    apidef = spec_to_apidef(spec)
+    get_op = apidef["/items"][0]
+    param = get_op["query_parameters"][0]
+    assert param["description"] == "Filter by status"
+
+
+def test_spec_to_apidef_post_param_description() -> None:
+    """リクエストボディのプロパティ description が抽出される。"""
+    spec: dict[str, Any] = {
+        "paths": {
+            "/items": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {"type": "string", "description": "Item name"},
+                                    },
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    apidef = spec_to_apidef(spec)
+    post_op = apidef["/items"][0]
+    param = post_op["post_parameters"][0]
+    assert param["description"] == "Item name"
+
+
+def test_spec_to_apidef_param_no_description_key_absent() -> None:
+    """description がない場合、キー自体が存在しない。"""
+    apidef = spec_to_apidef(MINIMAL_SPEC)
+    get_op = next(op for op in apidef["/items"] if op["method"] == "get")
+    param = get_op["query_parameters"][0]
+    assert "description" not in param
+
+
 # ---------------------------------------------------------------------------
 # allOf
 # ---------------------------------------------------------------------------
