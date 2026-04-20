@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.17.0](https://github.com/tmonj1/papycli/compare/v0.16.2...v0.17.0) (2026-04-20)
+
+
+### Features
+
+* **config:** config use 実行後にシェル補完再登録ヒントを表示する ([#186](https://github.com/tmonj1/papycli/issues/186)) ([f6dd1e0](https://github.com/tmonj1/papycli/commit/f6dd1e02e2706f1d3c1c983ae8a0ff3250d8f301))
+* **examples:** Redmine REST API の使用例を追加する ([#184](https://github.com/tmonj1/papycli/issues/184)) ([5d79016](https://github.com/tmonj1/papycli/commit/5d7901675f5727b212b65260038f3d6a8c682875))
+
+
+### Documentation
+
+* README タイトルを Python 実装強調からツール価値訴求の文言に変更する ([#189](https://github.com/tmonj1/papycli/issues/189)) ([564fe49](https://github.com/tmonj1/papycli/commit/564fe49c0e45b740c4ab28f950b3334ab4e9df74))
+* README タイトルを改訂する ([#190](https://github.com/tmonj1/papycli/issues/190)) ([564fe49](https://github.com/tmonj1/papycli/commit/564fe49c0e45b740c4ab28f950b3334ab4e9df74))
+* コード修正依頼時のフルワークフロー自動実行ルールを追記する ([#181](https://github.com/tmonj1/papycli/issues/181)) ([668a437](https://github.com/tmonj1/papycli/commit/668a4377a2589a34fd479bd80851457e1cb5e8f8)), closes [#180](https://github.com/tmonj1/papycli/issues/180)
+
 ## [0.16.2](https://github.com/tmonj1/papycli/compare/v0.16.1...v0.16.2) (2026-04-11)
 
 
