@@ -1,16 +1,1 @@
-{
-  "env": {
-    "ENABLE_LSP_TOOL": "1"
-  },
-  "enabledPlugins": {
-    "pyright-lsp@claude-plugins-official": true
-  },
-  "permissions": {
-    "deny": [
-      "Read(/**/.env)",
-      "Read(/**/*.pem)",
-      "Read(/**/*.key)",
-      "Read(/**/*.p12)"
-    ]
-  }
-}
+{}

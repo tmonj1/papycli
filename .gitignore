@@ -211,3 +211,6 @@ __marimo__/
 
 # Example OpenAPI specs (downloaded separately, not committed)
 examples/redmine/openapi.yaml
+
+# Claude Code local settings (machine-specific, not committed)
+.claude/settings.local.json
