@@ -231,6 +231,12 @@ def completions_for_context(
             words = [words[0]] + words[3:]
             current -= 2
             incomplete = words[current] if current < len(words) else ""
+            # シフト後に current == 1 になった場合はトップレベル補完を返す
+            if current == 1:
+                cmds = [c for c in TOP_LEVEL_COMMANDS if c.startswith(incomplete)]
+                if "--api".startswith(incomplete):
+                    cmds.append("--api")
+                return cmds
         else:
             return []
 
