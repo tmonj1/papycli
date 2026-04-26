@@ -380,6 +380,15 @@ _@@SAFENAME@@_completion() {
     fi
     local _cword=$(( COMP_CWORD - _off ))
 
+    if [[ ${_cword} -eq 1 ]]; then
+        if [[ "$cur" == -* ]]; then
+            COMPREPLY=($(compgen -W '--api' -- "$cur"))
+        else
+            COMPREPLY=($(compgen -W @@TOP_LEVEL_CMDS@@ -- "$cur"))
+        fi
+        return
+    fi
+
     local cmd="${COMP_WORDS[$((1 + _off))]}"
 
     if [[ "$cmd" == "config" ]]; then
@@ -521,6 +530,16 @@ _@@SAFENAME@@() {
         _off=2
     fi
     local _cword=$(( cword - _off ))
+
+    if [[ $_cword -eq 1 ]]; then
+        if [[ "$cur" == -* ]]; then
+            _c=('--api'); _describe 'option' _c
+        else
+            _c=(@@TOP_LEVEL_CMDS_ZSH@@)
+            _describe 'command' _c
+        fi
+        return
+    fi
 
     local cmd="${words[$((2 + _off))]}"
 
