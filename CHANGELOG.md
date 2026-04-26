@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.18.0](https://github.com/tmonj1/papycli/compare/v0.17.0...v0.18.0) (2026-04-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* `papycli config alias` コマンドは削除されました。 代替手段: シェルの組み込み alias 機能を使用してください。   alias redmine='papycli --api redmine'   eval "$(papycli config completion-script --api redmine zsh)"
+
+### Features
+
+* --api オプションを追加し config alias コマンドを廃止する ([#194](https://github.com/tmonj1/papycli/issues/194)) ([18e5f1f](https://github.com/tmonj1/papycli/commit/18e5f1ffc3198a76d7ade68ced2997354b839f0d))
+
 ## [0.17.0](https://github.com/tmonj1/papycli/compare/v0.16.2...v0.17.0) (2026-04-20)
 
 
