@@ -2,7 +2,6 @@
 
 import json
 import os
-import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -17,18 +16,16 @@ from papycli.api_call import call_api, match_path_template
 from papycli.checker import check_request
 from papycli.completion import _SAFE_CMD_RE, generate_static_script, get_completions
 from papycli.config import (
-    get_aliases,
     get_apis_dir,
     get_conf_dir,
     get_conf_path,
     get_logfile,
+    load_apidef_by_name,
     load_conf,
     load_current_apidef,
     load_current_raw_spec,
-    remove_alias,
     remove_api,
     save_conf,
-    set_alias,
     set_api_override,
     set_default_api,
     set_logfile,
@@ -49,21 +46,16 @@ from papycli.summary import format_endpoint_detail, format_summary_csv, print_su
     ),
 )
 @click.version_option(__version__, "-V", "--version")
+@click.option(
+    "--api", "api_name", default=None, metavar="API_NAME",
+    help=h(
+        "Use the specified API instead of the default.",
+        "デフォルトの代わりに指定した API を使用する。",
+    ),
+)
 @click.pass_context
-def cli(ctx: click.Context) -> None:
-    # 毎回リセットしてからエイリアス検出する（繰り返し呼び出し時のグローバル汚染を防ぐ）
-    set_api_override(None)
-    # ctx.info_name は CliRunner/実シェルいずれでも正確な呼び出しコマンド名を返す
-    # .stem で Windows の ".exe" 等を除去する
-    cmd_name = Path(ctx.info_name or "").stem
-    if cmd_name != "papycli":
-        try:
-            _conf = load_conf(get_conf_dir())
-            _aliases = get_aliases(_conf)
-            if cmd_name in _aliases:
-                set_api_override(_aliases[cmd_name])
-        except Exception as e:
-            click.echo(f"Warning: alias detection failed: {e}", err=True)
+def cli(ctx: click.Context, api_name: str | None) -> None:
+    set_api_override(api_name)
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
@@ -361,210 +353,80 @@ def cmd_config_log(path: str | None, unset: bool) -> None:
     help=h(
         'Print a shell completion script.\n\n'
         'Usage (bash): eval "$(papycli config completion-script bash)"\n\n'
-        'Usage (zsh):  eval "$(papycli config completion-script zsh)"',
+        'Usage (zsh):  eval "$(papycli config completion-script zsh)"\n\n'
+        'To generate completion for a shell alias (e.g. alias redmine=\'papycli --api redmine\'):\n'
+        '  eval "$(papycli config completion-script --api redmine bash)"',
         'シェル補完スクリプトを出力する。\n\n'
         '使い方 (bash): eval "$(papycli config completion-script bash)"\n\n'
-        '使い方 (zsh):  eval "$(papycli config completion-script zsh)"',
+        '使い方 (zsh):  eval "$(papycli config completion-script zsh)"\n\n'
+        'シェルエイリアス用補完スクリプト（例: alias redmine=\'papycli --api redmine\'）:\n'
+        '  eval "$(papycli config completion-script --api redmine bash)"',
     ),
 )
 @click.argument("shell", type=click.Choice(["bash", "zsh"]))
-def cmd_config_completion_script(shell: str) -> None:
-    # find_root().info_name でエイリアス経由でも正確なコマンド名を取得する
-    root_name = click.get_current_context().find_root().info_name or ""
-    cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
+@click.option(
+    "--api", "api_name", default=None, metavar="API_NAME",
+    help=h(
+        "Generate completion for the specified API name as the command name.",
+        "指定した API 名をコマンド名とする補完スクリプトを生成する。",
+    ),
+)
+def cmd_config_completion_script(shell: str, api_name: str | None) -> None:
     conf_dir = get_conf_dir()
+    conf: dict[str, Any] | None = None
     api_names: list[str] = []
     apidef = None
-    conf: dict[str, Any] | None = None
+
     try:
         conf = load_conf(conf_dir)
         api_names = [
             k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
         ]
     except Exception as e:
+        if api_name is not None:
+            click.echo(f"Error: failed to load configuration: {e}", err=True)
+            sys.exit(1)
         click.echo(f"Warning: failed to load configuration for completion: {e}", err=True)
-    # デフォルト API が設定されている場合のみ apidef を読み込む。
-    # 未設定・設定ファイル未作成は通常ケースのため警告なしでスキップする。
-    if conf is not None and isinstance(conf.get("default"), str) and conf.get("default"):
-        try:
-            apidef, _ = load_current_apidef(conf_dir, conf=conf)
-        except Exception as e:
+
+    if api_name is not None:
+        # --api 指定時: 指定した API 名をコマンド名とし、その API の apidef を使用する
+        if not _SAFE_CMD_RE.match(api_name):
             click.echo(
-                f"Warning: failed to load current API definition for completion: {e}", err=True
+                f"Error: API name '{api_name}' is invalid. "
+                "Must start with a letter or digit, and contain only"
+                " letters, digits, hyphens, and underscores.",
+                err=True,
             )
+            sys.exit(1)
+        if api_name not in api_names:
+            click.echo(f"Error: API '{api_name}' is not registered.", err=True)
+            sys.exit(1)
+        cmd_name = api_name
+        try:
+            apidef, _ = load_apidef_by_name(api_name, conf_dir, conf=conf)
+        except Exception as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+    else:
+        # --api 未指定時: 呼び出しコマンド名を使用し、デフォルト API の apidef を使用する
+        root_name = click.get_current_context().find_root().info_name or ""
+        cmd_name = Path(root_name).stem  # .stem で Windows の ".exe" 等を除去する
+        # デフォルト API が設定されている場合のみ apidef を読み込む。
+        # 未設定・設定ファイル未作成は通常ケースのため警告なしでスキップする。
+        if conf is not None and isinstance(conf.get("default"), str) and conf.get("default"):
+            try:
+                apidef, _ = load_current_apidef(conf_dir, conf=conf)
+            except Exception as e:
+                click.echo(
+                    f"Warning: failed to load current API definition for completion: {e}", err=True
+                )
+
     try:
         click.echo(generate_static_script(shell, cmd_name, apidef, api_names), nl=False)
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-
-@cmd_config.command(
-    "alias",
-    help=h(
-        "Create, list, or delete command aliases.\n\n"
-        "ALIAS_NAME: the new command name (e.g. 'petcli').\n"
-        "SPEC_NAME: registered API spec name (defaults to current default).\n\n"
-        "Omit both arguments to list configured aliases.\n"
-        "Use -d ALIAS_NAME to delete an alias.",
-        "コマンドエイリアスの作成・一覧・削除を行う。\n\n"
-        "ALIAS_NAME: 新しいコマンド名（例: 'petcli'）。\n"
-        "SPEC_NAME: 登録済みスペック名（省略時は現在のデフォルト）。\n\n"
-        "両引数を省略するとエイリアス一覧を表示する。\n"
-        "-d ALIAS_NAME でエイリアスを削除する。",
-    ),
-)
-@click.argument("alias_name", required=False, default=None)
-@click.argument("spec_name", required=False, default=None)
-@click.option(
-    "-d", "delete", is_flag=True,
-    help=h("Delete the specified alias.", "指定したエイリアスを削除する。"),
-)
-def cmd_config_alias(
-    alias_name: str | None,
-    spec_name: str | None,
-    delete: bool,
-) -> None:
-    conf_dir = get_conf_dir()
-    conf = load_conf(conf_dir)
-
-    # alias_name が指定されている場合は安全な名前かチェックする
-    if alias_name is not None and not _SAFE_CMD_RE.match(alias_name):
-        click.echo(
-            f"Error: alias name '{alias_name}' is invalid. "
-            "Must start with a letter or digit, and contain only"
-            " letters, digits, hyphens, and underscores.",
-            err=True,
-        )
-        sys.exit(1)
-
-    # -d: エイリアスを削除する
-    if delete:
-        if alias_name is None:
-            click.echo("Error: alias name is required with -d.", err=True)
-            sys.exit(1)
-        if spec_name is not None:
-            click.echo("Error: SPEC_NAME cannot be specified with -d.", err=True)
-            sys.exit(1)
-        raw_aliases = conf.get("aliases")
-        if not isinstance(raw_aliases, dict) or alias_name not in raw_aliases:
-            click.echo(f"Error: alias '{alias_name}' not found.", err=True)
-            sys.exit(1)
-        # symlink を先に削除し、失敗時は config を変更せずに終了する
-        symlink = conf_dir / "bin" / alias_name
-        if symlink.is_symlink():
-            try:
-                symlink.unlink()
-            except OSError as e:
-                click.echo(f"Error: failed to remove symlink: {e}", err=True)
-                sys.exit(1)
-        elif symlink.exists():
-            click.echo(
-                f"Error: '{symlink}' is not a symlink created by papycli. "
-                "Remove it manually before deleting the alias.",
-                err=True,
-            )
-            sys.exit(1)
-        remove_alias(conf, alias_name)
-        save_conf(conf, conf_dir)
-        click.echo(f"Alias '{alias_name}' removed.")
-        return
-
-    # 引数なし: エイリアス一覧を表示する
-    if alias_name is None:
-        aliases = get_aliases(conf)
-        if not aliases:
-            click.echo("(no aliases configured)")
-        else:
-            for name, spec in aliases.items():
-                click.echo(f"{name} -> {spec}")
-        return
-
-    # SPEC_NAME 省略時は config の default を使用する。
-    # エイリアス呼び出し時のオーバーライドを避けるため get_default_api は使わず
-    # config dict を直接参照する。
-    if spec_name is None:
-        raw_default = conf.get("default")
-        if not isinstance(raw_default, str) or not raw_default:
-            click.echo(
-                "Error: no SPEC_NAME given and no default API configured.", err=True
-            )
-            sys.exit(1)
-        spec_name = raw_default
-
-    # スペックが登録済みかチェックする（予約済みキーは除外）
-    _reserved = ("default", "aliases")
-    if spec_name in _reserved or not isinstance(conf.get(spec_name), dict):
-        click.echo(f"Error: spec '{spec_name}' is not registered.", err=True)
-        sys.exit(1)
-
-    # papycli 実行ファイルのパスを解決する。
-    # エイリアス経由で呼び出された場合（例: petcli config alias ...）は "papycli" が
-    # PATH に直接なくても、現在のコマンド名で再試行してシンボリックリンクを辿る。
-    root_info_name = click.get_current_context().find_root().info_name or ""
-    papycli_path = shutil.which("papycli") or shutil.which(Path(root_info_name).stem)
-    if papycli_path is None:
-        click.echo(
-            "Error: cannot locate the papycli executable in PATH. "
-            "Ensure papycli is installed and available on your PATH.",
-            err=True,
-        )
-        sys.exit(1)
-    papycli_exe = Path(papycli_path).resolve()
-    if papycli_exe.stem != "papycli":
-        click.echo(
-            f"Error: resolved executable '{papycli_exe}' does not appear to be papycli. "
-            "Ensure 'papycli' is available on your PATH.",
-            err=True,
-        )
-        sys.exit(1)
-
-    # ~/.papycli/bin/<alias_name> -> papycli 実行ファイルへの symlink を先に作成する。
-    # 失敗した場合は config を変更せずにエラー終了する。
-    bin_dir = conf_dir / "bin"
-    try:
-        bin_dir.mkdir(parents=True, exist_ok=True)
-        symlink = bin_dir / alias_name
-        if symlink.is_symlink():
-            symlink.unlink()
-        elif symlink.exists():
-            click.echo(
-                f"Error: '{symlink}' already exists and is not a symlink. "
-                "Remove it manually to create the alias.",
-                err=True,
-            )
-            sys.exit(1)
-        symlink.symlink_to(papycli_exe)
-    except OSError as e:
-        msg = f"Error: failed to create symlink: {e}"
-        if sys.platform == "win32":
-            msg += (
-                "\nOn Windows, symlink creation requires either Developer Mode "
-                "(Settings → For developers → Developer Mode) or running as Administrator. "
-                "Note: even with symlinks enabled, extensionless commands are not resolved "
-                "by default on Windows (PATHEXT does not include entries without extensions). "
-                "Consider using WSL or Git Bash for alias functionality."
-            )
-        click.echo(msg, err=True)
-        sys.exit(1)
-
-    # symlink 作成後に config を保存する（失敗時は symlink を rollback する）
-    # OSError 以外（json.dump の TypeError/ValueError 等）も捕捉して一貫性を保つ
-    try:
-        set_alias(conf, alias_name, spec_name)
-        save_conf(conf, conf_dir)
-    except Exception as e:
-        symlink.unlink(missing_ok=True)
-        click.echo(f"Error: failed to save config: {e}", err=True)
-        sys.exit(1)
-
-    click.echo(f"Alias '{alias_name}' -> '{spec_name}' created.")
-    click.echo(f"Symlink: {symlink} -> {papycli_exe}")
-    click.echo("\nAdd the following to your shell profile if not already set:")
-    click.echo(f'  export PATH="{bin_dir}:$PATH"')
-    click.echo(f"\nEnable shell completion for '{alias_name}':")
-    click.echo(f'  eval "$({alias_name} config completion-script bash)"  # bash')
-    click.echo(f'  eval "$({alias_name} config completion-script zsh)"   # zsh')
 
 
 # ---------------------------------------------------------------------------

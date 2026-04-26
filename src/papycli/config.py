@@ -115,29 +115,6 @@ def get_default_api(conf: dict[str, Any]) -> str | None:
     return None
 
 
-def get_aliases(conf: dict[str, Any]) -> dict[str, str]:
-    """エイリアス名 → スペック名のマッピングを返す。未設定の場合は空の dict。"""
-    value = conf.get("aliases")
-    if isinstance(value, dict):
-        return {k: v for k, v in value.items() if isinstance(k, str) and isinstance(v, str)}
-    return {}
-
-
-def set_alias(conf: dict[str, Any], alias_name: str, spec_name: str) -> None:
-    """エイリアスを設定する。"""
-    if "aliases" not in conf or not isinstance(conf["aliases"], dict):
-        conf["aliases"] = {}
-    conf["aliases"][alias_name] = spec_name
-
-
-def remove_alias(conf: dict[str, Any], alias_name: str) -> None:
-    """エイリアスを削除する。存在しない場合は何もしない。"""
-    aliases = conf.get("aliases")
-    if isinstance(aliases, dict):
-        aliases.pop(alias_name, None)
-        if not aliases:
-            conf.pop("aliases")
-
 
 def get_logfile(conf: dict[str, Any]) -> str | None:
     """現在のログファイルパスを返す。未設定・空文字列・非文字列の場合は None。"""
@@ -155,6 +132,36 @@ def set_logfile(conf: dict[str, Any], path: str) -> None:
 def unset_logfile(conf: dict[str, Any]) -> None:
     """ログファイル設定を削除する（ログ無効化）。"""
     conf.pop("logfile", None)
+
+
+def load_apidef_by_name(
+    api_name: str,
+    conf_dir: Path | None = None,
+    *,
+    conf: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], str]:
+    """指定した API 名の (apidef dict, base_url) を返す。"""
+    resolved_dir = conf_dir or get_conf_dir()
+    if conf is None:
+        conf = load_conf(resolved_dir)
+    api_entry = conf.get(api_name)
+    if not isinstance(api_entry, dict):
+        raise RuntimeError(f"Invalid configuration for API '{api_name}'.")
+    url_value = api_entry.get("url", "")
+    base_url = url_value if isinstance(url_value, str) else ""
+    apidef_value = api_entry.get("apidef", f"{api_name}.json")
+    apidef_filename = (
+        apidef_value if isinstance(apidef_value, str) and apidef_value else f"{api_name}.json"
+    )
+    apidef_path = get_apis_dir(resolved_dir) / apidef_filename
+    if not apidef_path.exists():
+        raise RuntimeError(
+            f"API definition file not found: {apidef_path}\n"
+            "Run 'papycli config add <spec>' to regenerate it."
+        )
+    with apidef_path.open(encoding="utf-8") as f:
+        apidef: dict[str, Any] = json.load(f)
+    return apidef, base_url
 
 
 def load_current_apidef(
