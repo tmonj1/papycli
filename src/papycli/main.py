@@ -383,6 +383,9 @@ def cmd_config_completion_script(shell: str, api_name: str | None) -> None:
             k for k in conf if k not in ("default", "aliases") and isinstance(conf[k], dict)
         ]
     except Exception as e:
+        if api_name is not None:
+            click.echo(f"Error: failed to load configuration: {e}", err=True)
+            sys.exit(1)
         click.echo(f"Warning: failed to load configuration for completion: {e}", err=True)
 
     if api_name is not None:

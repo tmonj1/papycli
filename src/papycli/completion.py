@@ -263,6 +263,9 @@ def completions_for_context(
             # --api がまだ使われていない場合は候補として提示する
             if "--api" not in words[:current] and "--api".startswith(incomplete):
                 return ["--api"]
+            # シェル (bash/zsh) がまだ指定されていない場合は補完する
+            if not any(s in words[3:current] for s in ("bash", "zsh")):
+                return [s for s in ["bash", "zsh"] if s.startswith(incomplete)]
             return []
         if current >= 3 and len(words) > 2 and words[2] == "add":
             # --upgrade が未使用かつプレフィックスが一致する場合に補完候補として返す。

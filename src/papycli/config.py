@@ -147,8 +147,12 @@ def load_apidef_by_name(
     api_entry = conf.get(api_name)
     if not isinstance(api_entry, dict):
         raise RuntimeError(f"Invalid configuration for API '{api_name}'.")
-    base_url = str(api_entry.get("url", ""))
-    apidef_filename = str(api_entry.get("apidef", f"{api_name}.json"))
+    url_value = api_entry.get("url", "")
+    base_url = url_value if isinstance(url_value, str) else ""
+    apidef_value = api_entry.get("apidef", f"{api_name}.json")
+    apidef_filename = (
+        apidef_value if isinstance(apidef_value, str) and apidef_value else f"{api_name}.json"
+    )
     apidef_path = get_apis_dir(resolved_dir) / apidef_filename
     if not apidef_path.exists():
         raise RuntimeError(
