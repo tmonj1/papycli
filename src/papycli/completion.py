@@ -15,7 +15,7 @@ _SAFE_CMD_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 _PLACEHOLDER_RE = re.compile(r"\{[^}]+\}")
 
 METHODS = ["get", "post", "put", "patch", "delete"]
-CONFIG_SUBCOMMANDS = ["add", "alias", "completion-script", "list", "log", "remove", "use"]
+CONFIG_SUBCOMMANDS = ["add", "completion-script", "list", "log", "remove", "use"]
 TOP_LEVEL_COMMANDS = METHODS + ["config", "spec", "summary"]
 
 _ALL_OPTS = [
@@ -230,6 +230,18 @@ def completions_for_context(
             and api_names is not None
         ):
             return [n for n in api_names if n.startswith(incomplete)]
+        if current >= 3 and len(words) > 2 and words[2] == "completion-script":
+            # completion-script <shell> [--api <apiname>]
+            if current == 3:
+                return [s for s in ["bash", "zsh"] if s.startswith(incomplete)]
+            if current == 4 and "--api".startswith(incomplete):
+                return ["--api"]
+            if current == 5 and words[3] == "--api" and api_names is not None:
+                return [n for n in api_names if n.startswith(incomplete)]
+            # --api が位置 3 にある場合（shell より前）
+            if current == 4 and words[3] == "--api" and api_names is not None:
+                return [n for n in api_names if n.startswith(incomplete)]
+            return []
         if current >= 3 and len(words) > 2 and words[2] == "add":
             # --upgrade が未使用かつプレフィックスが一致する場合に補完候補として返す。
             # words[:current] で現在入力中のトークンを除いた使用済み単語を確認する。
@@ -343,13 +355,14 @@ _@@SAFENAME@@_completion() {
         case ${COMP_CWORD} in
             2)  COMPREPLY=($(compgen -W @@CONFIG_SUBCMDS@@ -- "$cur")) ;;
             3)  case "${COMP_WORDS[2]}" in
-                    remove|use) COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
-                    add)        if [[ "$cur" == -* ]]; then
-                                    COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
-                                else
-                                    COMPREPLY=($(compgen -f -- "$cur"))
-                                    compopt -o filenames 2>/dev/null
-                                fi ;;
+                    remove|use)         COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
+                    completion-script)  COMPREPLY=($(compgen -W 'bash zsh' -- "$cur")) ;;
+                    add)                if [[ "$cur" == -* ]]; then
+                                            COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
+                                        else
+                                            COMPREPLY=($(compgen -f -- "$cur"))
+                                            compopt -o filenames 2>/dev/null
+                                        fi ;;
                 esac ;;
             4)  COMPREPLY=()
                 if [[ "${COMP_WORDS[2]}" == "add" ]]; then
@@ -359,6 +372,12 @@ _@@SAFENAME@@_completion() {
                     else
                         COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
                     fi
+                elif [[ "${COMP_WORDS[2]}" == "completion-script" ]]; then
+                    COMPREPLY=($(compgen -W '--api' -- "$cur"))
+                fi ;;
+            5)  if [[ "${COMP_WORDS[2]}" == "completion-script" \
+                       && "${COMP_WORDS[4]}" == "--api" ]]; then
+                    COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur"))
                 fi ;;
             *)  COMPREPLY=() ;;
         esac
@@ -463,12 +482,13 @@ _@@SAFENAME@@() {
             2)  _c=(@@CONFIG_SUBCMDS_ZSH@@)
                 _describe 'subcommand' _c ;;
             3)  case "${words[3]}" in
-                    remove|use) _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
-                    add)        if [[ "$cur" == -* ]]; then
-                                    _c=('--upgrade'); _describe 'option' _c
-                                else
-                                    _files
-                                fi ;;
+                    remove|use)         _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
+                    completion-script)  _c=('bash' 'zsh'); _describe 'shell' _c ;;
+                    add)                if [[ "$cur" == -* ]]; then
+                                            _c=('--upgrade'); _describe 'option' _c
+                                        else
+                                            _files
+                                        fi ;;
                 esac ;;
             4)  if [[ "${words[3]}" == "add" ]]; then
                     if [[ "${words[4]}" == "--upgrade" ]]; then
@@ -476,6 +496,11 @@ _@@SAFENAME@@() {
                     else
                         _c=('--upgrade'); _describe 'option' _c
                     fi
+                elif [[ "${words[3]}" == "completion-script" ]]; then
+                    _c=('--api'); _describe 'option' _c
+                fi ;;
+            5)  if [[ "${words[3]}" == "completion-script" && "${words[5]}" == "--api" ]]; then
+                    _c=(@@API_NAMES_ZSH@@); _describe 'api' _c
                 fi ;;
         esac
         return
