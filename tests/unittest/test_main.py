@@ -1495,7 +1495,8 @@ def test_api_option_sets_override(
 
     monkeypatch.setattr(_main, "set_api_override", _capture)
     runner = CliRunner()
-    runner.invoke(cli, ["--api", "petstore-oas3", "summary"])
+    result = runner.invoke(cli, ["--api", "petstore-oas3", "summary"])
+    assert result.exit_code == 0
     assert "petstore-oas3" in overrides
 
 

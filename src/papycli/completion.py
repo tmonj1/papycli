@@ -212,12 +212,27 @@ def completions_for_context(
     """
     incomplete = words[current] if current < len(words) else ""
 
-    # トップレベルサブコマンド名の補完
+    # トップレベルサブコマンド名と --api オプションの補完
     if current == 1:
-        return [c for c in TOP_LEVEL_COMMANDS if c.startswith(incomplete)]
+        cmds = [c for c in TOP_LEVEL_COMMANDS if c.startswith(incomplete)]
+        if "--api".startswith(incomplete):
+            cmds.append("--api")
+        return cmds
 
     if len(words) < 2:
         return []
+
+    # --api <apiname> グループオプションの処理
+    if words[1] == "--api":
+        if current == 2:
+            return [n for n in (api_names or []) if n.startswith(incomplete)]
+        # --api <apiname> をスキップして通常補完に委譲
+        if len(words) > 3:
+            words = [words[0]] + words[3:]
+            current -= 2
+            incomplete = words[current] if current < len(words) else ""
+        else:
+            return []
 
     # config サブコマンドの補完
     if words[1] == "config":
@@ -231,16 +246,17 @@ def completions_for_context(
         ):
             return [n for n in api_names if n.startswith(incomplete)]
         if current >= 3 and len(words) > 2 and words[2] == "completion-script":
-            # completion-script <shell> [--api <apiname>]
+            # completion-script [<shell>] [--api <apiname>]
             if current == 3:
-                return [s for s in ["bash", "zsh"] if s.startswith(incomplete)]
-            if current == 4 and "--api".startswith(incomplete):
+                return [s for s in ["bash", "zsh", "--api"] if s.startswith(incomplete)]
+            # --api の直後のトークンでは API 名を補完する。
+            # `completion-script bash --api <TAB>` と
+            # `completion-script --api <TAB>` の両方を位置ベースで扱う。
+            if current > 3 and words[current - 1] == "--api" and api_names is not None:
+                return [n for n in api_names if n.startswith(incomplete)]
+            # --api がまだ使われていない場合は候補として提示する
+            if "--api" not in words[:current] and "--api".startswith(incomplete):
                 return ["--api"]
-            if current == 5 and words[3] == "--api" and api_names is not None:
-                return [n for n in api_names if n.startswith(incomplete)]
-            # --api が位置 3 にある場合（shell より前）
-            if current == 4 and words[3] == "--api" and api_names is not None:
-                return [n for n in api_names if n.startswith(incomplete)]
             return []
         if current >= 3 and len(words) > 2 and words[2] == "add":
             # --upgrade が未使用かつプレフィックスが一致する場合に補完候補として返す。
@@ -345,18 +361,33 @@ _@@SAFENAME@@_completion() {
     [[ $COMP_CWORD -ge 2 ]] && pprev="${COMP_WORDS[COMP_CWORD-2]}"
 
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        COMPREPLY=($(compgen -W @@TOP_LEVEL_CMDS@@ -- "$cur"))
+        if [[ "$cur" == -* ]]; then
+            COMPREPLY=($(compgen -W '--api' -- "$cur"))
+        else
+            COMPREPLY=($(compgen -W @@TOP_LEVEL_CMDS@@ -- "$cur"))
+        fi
         return
     fi
 
-    local cmd="${COMP_WORDS[1]}"
+    # --api <apiname> グループオプションの処理
+    local _off=0
+    if [[ "${COMP_WORDS[1]}" == "--api" ]]; then
+        if [[ ${COMP_CWORD} -eq 2 ]]; then
+            COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur"))
+            return
+        fi
+        _off=2
+    fi
+    local _cword=$(( COMP_CWORD - _off ))
+
+    local cmd="${COMP_WORDS[$((1 + _off))]}"
 
     if [[ "$cmd" == "config" ]]; then
-        case ${COMP_CWORD} in
+        case ${_cword} in
             2)  COMPREPLY=($(compgen -W @@CONFIG_SUBCMDS@@ -- "$cur")) ;;
-            3)  case "${COMP_WORDS[2]}" in
+            3)  case "${COMP_WORDS[$((2 + _off))]}" in
                     remove|use)         COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur")) ;;
-                    completion-script)  COMPREPLY=($(compgen -W 'bash zsh' -- "$cur")) ;;
+                    completion-script)  COMPREPLY=($(compgen -W 'bash zsh --api' -- "$cur")) ;;
                     add)                if [[ "$cur" == -* ]]; then
                                             COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
                                         else
@@ -365,18 +396,18 @@ _@@SAFENAME@@_completion() {
                                         fi ;;
                 esac ;;
             4)  COMPREPLY=()
-                if [[ "${COMP_WORDS[2]}" == "add" ]]; then
-                    if [[ "${COMP_WORDS[3]}" == "--upgrade" ]]; then
+                if [[ "${COMP_WORDS[$((2 + _off))]}" == "add" ]]; then
+                    if [[ "${COMP_WORDS[$((3 + _off))]}" == "--upgrade" ]]; then
                         COMPREPLY=($(compgen -f -- "$cur"))
                         compopt -o filenames 2>/dev/null
                     else
                         COMPREPLY=($(compgen -W '--upgrade' -- "$cur"))
                     fi
-                elif [[ "${COMP_WORDS[2]}" == "completion-script" ]]; then
+                elif [[ "${COMP_WORDS[$((2 + _off))]}" == "completion-script" ]]; then
                     COMPREPLY=($(compgen -W '--api' -- "$cur"))
                 fi ;;
-            5)  if [[ "${COMP_WORDS[2]}" == "completion-script" \
-                       && "${COMP_WORDS[4]}" == "--api" ]]; then
+            5)  if [[ "${COMP_WORDS[$((2 + _off))]}" == "completion-script" \
+                       && "$prev" == "--api" ]]; then
                     COMPREPLY=($(compgen -W @@API_NAMES@@ -- "$cur"))
                 fi ;;
             *)  COMPREPLY=() ;;
@@ -384,15 +415,15 @@ _@@SAFENAME@@_completion() {
         return
     fi
 
-    if [[ "$cmd" == "summary" && ${COMP_CWORD} -eq 2 ]]; then
+    if [[ "$cmd" == "summary" && ${_cword} -eq 2 ]]; then
         COMPREPLY=($(compgen -W @@SUMMARY_OPTS@@ -- "$cur"))
         return
     fi
 
     if [[ "$cmd" == "spec" ]]; then
-        if [[ ${COMP_CWORD} -eq 2 ]]; then
+        if [[ ${_cword} -eq 2 ]]; then
             COMPREPLY=($(compgen -W @@SPEC_OPTS@@ -- "$cur"))
-        elif [[ ${COMP_CWORD} -eq 3 && "${COMP_WORDS[2]}" == "--full" ]]; then
+        elif [[ ${_cword} -eq 3 && "${COMP_WORDS[$((2 + _off))]}" == "--full" ]]; then
             COMPREPLY=($(compgen -W @@ALL_RESOURCES@@ -- "$cur"))
         fi
         return
@@ -400,14 +431,14 @@ _@@SAFENAME@@_completion() {
 
     case "$cmd" in get|post|put|patch|delete) ;; *) return ;; esac
 
-    if [[ ${COMP_CWORD} -eq 2 ]]; then
+    if [[ ${_cword} -eq 2 ]]; then
         case "$cmd" in
 @@METHOD_RESOURCE_CASES@@
         esac
         return
     fi
 
-    local resource="${COMP_WORDS[2]}"
+    local resource="${COMP_WORDS[$((2 + _off))]}"
     local ctx="${cmd}:${resource}"
 
     # ここから extglob パターン（+([^ /])）を使う case 文があるため extglob を有効化する。
@@ -471,52 +502,69 @@ _@@SAFENAME@@() {
     local -a _c
 
     if [[ $cword -eq 1 ]]; then
-        _c=(@@TOP_LEVEL_CMDS_ZSH@@)
-        _describe 'command' _c && return
+        if [[ "$cur" == -* ]]; then
+            _c=('--api'); _describe 'option' _c
+        else
+            _c=(@@TOP_LEVEL_CMDS_ZSH@@)
+            _describe 'command' _c
+        fi
+        return
     fi
 
-    local cmd="${words[2]}"
+    # --api <apiname> グループオプションの処理
+    local _off=0
+    if [[ "${words[2]}" == "--api" ]]; then
+        if [[ $cword -eq 2 ]]; then
+            _c=(@@API_NAMES_ZSH@@); _describe 'api' _c
+            return
+        fi
+        _off=2
+    fi
+    local _cword=$(( cword - _off ))
+
+    local cmd="${words[$((2 + _off))]}"
 
     if [[ "$cmd" == "config" ]]; then
-        case $cword in
+        case $_cword in
             2)  _c=(@@CONFIG_SUBCMDS_ZSH@@)
                 _describe 'subcommand' _c ;;
-            3)  case "${words[3]}" in
+            3)  case "${words[$((3 + _off))]}" in
                     remove|use)         _c=(@@API_NAMES_ZSH@@); _describe 'api' _c ;;
-                    completion-script)  _c=('bash' 'zsh'); _describe 'shell' _c ;;
+                    completion-script)  _c=('bash' 'zsh' '--api'); _describe 'shell' _c ;;
                     add)                if [[ "$cur" == -* ]]; then
                                             _c=('--upgrade'); _describe 'option' _c
                                         else
                                             _files
                                         fi ;;
                 esac ;;
-            4)  if [[ "${words[3]}" == "add" ]]; then
-                    if [[ "${words[4]}" == "--upgrade" ]]; then
+            4)  if [[ "${words[$((3 + _off))]}" == "add" ]]; then
+                    if [[ "${words[$((4 + _off))]}" == "--upgrade" ]]; then
                         _files
                     else
                         _c=('--upgrade'); _describe 'option' _c
                     fi
-                elif [[ "${words[3]}" == "completion-script" ]]; then
+                elif [[ "${words[$((3 + _off))]}" == "completion-script" ]]; then
                     _c=('--api'); _describe 'option' _c
                 fi ;;
-            5)  if [[ "${words[3]}" == "completion-script" && "${words[5]}" == "--api" ]]; then
+            5)  if [[ "${words[$((3 + _off))]}" == "completion-script" \
+                       && "$prev" == "--api" ]]; then
                     _c=(@@API_NAMES_ZSH@@); _describe 'api' _c
                 fi ;;
         esac
         return
     fi
 
-    if [[ "$cmd" == "summary" && $cword -eq 2 ]]; then
+    if [[ "$cmd" == "summary" && $_cword -eq 2 ]]; then
         _c=(--csv @@ALL_RESOURCES_ZSH@@)
         _describe 'resource' _c
         return
     fi
 
     if [[ "$cmd" == "spec" ]]; then
-        if [[ $cword -eq 2 ]]; then
+        if [[ $_cword -eq 2 ]]; then
             _c=(--full @@ALL_RESOURCES_ZSH@@)
             _describe 'resource' _c
-        elif [[ $cword -eq 3 && "${words[3]}" == "--full" ]]; then
+        elif [[ $_cword -eq 3 && "${words[$((3 + _off))]}" == "--full" ]]; then
             _c=(@@ALL_RESOURCES_ZSH@@)
             _describe 'resource' _c
         fi
@@ -525,14 +573,14 @@ _@@SAFENAME@@() {
 
     case "$cmd" in get|post|put|patch|delete) ;; *) return ;; esac
 
-    if [[ $cword -eq 2 ]]; then
+    if [[ $_cword -eq 2 ]]; then
         case "$cmd" in
 @@ZSH_METHOD_RESOURCE_CASES@@
         esac
         return
     fi
 
-    local resource="${words[3]}"
+    local resource="${words[$((3 + _off))]}"
     local ctx="${cmd}:${resource}"
 
     if [[ "$prev" == "-q" ]]; then
