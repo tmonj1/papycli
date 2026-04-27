@@ -200,8 +200,9 @@ papycli --api petstore-oas3 get /pet/1
 **bash** — `~/.bashrc` に追加：
 
 ```bash
-eval "$(papycli config completion-script --api petstore-oas3 bash)"
-petstore-oas3() { papycli --api petstore-oas3 "$@"; }
+# API 名は bash の識別子として有効な文字列（英数字とアンダースコアのみ、ハイフン不可）にする
+eval "$(papycli config completion-script --api petstore bash)"
+petstore() { papycli --api petstore "$@"; }
 ```
 
 **zsh** — `~/.zshrc` に追加：
@@ -214,14 +215,14 @@ alias petstore-oas3='papycli --api petstore-oas3'
 シェル設定を再読み込みすると、関数やエイリアスが独立した CLI として動作します：
 
 ```
-$ petstore-oas3 <TAB>
+$ petstore <TAB>
   get  post  put  patch  delete  config  spec  summary
 
-$ petstore-oas3 get <TAB>
+$ petstore get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 ```
 
-> **注意（bash の場合）：** エイリアスではなくシェル**関数**を使用してください。bash のプログラマブル補完はエイリアスに対して確実に動作しませんが、シェル関数では正常に機能します。
+> **注意（bash の場合）：** エイリアスではなくシェル**関数**を使用し、API 名は bash の識別子として有効な文字列（英数字とアンダースコアのみ）にしてください。bash の関数名にはハイフンを含めることができません。
 
 ---
 

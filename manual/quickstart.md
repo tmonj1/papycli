@@ -138,8 +138,9 @@ Combined with a shell function and a dedicated completion script, you can expose
 **bash** — add to `~/.bashrc`:
 
 ```bash
-eval "$(papycli config completion-script --api petstore-oas3 bash)"
-petstore-oas3() { papycli --api petstore-oas3 "$@"; }
+# API name must be a valid bash identifier (letters, digits, underscores — no hyphens)
+eval "$(papycli config completion-script --api petstore bash)"
+petstore() { papycli --api petstore "$@"; }
 ```
 
 **zsh** — add to `~/.zshrc`:
@@ -149,4 +150,4 @@ eval "$(papycli config completion-script --api petstore-oas3 zsh)"
 alias petstore-oas3='papycli --api petstore-oas3'
 ```
 
-> **Note (bash):** Use a shell **function** rather than an alias. Bash's programmable completion does not reliably trigger for aliases, but works correctly for shell functions.
+> **Note (bash):** Use a shell **function** rather than an alias, and choose an API name that is a valid shell identifier (letters, digits, and underscores — no hyphens). Bash function names cannot contain hyphens.

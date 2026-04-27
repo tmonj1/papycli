@@ -12,7 +12,7 @@
 | `papycli config log <path>` | Set the log file path |
 | `papycli config log --unset` | Disable logging |
 | `papycli config completion-script <bash\|zsh>` | Print a shell completion script |
-| `papycli config completion-script --api <api-name> <bash\|zsh>` | Print a completion script for the named CLI (see [Creating a Named CLI](#creating-a-named-cli-for-a-specific-api)) |
+| `papycli config completion-script --api <api-name> <bash\|zsh>` | Print a completion script for the named CLI (see [Creating a Named CLI](quickstart.md#creating-a-named-cli-for-a-specific-api)) |
 
 ## Inspection Commands
 
