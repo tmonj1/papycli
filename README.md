@@ -185,16 +185,43 @@ papycli config remove petstore-oas3
 
 # Show registered APIs and the current default
 papycli config list
-
-# Create a short alias command for the current default API
-papycli config alias petcli
-
-# List configured aliases
-papycli config alias
-
-# Delete an alias
-papycli config alias -d petcli
 ```
+
+### Creating a Named CLI for a Specific API
+
+The `--api` option lets you target a specific registered API without switching the default:
+
+```bash
+papycli --api petstore-oas3 get /pet/1
+```
+
+Combined with a shell function and a dedicated completion script, you can expose each API as a lightweight standalone CLI with full tab completion:
+
+**bash** — add to `~/.bashrc`:
+
+```bash
+eval "$(papycli config completion-script --api petstore-oas3 bash)"
+petstore-oas3() { papycli --api petstore-oas3 "$@"; }
+```
+
+**zsh** — add to `~/.zshrc`:
+
+```zsh
+eval "$(papycli config completion-script --api petstore-oas3 zsh)"
+alias petstore-oas3='papycli --api petstore-oas3'
+```
+
+After sourcing your shell config, the function/alias acts as a standalone CLI:
+
+```
+$ petstore-oas3 <TAB>
+  get  post  put  patch  delete  config  spec  summary
+
+$ petstore-oas3 get <TAB>
+  /pet/findByStatus  /pet/{petId}  /store/inventory  ...
+```
+
+> **Note (bash):** Use a shell **function** rather than an alias. Bash's programmable completion does not reliably trigger for aliases, but works correctly for shell functions.
 
 ---
 
@@ -209,10 +236,8 @@ papycli config list                        List registered APIs and current conf
 papycli config log                         Show the current log file path
 papycli config log <path>                  Set the log file path
 papycli config log --unset                 Disable logging
-papycli config alias [alias-name] [spec-name]  Create a command alias for a registered API
-papycli config alias                       List configured aliases
-papycli config alias -d <alias-name>       Delete an alias
-papycli config completion-script <bash|zsh>  Print a shell completion script
+papycli config completion-script <bash|zsh>             Print a shell completion script
+papycli config completion-script --api <api-name> <bash|zsh>  Print a completion script for the named CLI
 
 # Inspection commands
 papycli spec [resource]             Show the raw internal API spec (filter by resource path)
