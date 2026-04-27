@@ -133,7 +133,7 @@ The `--api` option lets you target a specific registered API without switching t
 papycli --api petstore-oas3 get /pet/1
 ```
 
-Combined with a shell function and a dedicated completion script, you can expose each API as a lightweight standalone CLI with full tab completion:
+Combined with a shell alias (or function) and a dedicated completion script, you can expose each API as a lightweight standalone CLI with full tab completion:
 
 **bash** — add to `~/.bashrc`:
 

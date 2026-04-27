@@ -133,7 +133,7 @@ papycli config list
 papycli --api petstore-oas3 get /pet/1
 ```
 
-シェル関数と専用の補完スクリプトを組み合わせることで、各 API をタブ補完付きの独自 CLI として提供できます：
+シェルエイリアス（または関数）と専用の補完スクリプトを組み合わせることで、各 API をタブ補完付きの独自 CLI として提供できます：
 
 **bash** — `~/.bashrc` に追加：
 
