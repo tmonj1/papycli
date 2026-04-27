@@ -200,11 +200,8 @@ Combined with a shell function and a dedicated completion script, you can expose
 **bash** — add to `~/.bashrc`:
 
 ```bash
-# The function name must match the registered API name, and bash function names
-# cannot contain hyphens. Register the API using a hyphen-free filename so the
-# API name is also hyphen-free (e.g. papycli config add petstore.json → "petstore").
-eval "$(papycli config completion-script --api petstore bash)"
-petstore() { papycli --api petstore "$@"; }
+eval "$(papycli config completion-script --api petstore-oas3 bash)"
+alias petstore-oas3='papycli --api petstore-oas3'
 ```
 
 **zsh** — add to `~/.zshrc`:
@@ -214,17 +211,17 @@ eval "$(papycli config completion-script --api petstore-oas3 zsh)"
 alias petstore-oas3='papycli --api petstore-oas3'
 ```
 
-After sourcing your shell config, the function/alias acts as a standalone CLI:
+After sourcing your shell config, the alias acts as a standalone CLI:
 
 ```
-$ petstore <TAB>
+$ petstore-oas3 <TAB>
   get  post  put  patch  delete  config  spec  summary
 
-$ petstore get <TAB>
+$ petstore-oas3 get <TAB>
   /pet/findByStatus  /pet/{petId}  /store/inventory  ...
 ```
 
-> **Note (bash):** Use a shell **function** rather than an alias. The `--api` option itself accepts API names with hyphens, but bash **function names** cannot contain hyphens. Because the completion script ties the registered API name to the completion trigger, both must be the same hyphen-free identifier.
+> **Note (bash):** If you prefer a shell **function** instead of an alias, note that bash function names cannot contain hyphens. In that case, use a hyphen-free API name (e.g. register as `petstore` and define `petstore() { papycli --api petstore "$@"; }`).
 
 ---
 

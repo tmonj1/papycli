@@ -138,11 +138,8 @@ papycli --api petstore-oas3 get /pet/1
 **bash** — `~/.bashrc` に追加：
 
 ```bash
-# 関数名は登録した API 名と一致させる必要があり、bash の関数名にはハイフンを使えません。
-# ハイフンなしのファイル名で API を登録すると API 名もハイフンなしになります
-# （例: papycli config add petstore.json → API 名 "petstore"）。
-eval "$(papycli config completion-script --api petstore bash)"
-petstore() { papycli --api petstore "$@"; }
+eval "$(papycli config completion-script --api petstore-oas3 bash)"
+alias petstore-oas3='papycli --api petstore-oas3'
 ```
 
 **zsh** — `~/.zshrc` に追加：
@@ -152,4 +149,4 @@ eval "$(papycli config completion-script --api petstore-oas3 zsh)"
 alias petstore-oas3='papycli --api petstore-oas3'
 ```
 
-> **注意（bash の場合）：** エイリアスではなくシェル**関数**を使用してください。`--api` オプション自体はハイフン入りの API 名を受け付けますが、bash の**関数名**にはハイフンを含めることができません。補完スクリプトは登録した API 名を補完のトリガーとして紐付けるため、関数名と API 名は同じハイフンなしの識別子にする必要があります。
+> **注意（bash の場合）：** エイリアスの代わりにシェル**関数**を使いたい場合は、bash の関数名にハイフンを含めることができないため、ハイフンなしの API 名で登録する必要があります（例: `petstore` として登録し、`petstore() { papycli --api petstore "$@"; }` のように定義する）。
