@@ -11,10 +11,8 @@
 | `papycli config log` | 現在のログファイルパスを表示する |
 | `papycli config log <path>` | ログファイルパスを設定する |
 | `papycli config log --unset` | ログを無効化する |
-| `papycli config alias [alias-name] [spec-name]` | 登録済み API のコマンドエイリアスを作成する |
-| `papycli config alias` | 設定済みエイリアスを一覧表示する |
-| `papycli config alias -d <alias-name>` | エイリアスを削除する |
 | `papycli config completion-script <bash\|zsh>` | シェル補完スクリプトを出力する |
+| `papycli config completion-script --api <api-name> <bash\|zsh>` | 独自 CLI 用の補完スクリプトを出力する（[独自 CLI の作成](quickstart.md#特定-api-の独自-cli-を作成する) を参照） |
 
 ## 確認コマンド
 

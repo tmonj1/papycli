@@ -123,13 +123,30 @@ papycli config remove petstore-oas3
 
 # Show registered APIs and the current default
 papycli config list
-
-# Create a short alias command for the current default API
-papycli config alias petcli
-
-# List configured aliases
-papycli config alias
-
-# Delete an alias
-papycli config alias -d petcli
 ```
+
+## Creating a Named CLI for a Specific API
+
+The `--api` option lets you target a specific registered API without switching the default:
+
+```bash
+papycli --api petstore-oas3 get /pet/1
+```
+
+Combined with a shell alias (or function) and a dedicated completion script, you can expose each API as a lightweight standalone CLI with full tab completion:
+
+**bash** — add to `~/.bashrc`:
+
+```bash
+eval "$(papycli config completion-script --api petstore-oas3 bash)"
+alias petstore-oas3='papycli --api petstore-oas3'
+```
+
+**zsh** — add to `~/.zshrc`:
+
+```zsh
+eval "$(papycli config completion-script --api petstore-oas3 zsh)"
+alias petstore-oas3='papycli --api petstore-oas3'
+```
+
+> **Note (bash):** If you prefer a shell **function** instead of an alias, note that bash function names cannot contain hyphens. In that case, use a hyphen-free API name (e.g. register as `petstore` and define `petstore() { papycli --api petstore "$@"; }`).

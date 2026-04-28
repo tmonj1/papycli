@@ -11,10 +11,8 @@
 | `papycli config log` | Show the current log file path |
 | `papycli config log <path>` | Set the log file path |
 | `papycli config log --unset` | Disable logging |
-| `papycli config alias [alias-name] [spec-name]` | Create a command alias for a registered API |
-| `papycli config alias` | List configured aliases |
-| `papycli config alias -d <alias-name>` | Delete an alias |
 | `papycli config completion-script <bash\|zsh>` | Print a shell completion script |
+| `papycli config completion-script --api <api-name> <bash\|zsh>` | Print a completion script for the named CLI (see [Creating a Named CLI](quickstart.md#creating-a-named-cli-for-a-specific-api)) |
 
 ## Inspection Commands
 

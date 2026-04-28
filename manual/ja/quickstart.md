@@ -123,13 +123,30 @@ papycli config remove petstore-oas3
 
 # 登録済み API と現在のデフォルトを確認する
 papycli config list
-
-# 現在のデフォルト API に対して短いエイリアスコマンドを作成する
-papycli config alias petcli
-
-# 設定済みエイリアスを一覧表示する
-papycli config alias
-
-# エイリアスを削除する
-papycli config alias -d petcli
 ```
+
+## 特定 API の独自 CLI を作成する
+
+`--api` オプションを使うと、デフォルトを切り替えずに特定の登録済み API を指定して呼び出せます：
+
+```bash
+papycli --api petstore-oas3 get /pet/1
+```
+
+シェルエイリアス（または関数）と専用の補完スクリプトを組み合わせることで、各 API をタブ補完付きの独自 CLI として提供できます：
+
+**bash** — `~/.bashrc` に追加：
+
+```bash
+eval "$(papycli config completion-script --api petstore-oas3 bash)"
+alias petstore-oas3='papycli --api petstore-oas3'
+```
+
+**zsh** — `~/.zshrc` に追加：
+
+```zsh
+eval "$(papycli config completion-script --api petstore-oas3 zsh)"
+alias petstore-oas3='papycli --api petstore-oas3'
+```
+
+> **注意（bash の場合）：** エイリアスの代わりにシェル**関数**を使いたい場合は、bash の関数名にハイフンを含めることができないため、ハイフンなしの API 名で登録する必要があります（例: `petstore` として登録し、`petstore() { papycli --api petstore "$@"; }` のように定義する）。
