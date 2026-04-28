@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/tmonj1/papycli/compare/v0.18.0...v0.18.1) (2026-04-28)
+
+
+### Documentation
+
+* add --api option documentation and remove config alias references ([#198](https://github.com/tmonj1/papycli/issues/198)) ([baea156](https://github.com/tmonj1/papycli/commit/baea156e44849250b665b510312574286f76561f))
+
 ## [0.18.0](https://github.com/tmonj1/papycli/compare/v0.17.0...v0.18.0) (2026-04-26)
 
 
