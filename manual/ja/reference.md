@@ -1,10 +1,19 @@
 # CLI リファレンス
 
+## グローバルオプション
+
+| オプション | 説明 |
+|-----------|------|
+| `--api <api-name>` | デフォルトの代わりに指定した API を使用する |
+| `-V / --version` | バージョンを表示して終了する |
+| `-h / --help` | 使い方を表示して終了する |
+
 ## 設定管理コマンド
 
 | コマンド | 説明 |
 |---------|------|
 | `papycli config add <spec-file>` | OpenAPI spec ファイルから API を登録する |
+| `papycli config add --upgrade <spec-file>` | 登録済み API を新しい spec で更新する |
 | `papycli config remove <api-name>` | 登録済み API を削除する |
 | `papycli config use <api-name>` | アクティブな API を切り替える |
 | `papycli config list` | 登録済み API と現在の設定を一覧表示する |
@@ -44,8 +53,6 @@ papycli <method> <resource> [options]
 | `--check-strict` | 送信前にパラメータを検証する（警告を stderr に出力、問題があればリクエスト中止・exit 1） |
 | `--response-check` | レスポンスのステータスコードとボディを OpenAPI spec に照合する（違反は stderr に出力、exit code には影響しない） |
 | `--verbose / -v` | HTTP ステータス行を表示する |
-| `--version` | バージョンを表示する |
-| `--help / -h` | 使い方を表示する |
 
 ### パラメータ例
 
@@ -68,3 +75,13 @@ papycli post /pet -d '{"name": "My Dog", "status": "available"}'
 |------|-----------|------|
 | `PAPYCLI_CONF_DIR` | `~/.papycli` | 設定ディレクトリのパス |
 | `PAPYCLI_CUSTOM_HEADER` | （なし） | すべてのリクエストに適用するカスタム HTTP ヘッダー。複数のヘッダーは改行で区切る: `export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer token\nX-Tenant: acme'` |
+| `PAPYCLI_DISABLE_DOTENV` | （なし） | `1` に設定すると `.env` ファイルの自動読み込みを無効化する |
+
+### `.env` ファイルの自動読み込み
+
+起動時に、以下の 2 か所にある `.env` ファイルから環境変数を自動で読み込みます（シェルの環境変数が `.env` の値より優先されます）：
+
+1. カレントディレクトリの `.env`
+2. `$PAPYCLI_CONF_DIR` 内の `.env`
+
+この動作を無効化するには `PAPYCLI_DISABLE_DOTENV=1` を設定してください。
