@@ -53,6 +53,7 @@ papycli <method> <resource> [options]
 | `--check-strict` | 送信前にパラメータを検証する（警告を stderr に出力、問題があればリクエスト中止・exit 1） |
 | `--response-check` | レスポンスのステータスコードとボディを OpenAPI spec に照合する（違反は stderr に出力、exit code には影響しない） |
 | `--verbose / -v` | HTTP ステータス行を表示する |
+| `--help` | このコマンドの使い方を表示する |
 
 ### パラメータ例
 

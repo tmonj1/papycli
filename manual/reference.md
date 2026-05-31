@@ -53,6 +53,7 @@ papycli <method> <resource> [options]
 | `--check-strict` | Validate params before sending (warn on stderr, abort with exit 1 on failure) |
 | `--response-check` | Validate response status code and body against the OpenAPI spec (warn on stderr; violations do not affect exit code) |
 | `--verbose / -v` | Show HTTP status line |
+| `--help` | Show help for this command |
 
 ### Parameter Examples
 
