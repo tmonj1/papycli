@@ -80,9 +80,10 @@ papycli post /pet -d '{"name": "My Dog", "status": "available"}'
 
 ### `.env` ファイルの自動読み込み
 
-起動時に、以下の 2 か所にある `.env` ファイルから環境変数を自動で読み込みます（シェルの環境変数が `.env` の値より優先されます）：
+起動時に、以下の優先順位で環境変数を読み込みます（上位ほど優先されます）：
 
-1. カレントディレクトリの `.env`
-2. `$PAPYCLI_CONF_DIR` 内の `.env`
+1. シェルの環境変数（常に最優先）
+2. カレントディレクトリの `.env`
+3. `$PAPYCLI_CONF_DIR` 内の `.env`
 
-この動作を無効化するには `PAPYCLI_DISABLE_DOTENV=1` を設定してください。
+`.env` ファイルの読み込みを無効化するには `PAPYCLI_DISABLE_DOTENV=1` を設定してください。

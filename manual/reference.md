@@ -80,9 +80,10 @@ papycli post /pet -d '{"name": "My Dog", "status": "available"}'
 
 ### `.env` File Auto-loading
 
-On startup, papycli automatically loads environment variables from `.env` files in two locations (shell environment takes precedence over `.env` values):
+On startup, papycli loads environment variables from `.env` files in the following priority order (higher entries win):
 
-1. `.env` in the current working directory
-2. `.env` in `$PAPYCLI_CONF_DIR`
+1. Shell environment variables (always highest priority)
+2. `.env` in the current working directory
+3. `.env` in `$PAPYCLI_CONF_DIR`
 
-Set `PAPYCLI_DISABLE_DOTENV=1` to skip this behavior.
+Set `PAPYCLI_DISABLE_DOTENV=1` to skip `.env` file loading entirely.
