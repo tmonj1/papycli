@@ -13,7 +13,7 @@
 | Command | Description |
 |---------|-------------|
 | `papycli config add <spec-file>` | Register an API from an OpenAPI spec file |
-| `papycli config add --upgrade <spec-file>` | Update an already-registered API with a new spec |
+| `papycli config add --upgrade <spec-file>` | Update an already-registered API with a new spec; if not yet registered, register it as new |
 | `papycli config remove <api-name>` | Remove a registered API |
 | `papycli config use <api-name>` | Switch the active API |
 | `papycli config list` | List registered APIs and current configuration |

@@ -13,7 +13,7 @@
 | コマンド | 説明 |
 |---------|------|
 | `papycli config add <spec-file>` | OpenAPI spec ファイルから API を登録する |
-| `papycli config add --upgrade <spec-file>` | 登録済み API を新しい spec で更新する |
+| `papycli config add --upgrade <spec-file>` | 登録済み API を新しい spec で更新する。未登録の場合は新規登録として処理する |
 | `papycli config remove <api-name>` | 登録済み API を削除する |
 | `papycli config use <api-name>` | アクティブな API を切り替える |
 | `papycli config list` | 登録済み API と現在の設定を一覧表示する |
