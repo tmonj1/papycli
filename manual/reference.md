@@ -2,6 +2,13 @@
 
 ## Global Options
 
+Global options must be placed **before** the subcommand:
+
+```bash
+papycli --api petstore get /pet/1   # ✓ correct
+papycli get /pet/1 --api petstore   # ✗ incorrect — --api is ignored
+```
+
 | Option | Description |
 |--------|-------------|
 | `--api <api-name>` | Use the specified API instead of the default |
