@@ -6,7 +6,7 @@
 
 ```bash
 papycli --api petstore get /pet/1   # ✓ 正しい
-papycli get /pet/1 --api petstore   # ✗ 誤り — --api が無視される
+papycli get /pet/1 --api petstore   # ✗ Error: No such option: --api
 ```
 
 | オプション | 説明 |

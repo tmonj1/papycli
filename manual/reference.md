@@ -6,7 +6,7 @@ Global options must be placed **before** the subcommand:
 
 ```bash
 papycli --api petstore get /pet/1   # ✓ correct
-papycli get /pet/1 --api petstore   # ✗ incorrect — --api is ignored
+papycli get /pet/1 --api petstore   # ✗ Error: No such option: --api
 ```
 
 | Option | Description |
