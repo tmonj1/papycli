@@ -56,13 +56,24 @@ GitHub API を呼び出すには Personal Access Token (PAT) が必要です。
    - Issue 操作: `repo` スコープ
 3. 生成されたトークンを `PAPYCLI_CUSTOM_HEADER` 環境変数に設定する
 
+トークンをシェル履歴に残さないよう、`.env` ファイルに記載することを推奨します。
+
 ```bash
-export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer <your-personal-access-token>'
+# ~/.papycli/.env または作業ディレクトリの .env に記載する（シェル履歴に残らない）
+echo 'PAPYCLI_CUSTOM_HEADER=Authorization: Bearer YOUR_PAT' >> ~/.papycli/.env
 ```
 
-この環境変数を設定しておくと、以降の `papycli` コマンドすべてに自動で認証ヘッダーが付与されます。
+一時的に試す場合は環境変数に直接設定することもできます。
+
+```bash
+export PAPYCLI_CUSTOM_HEADER=$'Authorization: Bearer YOUR_PAT'
+```
+
+papycli は起動時に CWD と `~/.papycli/` の `.env` ファイルを自動で読み込みます（`PAPYCLI_DISABLE_DOTENV=1` で無効化）。この環境変数を設定しておくと、以降の `papycli` コマンドすべてに自動で認証ヘッダーが付与されます。
 
 ## 使い方
+
+以降のコマンド例の `YOUR_USERNAME` / `YOUR_REPO` は実際のユーザー名・リポジトリ名に置き換えてください。
 
 ### エンドポイント一覧を確認する
 
@@ -94,42 +105,42 @@ papycli get /repos/octocat/Hello-World
 ### Issue 一覧を取得する
 
 ```bash
-papycli get /repos/<your-username>/<your-repo>/issues
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/issues
 ```
 
 状態でフィルタリングする場合:
 
 ```bash
 # オープンな issue のみ（デフォルト）
-papycli get /repos/<your-username>/<your-repo>/issues -q state open
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/issues -q state open
 
 # クローズされた issue のみ
-papycli get /repos/<your-username>/<your-repo>/issues -q state closed
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/issues -q state closed
 ```
 
 ### Issue を作成する
 
 ```bash
-papycli post /repos/<your-username>/<your-repo>/issues \
+papycli post /repos/YOUR_USERNAME/YOUR_REPO/issues \
   -d '{"title": "バグ報告: xxxxxx", "body": "詳細な説明", "labels": ["bug"]}'
 ```
 
 ### Pull Request 一覧を取得する
 
 ```bash
-papycli get /repos/<your-username>/<your-repo>/pulls
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/pulls
 ```
 
 ### リリース一覧を取得する
 
 ```bash
-papycli get /repos/<your-username>/<your-repo>/releases
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/releases
 ```
 
 ### コミット一覧を取得する
 
 ```bash
-papycli get /repos/<your-username>/<your-repo>/commits -q per_page 5
+papycli get /repos/YOUR_USERNAME/YOUR_REPO/commits -q per_page 5
 ```
 
 ## レスポンス検証
