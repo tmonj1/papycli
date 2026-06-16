@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/tmonj1/papycli/compare/v0.18.1...v0.18.2) (2026-06-16)
+
+
+### Documentation
+
+* GitHub API の使い方サンプルを examples/github に追加する ([#203](https://github.com/tmonj1/papycli/issues/203)) ([7e1ca8e](https://github.com/tmonj1/papycli/commit/7e1ca8ef26aaf480695f8500ef95e6809a5e51a7))
+
 ## [0.18.1](https://github.com/tmonj1/papycli/compare/v0.18.0...v0.18.1) (2026-06-07)
 
 
