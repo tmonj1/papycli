@@ -48,13 +48,32 @@ papycli config use api.github.com
 
 ### 3. Personal Access Token を設定する
 
-GitHub API を呼び出すには Personal Access Token (PAT) が必要です。
+公開リポジトリへのアクセスは未認証でも可能ですが、レート制限が厳しく（60回/時間）、プライベートリポジトリや Issue の作成など書き込み操作には Personal Access Token (PAT) が必要です。PAT を設定しておくことを推奨します（5000回/時間）。
 
-1. GitHub の [Settings > Developer settings > Personal access tokens](https://github.com/settings/tokens) を開く
-2. **Generate new token** をクリックして必要なスコープを付与してトークンを生成する
-   - リポジトリ読み取り: `repo` スコープ（または `public_repo`）
+#### PAT の種類
+
+GitHub には2種類の PAT があります。
+
+| 種類 | 説明 |
+|------|------|
+| **classic PAT** | スコープ（`repo`、`read:user` など）で権限を付与する従来方式 |
+| **fine-grained PAT** | リポジトリ単位・権限単位で細かく制御できる新方式（推奨） |
+
+#### classic PAT を使う場合
+
+1. GitHub の [Settings > Developer settings > Personal access tokens > Tokens (classic)](https://github.com/settings/tokens) を開く
+2. **Generate new token (classic)** をクリックし、必要なスコープを付与する
+   - リポジトリ読み取り: `public_repo`（公開リポジトリのみ）または `repo`（プライベートも含む）
    - Issue 操作: `repo` スコープ
-3. 生成されたトークンを `PAPYCLI_CUSTOM_HEADER` 環境変数に設定する
+
+#### fine-grained PAT を使う場合
+
+1. GitHub の [Settings > Developer settings > Personal access tokens > Fine-grained tokens](https://github.com/settings/tokens?type=beta) を開く
+2. **Generate new token** をクリックし、対象リポジトリと必要な権限を選択する
+   - Issues 読み取り・書き込み: `Issues: Read and write`
+   - コンテンツ読み取り: `Contents: Read-only`
+
+#### トークンの設定方法
 
 トークンをシェル履歴に残さないよう、`.env` ファイルに記載することを推奨します。
 
